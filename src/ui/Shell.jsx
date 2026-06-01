@@ -4,8 +4,6 @@ import Scene from "./Scene.jsx";
 import ActionPanel from "./ActionPanel.jsx";
 import CharacterView from "./CharacterView.jsx";
 import CraftingView from "./CraftingView.jsx";
-import SkillsView from "./SkillsView.jsx";
-import InventoryView from "./InventoryView.jsx";
 import ArcaneView from "./ArcaneView.jsx";
 import StudiesView from "./StudiesView.jsx";
 import LeftColumn from "./LeftColumn.jsx";
@@ -127,10 +125,8 @@ export default function Shell({ state, actions, settingsHook }) {
 
         <main className={`shell-area shell-area--center shell-area--view-${view}`}>
           {view === "world" && <ActionPanel state={state} />}
-          {view === "character" && <CharacterView state={state} />}
+          {view === "character" && <CharacterView state={state} actions={actions} />}
           {view === "crafting" && <CraftingView state={state} />}
-          {view === "skills" && <SkillsView state={state} />}
-          {view === "inv" && <InventoryView state={state} settingsHook={settingsHook} />}
           {view === "arcane" && <ArcaneView state={state} actions={actions} />}
           {view === "studies" && (
             <StudiesView

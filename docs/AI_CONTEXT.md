@@ -94,10 +94,13 @@ src/systems/         gameplay logic, one file per concern
 
 src/ui/              React components
   App.jsx               — top-level effects (era watch, music sync, keybinds)
-  Shell.jsx             — responsive grid layout + modal triggers (TeachingsTreeModal/BuildingsTreeModal/StudyTreeModal/etc.)
+  Shell.jsx             — responsive grid layout + modal triggers (TeachingsTreeModal/BuildingsTreeModal/StudyTreeModal/etc.); center column view-routed to {world | character | crafting | arcane | studies}
   ActionPanel.jsx       — center column ("Wasteland" header + pest indicator)
   ActionStrip.jsx       — footer action bar: Gather / Hunt / Eat ▾ / Drink ▾ / Rest / Ritual + Reset button
-  LeftColumn.jsx        — vertical rail with full content pane (Body+Mind / Skills / Inventory / Tools card / Spells card / Buildings card / Studies)
+  LeftColumn.jsx        — vertical rail (icons only); top: World/Character/Crafting view-switchers; bottom: Arcane/Buildings/Studies/Challenges tabs. Skills + Inventory retired into Character hub.
+  CharacterView.jsx     — Character page hub (#44/#45/#54): jump-nav (Stats/Skills/Equipment/Items) + 2-col stat grid (Survival incl. STR | Combat) + inline Skills (Survival + Combat sub-cols, Other below) + equipment row + EquipmentInventoryGrid.
+  EquipmentInventoryGrid.jsx — top-tabbed item browser (All/Weapons/Defense/Magic/Tools/Crafting/Herbs/Other) with equip/use buttons routed by weaponStats.type.
+  SkillsView.jsx, InventoryView.jsx — orphan after #54/#45 (kept on disk, not imported)
   BodyMindTab.jsx       — SurvivalBars wrapper inside LeftColumn
   StudiesPanel.jsx      — left-rail content for Studies tab (active study + in-progress + Open Path Trees)
   StudyTreeModal.jsx    — 7 path-tabbed SVG trees for Arcane Studies

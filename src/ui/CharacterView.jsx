@@ -1,27 +1,30 @@
-// Character view (#44) — read-only three-panel stat sheet + equipment row.
+// Character view — the canonical "look at me + my stuff + my gear" hub.
 //
-// Three columns:
-//   • Survival  — HP / Hunger / Thirst / Energy / Resolve / Sanity / Spirit
-//                 (Spirit only renders Era 3+ to keep the surface honest)
-//   • Bridge    — STR. Until #47 stat-modulation lands, STR is proxied by
-//                 death-debuff magnitude (the inverse of "how broken am I").
-//                 STR = 10 - floor(magnitude * 10), so a fresh body is 10
-//                 and a fully cascaded death-debuff drops it to ~5.
-//   • Combat    — DEX / SPD / MAG / Spirit / Armor. DEX/SPD/MAG are
-//                 placeholders (gray dashes) until #47 wires the stat math.
-//                 Armor reads from study completions (Wardweave etc.).
+// Layout (top to bottom; sticky left-edge jump-nav lets the player skip
+// straight to any section):
 //
-// Below the three panels: equipment row showing the 8 main slots + an
-// expandable accessory tray (back, overArmor, talisman, rings).
+//   1. Stats        — 2 columns. Survival (incl. Bridge STR at the bottom)
+//                     and Combat (DEX/SPD/MAG/Spirit/Armor). Bridge folds
+//                     into Survival now that the column count dropped to 2.
+//   2. Skills       — Survival + Combat skills side-by-side, then Craft/
+//                     Arcane below. Replaces the standalone Skills rail tab.
+//   3. Equipment    — 8 main slots + collapsible accessory tray (back,
+//                     overArmor, talisman, 10 rings). Click a filled slot
+//                     to unequip — returns the instance to your pack.
+//   4. Items        — EquipmentInventoryGrid (#45): top-tabbed item browser
+//                     that handles equip + use.
 //
-// READ-ONLY. Equip/unequip is the #45 task. This page just surfaces what
-// you've got so you can read your character at a glance.
+// STR is currently proxied by death-debuff magnitude until #47 lands the
+// real stat-modulation math.
 
 import { useState } from "react";
 import { SLOTS, getEquippable } from "../systems/equipment.js";
 import { getPersonalArmor } from "../systems/combat.js";
 import { getDeathDebuffMagnitude } from "../systems/death.js";
 import { computeEra } from "../systems/era.js";
+import { getActiveSkills } from "../content/skills.js";
+import { getSkillState, getSkillProgress } from "../systems/skills.js";
+import EquipmentInventoryGrid from "./EquipmentInventoryGrid.jsx";
 
 // ─── Stat tooltips (read by hover) ───────────────────────────────────
 const STAT_TIPS = {
@@ -38,6 +41,8 @@ const STAT_TIPS = {
   mag: "Magic — spell damage and effect magnitude. Placeholder until #47.",
   armor: "Personal armor — reduces hp damage from foes in combat. Sourced from study completions (Wardweave) and future armor crafts.",
 };
+
+// ─── Sub-components ──────────────────────────────────────────────────
 
 function StatRow({ label, value, max, icon, tooltip, kind = "default", placeholder }) {
   return (
@@ -57,14 +62,21 @@ function StatRow({ label, value, max, icon, tooltip, kind = "default", placehold
   );
 }
 
-function Slot({ slot, equipped, label }) {
+function Slot({ slot, equipped, label, onUnequip }) {
   const cur = equipped?.[slot];
   if (cur?.twoHandedHeldIn) {
+    const clickable = !!onUnequip;
     return (
-      <div className="char-slot is-locked" title={`Two-handed weapon held in ${cur.twoHandedHeldIn}`}>
+      <button
+        type="button"
+        className={`char-slot is-locked ${clickable ? "is-clickable" : ""}`}
+        title={`Two-handed weapon held in ${cur.twoHandedHeldIn} — click to unequip`}
+        onClick={clickable ? () => onUnequip(slot) : undefined}
+        disabled={!clickable}
+      >
         <span className="char-slot-label muted">{label}</span>
         <span className="char-slot-value muted">2h in {cur.twoHandedHeldIn}</span>
-      </div>
+      </button>
     );
   }
   if (!cur) {
@@ -76,22 +88,126 @@ function Slot({ slot, equipped, label }) {
     );
   }
   const def = getEquippable(cur.id);
+  const clickable = !!onUnequip;
   return (
-    <div className="char-slot is-filled" title={def?.description || def?.name || cur.id}>
+    <button
+      type="button"
+      className={`char-slot is-filled ${clickable ? "is-clickable" : ""}`}
+      title={`${def?.description || def?.name || cur.id}${clickable ? "\n\nClick to unequip." : ""}`}
+      onClick={clickable ? () => onUnequip(slot) : undefined}
+      disabled={!clickable}
+    >
       <span className="char-slot-label muted">{label}</span>
       <span className="char-slot-value">
         <span aria-hidden="true">{def?.icon || ""}</span> {def?.name || cur.id}
       </span>
+    </button>
+  );
+}
+
+// Skill row — same shape as SkillsPanel but rendered inline within a
+// category column. Hidden skills already filtered out by the caller.
+function SkillRow({ state, def }) {
+  const { level } = getSkillState(state.run, def.id);
+  const prog = getSkillProgress(state.run, def.id);
+  const dim = level === 0;
+  return (
+    <li
+      className={`skill-row ${dim ? "skill-row--dim" : ""} ${
+        prog.atMax ? "skill-row--max" : ""
+      }`}
+      title={def.description || def.name}
+    >
+      <div className="skill-row-top">
+        <span className="skill-icon" aria-hidden="true">{def.icon}</span>
+        <span className="skill-name">{def.name}</span>
+        <span className="skill-level">
+          {prog.atMax ? "Mastered" : `Lv ${level}`}
+        </span>
+      </div>
+      <div
+        className="skill-bar"
+        aria-label={`${def.name} progress`}
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={prog.needed}
+        aria-valuenow={prog.current}
+      >
+        <div
+          className="skill-bar-fill"
+          style={{ width: `${prog.percent * 100}%` }}
+        />
+      </div>
+      <div className="skill-row-meta muted">
+        {prog.atMax
+          ? "Capped — every act is mastery now."
+          : `${prog.current} / ${prog.needed} XP`}
+      </div>
+    </li>
+  );
+}
+
+function SkillColumn({ state, title, skills, emptyHint }) {
+  return (
+    <div className="char-skill-col">
+      <h4 className="char-skill-col-title">{title}</h4>
+      {skills.length === 0 ? (
+        <div className="char-skill-empty muted">{emptyHint}</div>
+      ) : (
+        <ul className="skills-list">
+          {skills.map((s) => (
+            <SkillRow key={s.id} state={state} def={s} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
-export default function CharacterView({ state }) {
+// Sticky left-edge jump-nav. Renders 4 icon buttons that scroll to each
+// section. Each button uses an anchor on the section (#char-stats etc.).
+function JumpNav({ items, active, onJump }) {
+  return (
+    <nav className="char-jump-nav" aria-label="Character section jump nav">
+      {items.map((it) => (
+        <button
+          key={it.id}
+          type="button"
+          className={`char-jump-btn ${active === it.id ? "is-active" : ""}`}
+          onClick={() => onJump(it.id)}
+          title={it.label}
+          aria-label={it.label}
+        >
+          <span className="char-jump-icon" aria-hidden="true">{it.icon}</span>
+          <span className="char-jump-label">{it.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+// ─── Main component ─────────────────────────────────────────────────
+
+const JUMP_ITEMS = [
+  { id: "char-stats",     icon: "📊", label: "Stats" },
+  { id: "char-skills",    icon: "🎯", label: "Skills" },
+  { id: "char-equipment", icon: "🛡️", label: "Equipment" },
+  { id: "char-items",     icon: "🎒", label: "Items" },
+];
+
+export default function CharacterView({ state, actions }) {
   const [accessoriesOpen, setAccessoriesOpen] = useState(false);
+  const [activeAnchor, setActiveAnchor] = useState("char-stats");
   const stats = state?.run?.stats || {};
   const equipped = state?.run?.equipped || {};
   const era = computeEra(state);
   const showSpirit = era >= 3;
+  const handleUnequip = actions?.unequip
+    ? (slot) => actions.unequip(slot)
+    : null;
+  const handleUnequipRing = actions?.unequipRing
+    ? (ringIndex) => actions.unequipRing(ringIndex)
+    : null;
 
   // STR proxy: 10 - floor(magnitude * 10). Magnitude 0 → STR 10.
   // Magnitude 0.5 → STR 5. Until #47, this is the bridge stat readout.
@@ -107,110 +223,190 @@ export default function CharacterView({ state }) {
     (equipped.talisman ? 1 : 0) +
     filledRings;
 
+  // Group active skills by category. Survival + Combat ride side-by-side
+  // mirroring the stat grid above; the rest live in a row beneath them.
+  const activeSkills = getActiveSkills().slice().sort(
+    (a, b) => (a.name || "").localeCompare(b.name || "")
+  );
+  const survivalSkills = activeSkills.filter((s) => s.category === "survival");
+  const combatSkills = activeSkills.filter((s) => s.category === "combat");
+  const craftSkills = activeSkills.filter((s) => s.category === "craft");
+  const arcaneSkills = activeSkills.filter((s) => s.category === "arcane");
+  const industrySkills = activeSkills.filter((s) => s.category === "industry");
+  const otherSkills = [...craftSkills, ...arcaneSkills, ...industrySkills];
+
+  // Jump-nav target — anchor scrolling + visual highlight.
+  const handleJump = (id) => {
+    setActiveAnchor(id);
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   return (
     <section className="action-panel action-panel--character">
+      <JumpNav items={JUMP_ITEMS} active={activeAnchor} onJump={handleJump} />
+
       <div className="panel-header">
         <h2>Character</h2>
         <p className="muted">
-          The body, the bridge, the mind. Read-only for now — equipping moves to a dedicated panel (#45).
+          The body, the bridge, the mind. Stats, skills, gear, and pack — all in one place.
         </p>
       </div>
 
-      <div className="char-grid">
-        {/* ─── Survival column ─── */}
-        <div className="char-col char-col--survival">
-          <h3 className="char-col-title">Survival</h3>
-          <StatRow label="HP" value={Math.round(stats.hp ?? 100)} max={100} icon="❤️" tooltip={STAT_TIPS.hp} kind="hp" />
-          <StatRow label="Hunger" value={Math.round(stats.hunger ?? 0)} max={100} icon="🍽️" tooltip={STAT_TIPS.hunger} />
-          <StatRow label="Thirst" value={Math.round(stats.thirst ?? 0)} max={100} icon="💧" tooltip={STAT_TIPS.thirst} />
-          <StatRow label="Energy" value={Math.round(stats.energy ?? 100)} max={100} icon="⚡" tooltip={STAT_TIPS.energy} />
-          <StatRow label="Resolve" value={Math.round(stats.happiness ?? 50)} max={100} icon="✦" tooltip={STAT_TIPS.resolve} kind="resolve" />
-          <StatRow label="Sanity" value={Math.round(stats.sanity ?? 50)} max={100} icon="◐" tooltip={STAT_TIPS.sanity} kind="sanity" />
-          {showSpirit && (
-            <StatRow label="Spirit" value={Math.round(stats.spirit ?? 50)} max={100} icon="✨" tooltip={STAT_TIPS.spirit} kind="spirit" />
-          )}
-        </div>
+      {/* ─── 1. Stats ─── */}
+      <div id="char-stats" className="char-section">
+        <h3 className="char-section-title">Stats</h3>
+        <div className="char-grid char-grid--two">
+          {/* Survival — now carries STR at the bottom (Bridge fold). */}
+          <div className="char-col char-col--survival">
+            <h4 className="char-col-title">Survival</h4>
+            <StatRow label="HP" value={Math.round(stats.hp ?? 100)} max={100} icon="❤️" tooltip={STAT_TIPS.hp} kind="hp" />
+            <StatRow label="Hunger" value={Math.round(stats.hunger ?? 0)} max={100} icon="🍽️" tooltip={STAT_TIPS.hunger} />
+            <StatRow label="Thirst" value={Math.round(stats.thirst ?? 0)} max={100} icon="💧" tooltip={STAT_TIPS.thirst} />
+            <StatRow label="Energy" value={Math.round(stats.energy ?? 100)} max={100} icon="⚡" tooltip={STAT_TIPS.energy} />
+            <StatRow label="Resolve" value={Math.round(stats.happiness ?? 50)} max={100} icon="✦" tooltip={STAT_TIPS.resolve} kind="resolve" />
+            <StatRow label="Sanity" value={Math.round(stats.sanity ?? 50)} max={100} icon="◐" tooltip={STAT_TIPS.sanity} kind="sanity" />
+            {showSpirit && (
+              <StatRow label="Spirit" value={Math.round(stats.spirit ?? 50)} max={100} icon="✨" tooltip={STAT_TIPS.spirit} kind="spirit" />
+            )}
+            {/* Bridge — STR folded in. Subtle divider keeps it visually
+                grouped but distinct from the survival rows above. */}
+            <div className="char-col-divider" aria-hidden="true" />
+            <StatRow label="STR" value={str} max={10} icon="💪" tooltip={STAT_TIPS.str} kind="str" />
+            {ddMag > 0 && (
+              <p className="muted char-col-note">
+                ⚠️ Death-debuff active (magnitude {Math.round(ddMag * 100)}%). Eat to recover — STR rises as the cascade lifts.
+              </p>
+            )}
+          </div>
 
-        {/* ─── Bridge column ─── */}
-        <div className="char-col char-col--bridge">
-          <h3 className="char-col-title">Bridge</h3>
-          <StatRow label="STR" value={str} max={10} icon="💪" tooltip={STAT_TIPS.str} kind="str" />
-          {ddMag > 0 && (
+          {/* Combat */}
+          <div className="char-col char-col--combat">
+            <h4 className="char-col-title">Combat</h4>
+            <StatRow label="DEX" icon="🎯" tooltip={STAT_TIPS.dex} placeholder />
+            <StatRow label="SPD" icon="💨" tooltip={STAT_TIPS.spd} placeholder />
+            <StatRow label="MAG" icon="🪄" tooltip={STAT_TIPS.mag} placeholder />
+            {showSpirit && (
+              <StatRow label="Spirit" value={Math.round(stats.spirit ?? 50)} max={100} icon="✨" tooltip={STAT_TIPS.spirit} kind="spirit" />
+            )}
+            <StatRow label="Armor" value={armor} icon="🛡️" tooltip={STAT_TIPS.armor} />
             <p className="muted char-col-note">
-              ⚠️ Death-debuff active (magnitude {Math.round(ddMag * 100)}%).
-              Eat to recover — STR rises as the cascade lifts.
+              Combat stats start as placeholders. Real modulation lands with #47.
             </p>
-          )}
-          {ddMag === 0 && (
-            <p className="muted char-col-note">
-              Bridge stats connect Survival to Combat. Real STR modulation lands with #47.
-            </p>
-          )}
-        </div>
-
-        {/* ─── Combat column ─── */}
-        <div className="char-col char-col--combat">
-          <h3 className="char-col-title">Combat</h3>
-          <StatRow label="DEX" icon="🎯" tooltip={STAT_TIPS.dex} placeholder />
-          <StatRow label="SPD" icon="💨" tooltip={STAT_TIPS.spd} placeholder />
-          <StatRow label="MAG" icon="🪄" tooltip={STAT_TIPS.mag} placeholder />
-          {showSpirit && (
-            <StatRow label="Spirit" value={Math.round(stats.spirit ?? 50)} max={100} icon="✨" tooltip={STAT_TIPS.spirit} kind="spirit" />
-          )}
-          <StatRow label="Armor" value={armor} icon="🛡️" tooltip={STAT_TIPS.armor} />
+          </div>
         </div>
       </div>
 
-      {/* ─── Equipment row ─── */}
-      <div className="char-equipment">
-        <h3 className="char-equip-title">Equipment</h3>
-        <div className="char-slots char-slots--main">
-          <Slot slot={SLOTS.HEAD} equipped={equipped} label="Head" />
-          <Slot slot={SLOTS.CHEST} equipped={equipped} label="Chest" />
-          <Slot slot={SLOTS.LEGGINGS} equipped={equipped} label="Legs" />
-          <Slot slot={SLOTS.BOOTS} equipped={equipped} label="Boots" />
-          <Slot slot={SLOTS.GLOVES} equipped={equipped} label="Gloves" />
-          <Slot slot={SLOTS.HAND_LEFT} equipped={equipped} label="Left hand" />
-          <Slot slot={SLOTS.HAND_RIGHT} equipped={equipped} label="Right hand" />
-          <Slot slot={SLOTS.RANGED} equipped={equipped} label="Ranged" />
+      {/* ─── 2. Skills ─── */}
+      <div id="char-skills" className="char-section">
+        <h3 className="char-section-title">Skills</h3>
+        <p className="muted char-section-lead">
+          Skills grow as you do the work. There is nothing to spend.
+        </p>
+        <div className="char-skills-grid">
+          <SkillColumn
+            state={state}
+            title="Survival"
+            skills={survivalSkills}
+            emptyHint="No survival skills active yet."
+          />
+          <SkillColumn
+            state={state}
+            title="Combat"
+            skills={combatSkills}
+            emptyHint="Fight something to earn combat skills."
+          />
         </div>
-
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm char-accessories-toggle"
-          onClick={() => setAccessoriesOpen((v) => !v)}
-        >
-          {accessoriesOpen ? "Hide" : "Show"} accessories
-          {accessoryFilled > 0 && (
-            <span className="char-accessories-count"> ({accessoryFilled} filled)</span>
-          )}
-        </button>
-
-        {accessoriesOpen && (
-          <div className="char-slots char-slots--accessories">
-            <Slot slot={SLOTS.BACK} equipped={equipped} label="Back" />
-            <Slot slot={SLOTS.OVER_ARMOR} equipped={equipped} label="Over-armor" />
-            <Slot slot={SLOTS.TALISMAN} equipped={equipped} label="Talisman" />
-            {rings.map((r, i) => (
-              <div
-                key={`ring-${i}`}
-                className={`char-slot ${r ? "is-filled" : "is-empty"}`}
-                title={r ? getEquippable(r.id)?.description : "Empty ring slot"}
-              >
-                <span className="char-slot-label muted">Ring {i + 1}</span>
-                <span className={`char-slot-value ${r ? "" : "muted"}`}>
-                  {r ? (
-                    <>
-                      <span aria-hidden="true">{getEquippable(r.id)?.icon || ""}</span>{" "}
-                      {getEquippable(r.id)?.name || r.id}
-                    </>
-                  ) : (
-                    "empty"
-                  )}
-                </span>
-              </div>
-            ))}
+        {otherSkills.length > 0 && (
+          <div className="char-skills-grid char-skills-grid--secondary">
+            <SkillColumn
+              state={state}
+              title="Other"
+              skills={otherSkills}
+              emptyHint=""
+            />
           </div>
+        )}
+      </div>
+
+      {/* ─── 3. Equipment ─── */}
+      <div id="char-equipment" className="char-section">
+        <h3 className="char-section-title">Equipment</h3>
+        <p className="muted char-section-lead">
+          Click a filled slot to unequip. Equip from the inventory below.
+        </p>
+        <div className="char-equipment">
+          <div className="char-slots char-slots--main">
+            <Slot slot={SLOTS.HEAD} equipped={equipped} label="Head" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.CHEST} equipped={equipped} label="Chest" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.LEGGINGS} equipped={equipped} label="Legs" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.BOOTS} equipped={equipped} label="Boots" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.GLOVES} equipped={equipped} label="Gloves" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.HAND_LEFT} equipped={equipped} label="Left hand" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.HAND_RIGHT} equipped={equipped} label="Right hand" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.RANGED} equipped={equipped} label="Ranged" onUnequip={handleUnequip} />
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm char-accessories-toggle"
+            onClick={() => setAccessoriesOpen((v) => !v)}
+          >
+            {accessoriesOpen ? "Hide" : "Show"} accessories
+            {accessoryFilled > 0 && (
+              <span className="char-accessories-count"> ({accessoryFilled} filled)</span>
+            )}
+          </button>
+
+          {accessoriesOpen && (
+            <div className="char-slots char-slots--accessories">
+            <Slot slot={SLOTS.BACK} equipped={equipped} label="Back" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.OVER_ARMOR} equipped={equipped} label="Over-armor" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.TALISMAN} equipped={equipped} label="Talisman" onUnequip={handleUnequip} />
+            {rings.map((r, i) => {
+              const clickable = !!r && !!handleUnequipRing;
+              if (!r) {
+                return (
+                  <div
+                    key={`ring-${i}`}
+                    className="char-slot is-empty"
+                    title="Empty ring slot"
+                  >
+                    <span className="char-slot-label muted">Ring {i + 1}</span>
+                    <span className="char-slot-value muted">empty</span>
+                  </div>
+                );
+              }
+              const def = getEquippable(r.id);
+              return (
+                <button
+                  key={`ring-${i}`}
+                  type="button"
+                  className={`char-slot is-filled ${clickable ? "is-clickable" : ""}`}
+                  title={`${def?.description || def?.name || r.id}${clickable ? "\n\nClick to unequip." : ""}`}
+                  onClick={clickable ? () => handleUnequipRing(i) : undefined}
+                  disabled={!clickable}
+                >
+                  <span className="char-slot-label muted">Ring {i + 1}</span>
+                  <span className="char-slot-value">
+                    <span aria-hidden="true">{def?.icon || ""}</span>{" "}
+                    {def?.name || r.id}
+                  </span>
+                </button>
+              );
+            })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── 4. Items ─── */}
+      <div id="char-items" className="char-section">
+        <h3 className="char-section-title">Items</h3>
+        {actions && (
+          <EquipmentInventoryGrid state={state} actions={actions} />
         )}
       </div>
     </section>

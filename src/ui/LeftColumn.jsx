@@ -4,32 +4,23 @@
 //
 // The rail is split into two groups by a thin divider:
 //   • TOP: view switcher (World / Character / Crafting) — always visible
-//   • BOTTOM: content tabs (Skills / Inventory / Arcane / Buildings /
-//             Studies / Challenges) — each visible when its content has
-//             something meaningful to show
+//   • BOTTOM: content tabs (Arcane / Buildings / Studies / Challenges) —
+//             each visible when its content has something meaningful to
+//             show. The old Inventory tab retired with #45 and Skills
+//             retired with the #54 hub refactor — both now live as
+//             sections on the Character page.
 //
 // No more lc-content panel — every icon either changes the center view or
 // pops a modal. Blurbs that used to be the panel's lead text are now
 // tooltip `title` attributes on the rail buttons.
 
-import { getActiveSkills } from "../content/skills.js";
 import {
-  canBuild,
   getKnownBuildings,
   getAvailableBuildings,
 } from "../systems/building.js";
-import { canCraft, getVisibleTools } from "../systems/crafting.js";
 import { getKnownSpells } from "../systems/spells.js";
 import { getStartableStudies } from "../systems/studies.js";
 import { getBossesAvailable } from "../content/bosses.js";
-
-function skillsHasXp(state) {
-  const skills = state.run.skills || {};
-  for (const def of getActiveSkills()) {
-    if ((skills[def.id]?.xp || 0) > 0) return true;
-  }
-  return false;
-}
 
 export default function LeftColumn({
   state,
@@ -40,9 +31,7 @@ export default function LeftColumn({
   onOpenBossFight,
 }) {
   // Visibility of each tab.
-  const skillsVisible = skillsHasXp(state);
-  const inventoryVisible = true; // always
-  const tools = getVisibleTools(state);
+  // Inventory + Skills tabs retired — both surface on the Character page.
   const knownSpells = getKnownSpells(state);
   const arcaneVisible = knownSpells.length > 0;
   const buildings = getKnownBuildings(state);
@@ -56,33 +45,12 @@ export default function LeftColumn({
   ).length;
 
   // Actionable counts (badges).
-  const toolsActionable = tools.filter(
-    (t) => (state.run.inventory?.[t.id] || 0) === 0 && canCraft(state, t.id).ok
-  ).length;
   const buildingsActionable = getAvailableBuildings(state).length;
   const studiesActionable = startableStudies.length;
 
   // Tab descriptors. Each has either `viewId` (swaps view) or `onClick`
   // (triggers a modal directly).
   const tabs = [
-    {
-      id: "skills",
-      icon: "📊",
-      label: "Skills",
-      tip: "What your hands and head learn by repetition.",
-      visible: skillsVisible,
-      actionable: 0,
-      viewId: "skills",
-    },
-    {
-      id: "inv",
-      icon: "🎒",
-      label: "Inventory",
-      tip: "What you carry. Caps grow as you build storage.",
-      visible: inventoryVisible,
-      actionable: 0,
-      viewId: "inv",
-    },
     {
       id: "arcane",
       icon: "✨",

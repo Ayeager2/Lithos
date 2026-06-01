@@ -142,12 +142,120 @@ button {
   opacity: 0.6;
 }
 
-/* ─── Character view (#44) ─────────────────────────────────────────── */
+/* ─── Character view (#44 → #54 hub restructure) ──────────────────── */
+
+/* The character page is a long scroll with anchored sections. Position-
+   relative so the floating jump-nav can pin itself to the upper-left. */
+.action-panel--character {
+  position: relative;
+}
+
+/* Each anchored section gets its own card-ish container with breathing
+   room. The section title doubles as the jump-nav target. */
+.char-section {
+  margin-top: 20px;
+  scroll-margin-top: 12px;
+}
+.char-section-title {
+  font-size: 14px;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+.char-section-lead {
+  font-size: 12px;
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+/* Sticky jump-nav — vertical strip of icon buttons pinned to the top-left
+   of the character page. Sits above content (position: sticky inside an
+   absolute-positioned container) and stays reachable as the user scrolls
+   through stats → skills → equipment → items. */
+.char-jump-nav {
+  position: absolute;
+  top: 0;
+  left: -56px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  z-index: 5;
+}
+.char-jump-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 40px;
+  min-height: 44px;
+  padding: 4px 2px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 80ms ease, color 80ms ease,
+    border-color 80ms ease;
+}
+.char-jump-btn:hover {
+  background: rgba(212, 164, 92, 0.12);
+  color: var(--text);
+  border-color: var(--accent-dim);
+}
+.char-jump-btn.is-active {
+  background: rgba(212, 164, 92, 0.18);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.char-jump-icon {
+  font-size: 16px;
+}
+.char-jump-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* When the page is narrow enough that the side-anchor would clip off-
+   screen, the jump-nav flips into a horizontal strip at the top of the
+   section instead. */
+@media (max-width: 1100px) {
+  .char-jump-nav {
+    position: sticky;
+    top: 0;
+    left: 0;
+    flex-direction: row;
+    margin-bottom: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+  }
+  .char-jump-btn {
+    flex: 1;
+    flex-direction: row;
+    width: auto;
+    min-height: 36px;
+    gap: 6px;
+  }
+  .char-jump-label {
+    font-size: 11px;
+  }
+}
+
 .char-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 14px;
-  margin-top: 12px;
+  margin-top: 6px;
+}
+.char-grid--two {
+  grid-template-columns: 1fr 1fr;
 }
 .char-col {
   background: rgba(255, 255, 255, 0.03);
@@ -203,8 +311,62 @@ button {
 .char-stat-row--spirit .char-stat-value { color: #c0a0e0; }
 .char-stat-row--str .char-stat-value { color: #e0a070; }
 
+/* Faint divider used inside the Survival column to separate the Bridge
+   STR row from the survival stats above it. */
+.char-col-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0 4px;
+  opacity: 0.7;
+}
+
+/* Skills section — Survival + Combat sub-columns mirroring the stat grid. */
+.char-skills-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 4px;
+}
+.char-skills-grid--secondary {
+  grid-template-columns: 1fr;
+  margin-top: 12px;
+}
+.char-skill-col {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.char-skill-col-title {
+  font-size: 12px;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.char-skill-empty {
+  font-size: 12px;
+  font-style: italic;
+  padding: 8px 0;
+}
+/* Tighter skill rows inside the character page — the inline grid is more
+   compact than the standalone Skills tab was. */
+.char-skill-col .skills-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.char-skill-col .skill-row {
+  padding: 6px 0;
+}
+
+@media (max-width: 759px) {
+  .char-skills-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .char-equipment {
-  margin-top: 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -263,12 +425,194 @@ button {
 }
 
 @media (max-width: 759px) {
-  .char-grid {
+  .char-grid,
+  .char-grid--two {
     grid-template-columns: 1fr;
   }
   .char-slots,
   .char-slots--accessories {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Clickable equipment slots — buttons that unequip on click (#45). */
+.char-slot.is-clickable {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: background-color 80ms ease, border-color 80ms ease;
+}
+.char-slot.is-clickable:hover {
+  background: rgba(212, 164, 92, 0.08);
+  border-color: var(--accent-dim);
+}
+.char-slot.is-clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.char-slot.is-clickable:disabled {
+  cursor: default;
+}
+
+/* ===== Equipment inventory grid (#45) ===== */
+.ei-grid {
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.ei-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.ei-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 80ms ease, border-color 80ms ease,
+    color 80ms ease;
+}
+.ei-tab:hover {
+  background: rgba(212, 164, 92, 0.1);
+  border-color: var(--accent-dim);
+}
+.ei-tab.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+.ei-tab.is-empty {
+  opacity: 0.45;
+}
+.ei-tab-icon {
+  font-size: 13px;
+}
+.ei-tab-label {
+  font-weight: 500;
+}
+.ei-tab-count {
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+.ei-tab.is-active .ei-tab-count {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--bg);
+}
+
+.ei-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.ei-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.ei-card--hidden {
+  opacity: 0.5;
+  font-style: italic;
+}
+.ei-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ei-card-icon {
+  font-size: 16px;
+}
+.ei-card-name {
+  font-weight: 600;
+  flex: 1;
+  color: var(--text);
+}
+.ei-card-qty {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.ei-card-qty.qty--warn { color: var(--warn); }
+.ei-card-qty.qty--full { color: var(--bad); }
+
+.ei-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+}
+.ei-card-desc {
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: 0.8;
+}
+.ei-card-dur {
+  height: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ei-card-dur-fill {
+  height: 100%;
+  background: var(--good);
+  transition: width 200ms ease;
+}
+.ei-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+.ei-card-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ei-card-equipped {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ei-equipped-chip {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: rgba(212, 164, 92, 0.1);
+  border: 1px solid var(--accent-dim);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+.ei-empty {
+  padding: 24px;
+  text-align: center;
+  font-style: italic;
+}
+
+@media (max-width: 759px) {
+  .ei-cards {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -427,7 +427,7 @@ Equippable items are looked up via `getEquippable(id)` (checks weapons.js first,
 
 **Where.** `src/content/weapons.js`, `src/systems/equipment.js`, `src/state/run.js` (equipped default via freshEquipped()), `src/state/save.js` (migrate3to4 no-op), `src/state/actions.js` (EQUIP/UNEQUIP/EQUIP_RING/UNEQUIP_RING), `src/state/reducer.js`, `src/state/store.js` (action methods).
 
-**Long arc.** Combat Phase 3 (#34) adds weapon level/XP per instance + combat skills. Phase 5 (#36) adds bronze/iron tiers + smithing. Phase 6 (#37) populates enchant slots from Arcane Studies completions. Character page (#44–#46) gives this its visible UI.
+**Long arc.** Combat Phase 3 (#34) adds weapon level/XP per instance + combat skills. Phase 5 (#36) adds bronze/iron tiers + smithing. Phase 6 (#37) populates enchant slots from Arcane Studies completions. Character hub (#44/#45/#54) is the visible UI — equip via `EquipmentInventoryGrid`, unequip by clicking a filled slot.
 
 ---
 
@@ -637,13 +637,17 @@ New resources: `iron_ore`, `coal`, `herbs`, `mushrooms`, `arrow`. Each action ha
 
 ---
 
-### ⬜ Character page UI (#43–#47)
-**Vision.** Full-page tab that replaces center column when selected from the left rail.
-- **Phase A (#43)** — view-architecture plumbing (Shell.jsx `view` state, full-page rail tabs)
-- **Phase B (#44)** — read-only Character page with 3-panel stat sheet (Survival | Bridge: STR | Combat: DEX/SPD/MAG/Spirit/Armor). Body & Mind tab retires.
-- **Phase C (#45)** — equipment inventory grid + equip/unequip UI. Inventory tab retires.
-- **Phase D (#46)** — tooltip comparison engine (multi-slot handling for rings).
-- **Phase E (#47)** — combat stats actually modulate combat. STR scales melee + protein-recovery bridge. DEX scales ranged + acc + eva. MAG scales spell damage. SPD reduces cooldowns.
+### 🟡 Character page hub (#43–#47, #54)
+**State.** Phases A/B/C + hub restructure (#54) shipped — Character is now a single-page hub.
+
+- **Phase A (#43) 🟢** — view-architecture plumbing (Shell.jsx `view` state, full-page rail tabs)
+- **Phase B (#44) 🟢** — read-only stat sheet (Survival | Bridge STR | Combat). Body & Mind tab retired.
+- **Phase C (#45) 🟢** — `EquipmentInventoryGrid.jsx` top-tabbed item browser (All/Weapons/Defense/Magic/Tools/Crafting/Herbs/Other). EquipButtons route by `weaponStats.type` (melee → L/R, ranged → Ranged, two-handed → Both hands). Consumables get Use. Hidden resources render as "???" with no actions. Spare-aware (own 2 → equip one, equip the spare to other hand). Click-to-unequip on filled slots. Inventory rail tab retired.
+- **Hub restructure (#54) 🟢** — folded Bridge column into Survival via in-column divider (STR sits below Sanity/Spirit). Skills section moved inline below stats with Survival + Combat sub-columns; Craft/Arcane/Industry roll into a full-width "Other" row. Sticky left-edge jump-nav (📊 Stats / 🎯 Skills / 🛡️ Equipment / 🎒 Items) flips to a horizontal sticky bar with `backdrop-filter: blur(4px)` below 1100px. Skills rail tab retired.
+- **Phase D (#46) ⬜** — tooltip comparison engine (multi-slot handling for rings).
+- **Phase E (#47) ⬜** — combat stats actually modulate combat. STR scales melee + protein-recovery bridge. DEX scales ranged + acc + eva. MAG scales spell damage. SPD reduces cooldowns.
+
+**Where.** `src/ui/CharacterView.jsx`, `src/ui/EquipmentInventoryGrid.jsx`, `src/ui/Shell.jsx` (route), `src/ui/LeftColumn.jsx` (retired tabs), `src/index.css` (`.char-section`, `.char-grid--two`, `.char-col-divider`, `.char-skills-grid`, `.char-jump-nav`, `.ei-*`).
 
 ---
 
