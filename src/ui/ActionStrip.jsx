@@ -22,7 +22,6 @@ import {
 import { canGatherFull, getGatherCooldownMs } from "../systems/gathering.js";
 import { canHunt, getHuntStatus } from "../systems/hunting.js";
 import { canPatrol, getPatrolStatus } from "../systems/patrol.js";
-import { getEffectiveWeapon } from "../systems/combat.js";
 import EatButton from "./EatButton.jsx";
 import DrinkButton from "./DrinkButton.jsx";
 import { totalWater } from "../content/resources.js";
@@ -103,7 +102,10 @@ export default function ActionStrip({
     Math.min(1, huntElapsed / huntCooldownMs)
   );
 
-  // Patrol — combat loop (#66). Gated on having a real weapon equipped.
+  // Patrol — combat loop (#66). Visible once Era 1 is reached; disabled
+  // (with a "Equip a weapon" reason) when fists are the only thing
+  // wielded so the player sees the affordance instead of wondering where
+  // patrol went.
   const patrolStatus = getPatrolStatus(state, now);
   const lastPatrolAt = state.run.lastPatrolAt || 0;
   const patrolCooldownMs = patrolStatus.cooldownMs;
@@ -113,8 +115,7 @@ export default function ActionStrip({
     0,
     Math.min(1, patrolElapsed / patrolCooldownMs)
   );
-  const equippedWeapon = getEffectiveWeapon(state.run);
-  const patrolVisible = equippedWeapon && equippedWeapon.id !== "_fists";
+  const patrolVisible = !!state.run.rockAwakened;
 
   const anyCooling = gatherCooling || huntCooling || patrolCooling;
   useEffect(() => {
@@ -250,6 +251,10 @@ export default function ActionStrip({
             {prestigeEligible ? "End run" : "Reset run"}
           </button>
         </div>
+      )}
+    </div>
+  );
+}
       )}
     </div>
   );
