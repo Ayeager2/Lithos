@@ -72,6 +72,20 @@ export default function Shell({ state, actions, settingsHook }) {
   const [devOpen, setDevOpen] = useDevPanelToggle(settingsHook.settings);
   const devAvailable = isDevAvailable(settingsHook.settings);
 
+  // Patrol boss encounter (#66) — when the patrol roll picks a knowledge-
+  // gated boss, performPatrol stamps run.patrolBossEncounter with the
+  // boss id. We auto-open the BossFightModal here and clear the stamp via
+  // devPatch so it doesn't re-fire on every render.
+  const patrolBossId = state.run.patrolBossEncounter;
+  useEffect(() => {
+    if (!patrolBossId) return;
+    setBossFight({ initialBossId: patrolBossId });
+    actions.devPatch({
+      run: { ...state.run, patrolBossEncounter: null },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patrolBossId]);
+
   const era = computeEra(state);
   const eraInfo = getEra(state);
   const prestigeUnlocked = era >= 2;

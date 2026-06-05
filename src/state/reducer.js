@@ -7,6 +7,7 @@ import { performBuild } from "../systems/building.js";
 import { performListen } from "../systems/research.js";
 import { performCraft } from "../systems/crafting.js";
 import { performHunt } from "../systems/hunting.js";
+import { performPatrol } from "../systems/patrol.js";
 import {
   performSurvivalAction,
   performDrink,
@@ -207,6 +208,11 @@ export function reducer(state, action) {
 
     case ACTIONS.HUNT: {
       const { run, persistent, events } = performHunt(state);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.PATROL: {
+      const { run, persistent, events } = performPatrol(state);
       return { persistent, run: appendLogAndStamp(run, events) };
     }
 

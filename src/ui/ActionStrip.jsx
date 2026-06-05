@@ -21,6 +21,8 @@ import {
 } from "../systems/survival.js";
 import { canGatherFull, getGatherCooldownMs } from "../systems/gathering.js";
 import { canHunt, getHuntStatus } from "../systems/hunting.js";
+import { canPatrol, getPatrolStatus } from "../systems/patrol.js";
+import { getEffectiveWeapon } from "../systems/combat.js";
 import EatButton from "./EatButton.jsx";
 import DrinkButton from "./DrinkButton.jsx";
 import { totalWater } from "../content/resources.js";
@@ -101,7 +103,20 @@ export default function ActionStrip({
     Math.min(1, huntElapsed / huntCooldownMs)
   );
 
-  const anyCooling = gatherCooling || huntCooling;
+  // Patrol — combat loop (#66). Gated on having a real weapon equipped.
+  const patrolStatus = getPatrolStatus(state, now);
+  const lastPatrolAt = state.run.lastPatrolAt || 0;
+  const patrolCooldownMs = patrolStatus.cooldownMs;
+  const patrolElapsed = now - lastPatrolAt;
+  const patrolCooling = lastPatrolAt > 0 && patrolElapsed < patrolCooldownMs;
+  const patrolProgress = Math.max(
+    0,
+    Math.min(1, patrolElapsed / patrolCooldownMs)
+  );
+  const equippedWeapon = getEffectiveWeapon(state.run);
+  const patrolVisible = equippedWeapon && equippedWeapon.id !== "_fists";
+
+  const anyCooling = gatherCooling || huntCooling || patrolCooling;
   useEffect(() => {
     if (!anyCooling) return;
     const id = setInterval(() => setNow(Date.now()), 50);
@@ -110,6 +125,7 @@ export default function ActionStrip({
 
   const gatherCheck = canGatherFull(state);
   const huntCheck = canHunt(state);
+  const patrolCheck = canPatrol(state, now);
   const eatCheck = canPerformSurvivalAction(state, "eat");
   // Drink no longer uses cost-based gating (the cost is dynamic per
   // chosen tier — see performDrink in systems/survival.js). Gate manually:
@@ -155,6 +171,20 @@ export default function ActionStrip({
             reason={huntCheck.reason}
             cooling={huntCooling}
             progress={huntProgress}
+          />
+        )}
+
+        {patrolVisible && (
+          <ActionButton
+            label="Patrol"
+            busyLabel="Patrolling…"
+            icon="🗡️"
+            hotkey={keybinds.patrol}
+            onClick={actions.patrol}
+            disabled={!patrolCheck.ok}
+            reason={patrolCheck.reason}
+            cooling={patrolCooling}
+            progress={patrolProgress}
           />
         )}
 

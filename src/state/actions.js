@@ -10,6 +10,7 @@ export const ACTIONS = {
   RESEARCH: "RESEARCH",
   CRAFT_TOOL: "CRAFT_TOOL",
   HUNT: "HUNT",
+  PATROL: "PATROL",
 
   EAT: "EAT",
   DRINK: "DRINK",

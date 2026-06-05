@@ -35,6 +35,11 @@ export const RUN_DEFAULTS = {
   toolDurability: {},
   lastHuntAt: 0,
 
+  // Patrol (#66) — combat-loop action. Cooldown + lifetime mob-kill
+  // counts that gate boss unlocks. Shape: { [mobId]: integer }.
+  lastPatrolAt: 0,
+  mobsDefeated: {},
+
   // Passive production
   lastPassiveTickAt: 0,
   passiveAccum: {},

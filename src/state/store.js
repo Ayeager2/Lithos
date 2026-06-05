@@ -32,6 +32,7 @@ export function useGameStore() {
     research: (researchId) => dispatch({ type: ACTIONS.RESEARCH, researchId }),
     craft: (toolId) => dispatch({ type: ACTIONS.CRAFT_TOOL, toolId }),
     hunt: () => dispatch({ type: ACTIONS.HUNT }),
+    patrol: () => dispatch({ type: ACTIONS.PATROL }),
     eat: (preferredFoodId) => dispatch({ type: ACTIONS.EAT, preferredFoodId }),
     drink: (waterType) => dispatch({ type: ACTIONS.DRINK, waterType }),
     boilWater: () => dispatch({ type: ACTIONS.BOIL_WATER }),

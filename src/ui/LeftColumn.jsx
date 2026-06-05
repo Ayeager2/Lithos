@@ -1,14 +1,14 @@
 // Left rail — vertical icon nav. Each icon either swaps the center
-// column view (most) or triggers a modal directly (Buildings tree,
-// Challenges boss fight; refactor pending to inline those too).
+// column view (most) or triggers a modal directly (Buildings tree).
 //
 // The rail is split into two groups by a thin divider:
 //   • TOP: view switcher (World / Character / Crafting) — always visible
-//   • BOTTOM: content tabs (Arcane / Buildings / Studies / Challenges) —
-//             each visible when its content has something meaningful to
-//             show. The old Inventory tab retired with #45 and Skills
-//             retired with the #54 hub refactor — both now live as
-//             sections on the Character page.
+//   • BOTTOM: content tabs (Arcane / Buildings / Studies) — each visible
+//             when its content has something meaningful to show.
+// The old Inventory tab retired with #45, Skills with the #54 hub
+// refactor, and Challenges with #66 (boss fights now spawn from the
+// Patrol action when knowledge-gates are met). All three live elsewhere
+// in the game now.
 //
 // No more lc-content panel — every icon either changes the center view or
 // pops a modal. Blurbs that used to be the panel's lead text are now
@@ -20,7 +20,6 @@ import {
 } from "../systems/building.js";
 import { getKnownSpells } from "../systems/spells.js";
 import { getStartableStudies } from "../systems/studies.js";
-import { getBossesAvailable } from "../content/bosses.js";
 
 export default function LeftColumn({
   state,
@@ -28,21 +27,15 @@ export default function LeftColumn({
   setView,
   views,
   onOpenBuildings,
-  onOpenBossFight,
 }) {
   // Visibility of each tab.
-  // Inventory + Skills tabs retired — both surface on the Character page.
+  // Inventory + Skills + Challenges retired — see header comment above.
   const knownSpells = getKnownSpells(state);
   const arcaneVisible = knownSpells.length > 0;
   const buildings = getKnownBuildings(state);
   const buildingsVisible = buildings.length > 0;
   const studiesVisible = !!state.run.built?.stoneAltar;
   const startableStudies = studiesVisible ? getStartableStudies(state) : [];
-  const bossesAvailable = getBossesAvailable(state);
-  const challengesVisible = bossesAvailable.length > 0;
-  const challengesActionable = bossesAvailable.filter(
-    (b) => !state.persistent.bossesDefeated?.[b.id]
-  ).length;
 
   // Actionable counts (badges).
   const buildingsActionable = getAvailableBuildings(state).length;
@@ -77,15 +70,6 @@ export default function LeftColumn({
       visible: studiesVisible,
       actionable: studiesActionable,
       viewId: "studies",
-    },
-    {
-      id: "challenges",
-      icon: "⚔️",
-      label: "Challenges",
-      tip: "Foes who came looking for you. Death does not reset the run.",
-      visible: challengesVisible,
-      actionable: challengesActionable,
-      onClick: onOpenBossFight,
     },
   ].filter((t) => t.visible);
 

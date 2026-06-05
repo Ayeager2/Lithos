@@ -186,6 +186,57 @@ export const RESOURCES = {
     hiddenDescription: "A material you don't yet know how to make.",
     hiddenCategory: "unknown",
   },
+
+  // ═══════════════════════════════════════════════════════════════════
+  // Patrol drops (#66) — mob spoils
+  // ═══════════════════════════════════════════════════════════════════
+
+  // ─── Era 1 mob drops ───────────────────────────────────────────────
+  dog_meat:       { id: "dog_meat",       name: "Dog Meat",        icon: "🥩", category: "food",      description: "Lean and stringy. Tastes of the dust the dog ran on.", baseCap: 20 },
+  dog_fur:        { id: "dog_fur",        name: "Dog Fur",         icon: "🐕", category: "materials", description: "Coarse hide and fur. Bound, it warms; sewn, it lasts.", baseCap: 15 },
+  fangs:          { id: "fangs",          name: "Fangs",           icon: "🦷", category: "materials", description: "Yellowed canines. Sharp enough still.", baseCap: 30 },
+  hollow_bone:    { id: "hollow_bone",    name: "Hollow Bone",     icon: "🦴", category: "materials", description: "Light, thin, ringing when struck. Bird-bone or older.", baseCap: 30 },
+  scales:         { id: "scales",         name: "Scales",          icon: "🐍", category: "materials", description: "Translucent, hard at the edge. Layer them and they hold.", baseCap: 30 },
+  venom_gland:    { id: "venom_gland",    name: "Venom Gland",     icon: "🧪", category: "materials", description: "A pinprick of bitter sting. Dries to a brown crust.", baseCap: 12 },
+  tough_meat:     { id: "tough_meat",     name: "Tough Meat",      icon: "🍖", category: "food",      description: "From a beast that ate other beasts. Chew long.", baseCap: 20 },
+  sinew:          { id: "sinew",          name: "Sinew",           icon: "🧵", category: "materials", description: "Tendon, strung-out and dried. Holds knots that wood cannot.", baseCap: 20 },
+  bile_sac:       { id: "bile_sac",       name: "Bile Sac",        icon: "🟢", category: "materials", description: "Foul-smelling, useful in small measures.", baseCap: 10 },
+  salt_crystal:   { id: "salt_crystal",   name: "Salt Crystal",    icon: "🧂", category: "materials", description: "Coarse, white. Preserves what would otherwise rot.", baseCap: 20 },
+  rags:           { id: "rags",           name: "Rags",            icon: "🧶", category: "materials", description: "Cloth that has been on someone. The someone is no longer.", baseCap: 20 },
+  ancient_feather:{ id: "ancient_feather",name: "Ancient Feather", icon: "🪶", category: "materials", description: "Older than feathers should be. The light it catches isn't ours.", baseCap: 15 },
+  marrow:         { id: "marrow",         name: "Marrow",          icon: "🦴", category: "materials", description: "What was meant to stay inside the bone.", baseCap: 12 },
+  chitin:         { id: "chitin",         name: "Chitin",          icon: "🪲", category: "materials", description: "Beetle-shell plate. Cracks under hard impact, otherwise tough.", baseCap: 25 },
+  lizard_meat:    { id: "lizard_meat",    name: "Lizard Meat",     icon: "🍖", category: "food",      description: "Pale, springy. Better cooked. Even then, barely.", baseCap: 20 },
+  tarnished_coin: { id: "tarnished_coin", name: "Tarnished Coin",  icon: "🪙", category: "materials", description: "Old coinage from before. The face is worn through. The metal is still metal.", baseCap: 99 },
+
+  scrap_metal:    { id: "scrap_metal",    name: "Scrap Metal",     icon: "🔩", category: "materials", description: "Twisted bits of forged things. Worth re-forging.", baseCap: 30 },
+  hide:           { id: "hide",           name: "Hide",            icon: "🟫", category: "materials", description: "Tanned thicker than human leather. Better than dog fur.", baseCap: 20 },
+  dirty_water:    { id: "dirty_water",    name: "Dirty Water",     icon: "🩸", category: "drink",     description: "Carried in skins, gone foul. Drinkable in extremis. Not advised.", baseCap: 10, thirstRelief: 10, dysenteryChance: 0.5, tier: 0, spoilage: { perMinute: 0.20, atCapMultiplier: 2 } },
+  raider_token:   { id: "raider_token",   name: "Raider Token",    icon: "🏷️", category: "materials", description: "A scrap of band identity. Trade with the right kind.", baseCap: 20 },
+  coin:           { id: "coin",           name: "Coin",            icon: "🪙", category: "materials", description: "Settler currency. Round, stamped, honest. Mostly.", baseCap: 999 },
+  black_candle:   { id: "black_candle",   name: "Black Candle",    icon: "🕯️", category: "mystic",    description: "Wax that smokes too much. The flame leans in a wind that isn't there.", baseCap: 15 },
+  torn_page:      { id: "torn_page",      name: "Torn Page",       icon: "📃", category: "craftMaterial", description: "Hand-written, in a language you partly recognize.", baseCap: 25 },
+  broken_blade:   { id: "broken_blade",   name: "Broken Blade",    icon: "🗡️", category: "materials", description: "Half a sword. Re-forgeable, or repurposeable.", baseCap: 15 },
+  bog_iron:       { id: "bog_iron",       name: "Bog Iron",        icon: "⛓️", category: "materials", description: "Heavy, wet-smelling. Smelts ugly but holds an edge.", baseCap: 20 },
+  glass_shard:    { id: "glass_shard",    name: "Glass Shard",     icon: "🔻", category: "materials", description: "A piece from an eye, or what was where the eye used to be.", baseCap: 15 },
+  pale_worm:      { id: "pale_worm",      name: "Pale Worm",       icon: "🪱", category: "mystic",    description: "Finger-long. Twitches when nothing touches it.", baseCap: 15 },
+  boar_meat:      { id: "boar_meat",      name: "Boar Meat",       icon: "🍖", category: "food",      description: "Heavy with fat. Keeps long if salted.", baseCap: 20 },
+  tusks:          { id: "tusks",          name: "Tusks",           icon: "🦷", category: "materials", description: "Long, ivory-yellow. Carve to knife-handles or charm-tokens.", baseCap: 20 },
+  rat_tail:       { id: "rat_tail",       name: "Rat Tail",        icon: "🐀", category: "materials", description: "Pink, scaled, more useful than it looks.", baseCap: 30 },
+
+  spirit_essence: { id: "spirit_essence", name: "Spirit Essence",  icon: "💜", category: "mystic",    description: "A vial of what was once a presence. Cool to the touch over flame.", baseCap: 15 },
+  shadow_dust:    { id: "shadow_dust",    name: "Shadow Dust",     icon: "🌫️", category: "mystic",    description: "Fine, dark, settles in jars but stays light.", baseCap: 20 },
+  void_bone:      { id: "void_bone",      name: "Void Bone",       icon: "🦴", category: "mystic",    description: "Bone from something with no inside.", baseCap: 15 },
+  shattered_glyph:{ id: "shattered_glyph",name: "Shattered Glyph", icon: "🔮", category: "mystic",    description: "A symbol broken into parts that still want to be whole.", baseCap: 12 },
+  corrupted_flesh:{ id: "corrupted_flesh",name: "Corrupted Flesh", icon: "🥩", category: "mystic",    description: "Not for eating. Ritual component, when burned.", baseCap: 12 },
+  lidless_eye:    { id: "lidless_eye",    name: "Lidless Eye",     icon: "👁️", category: "mystic",    description: "A wet, perfect orb that does not blink.", baseCap: 8 },
+  pale_tendon:    { id: "pale_tendon",    name: "Pale Tendon",     icon: "🧬", category: "mystic",    description: "Long, white, slippery. Holds impossible knots.", baseCap: 12 },
+  wax_mask:       { id: "wax_mask",       name: "Wax Mask",        icon: "🎭", category: "mystic",    description: "A featureless face. Holds the shape of whatever wore it last.", baseCap: 8 },
+  inverted_glyph: { id: "inverted_glyph", name: "Inverted Glyph",  icon: "♅", category: "mystic",    description: "A ward turned inside out. Undoes other wards.", baseCap: 10 },
+  hollow_garment: { id: "hollow_garment", name: "Hollow Garment",  icon: "👘", category: "mystic",    description: "A robe that fits no body. Cold no matter what's in it.", baseCap: 8 },
+  starlit_fragment:{id: "starlit_fragment",name: "Starlit Fragment",icon: "🌟",category: "mystic",    description: "A fragment older than the stone you woke.", baseCap: 5 },
+  cherub_feather: { id: "cherub_feather", name: "Cherub Feather",  icon: "🪽", category: "mystic",    description: "Small, soft, hums in a child's voice.", baseCap: 6 },
+  obol:           { id: "obol",           name: "Obol",            icon: "🥮", category: "materials", description: "Black-iron coin from a thing that did not need money.", baseCap: 99 },
 };
 
 export const getResource = (id) => RESOURCES[id] || null;
@@ -193,31 +244,16 @@ export const getAllResources = () => Object.values(RESOURCES);
 export const getResourcesByCategory = (category) =>
   getAllResources().filter((r) => r.category === category);
 
-// ─── Virtual-water cost helpers ────────────────────────────────────────────
-//
-// Buildings, research, tools, and survival actions all carry `cost: { water: N }`
-// in their data. With the tier ladder (water_stagnant / water_muddy /
-// water_boiled), there is no longer a single `water` resource — so the cost
-// key "water" becomes *virtual* and resolves to "any N units across the
-// tier ladder."
-//
-// Spending order: lowest tier first. Save the good water for drinking; let
-// builds and research drain the muddy/stagnant. The player can always
-// override their drink preference, but they shouldn't have to micromanage
-// what tier their hut cost.
-//
-// Used by canBuild, canListen, canCraft, canPerformSurvivalAction, and the
-// corresponding perform* functions.
-
+// ─── Virtual-water cost helpers ───────────────────────────────────────
+// Buildings, research, tools, and survival actions all carry
+// `cost: { water: N }`. With the tier ladder, the "water" key is virtual:
+// total = sum across the ladder; spend = lowest tier first.
 export function totalWater(inventory) {
   let n = 0;
   for (const id of WATER_TIERS) n += inventory?.[id] || 0;
   return n;
 }
 
-// Returns a NEW inventory with `qty` units of water drained from the
-// lowest tiers first. Caller is responsible for verifying total >= qty
-// (via totalWater) before calling.
 export function spendWater(inventory, qty) {
   const out = { ...(inventory || {}) };
   let remaining = qty;
@@ -235,11 +271,6 @@ export function spendWater(inventory, qty) {
 export function isResourceHidden(state, resource) {
   const h = resource.hiddenUntil;
   if (!h) return false;
-  // Persistent reveal: once you've ascended (prestiged) carrying knowledge
-  // of this resource, it stays known across every future run. The PRESTIGE
-  // reducer snapshots anything that wasn't hidden at the moment of
-  // channeling and writes it here. See state/reducer.js PRESTIGE case +
-  // state/persistent.js permanentlyKnown.
   if (state.persistent?.permanentlyKnown?.[resource.id]) return false;
   if (h.researched && !state.run.researched?.[h.researched]) return true;
   if (h.built && !state.run.built?.[h.built]) return true;
