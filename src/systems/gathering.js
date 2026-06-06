@@ -12,6 +12,7 @@ import { getToolEffects } from "../content/tools.js";
 import { getBuildingBonuses } from "./building.js";
 import { getResearchBonuses } from "./research.js";
 import { getBonus, gainXp } from "./skills.js";
+import { getSpdCooldownMult } from "./character.js";
 import { applyToolWear } from "./crafting.js";
 import { isPestActive } from "./passive.js";
 import { clampToCap } from "./storage.js";
@@ -45,6 +46,8 @@ export function getGatherCooldownMs(state) {
   const toolEff = getToolEffects(state.run);
   if (toolEff.gatherSpeedup) ms -= toolEff.gatherSpeedup;
   ms -= getBonus(state.run, "gatherSpeedup");
+  // SPD multiplier (#47) — applied after building/research/tool reductions.
+  ms = Math.round(ms * getSpdCooldownMult(state));
   return Math.max(cfg.minCooldownMs ?? 250, ms);
 }
 

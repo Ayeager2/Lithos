@@ -18,6 +18,7 @@ export const ECHO_CATEGORIES = {
   skills:  { id: "skills",  name: "Skills",  order: 3 },
   arcane:  { id: "arcane",  name: "Arcane",  order: 4 },
   cache:   { id: "cache",   name: "Cache",   order: 5 },
+  town:    { id: "town",    name: "Town",    order: 6 },
 };
 
 export const ECHO_UPGRADES = {
@@ -186,6 +187,24 @@ export const ECHO_UPGRADES = {
     baseCost: 4,
     maxLevel: 4,
     effect: { startStatDelta: { spirit: 10 } },
+  },
+
+  // ============== Town (passive workers — #71) ==============
+  // Each level hires another townsperson to patrol on your behalf. They
+  // work the Era 1 wilds (the only ground they know), bring back drops at
+  // half quantity (their cut for the trouble), and only fight when you're
+  // resting. Persistent — once hired, they remember you across every
+  // ascension. Effect is empty: systems/workers.js reads the level
+  // directly from persistent.echoUpgrades.townWorkers.
+  townWorkers: {
+    id: "townWorkers",
+    name: "Town Workers",
+    icon: "🛠️",
+    category: "town",
+    description: "Hire one townsperson per level to patrol the Era 1 wilds for you. They take a small cut.",
+    baseCost: 8,
+    maxLevel: 5,
+    effect: {},
   },
 };
 

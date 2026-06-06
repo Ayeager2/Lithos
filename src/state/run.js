@@ -47,6 +47,11 @@ export const RUN_DEFAULTS = {
   // null = no active loop.
   activeLoop: null,
 
+  // Town workers (#71) — passive patrol drip from Echo-Shop-hired
+  // townspeople. Cycles every WORKER_CYCLE_MS per worker. Catches up to
+  // a cap on each TICK_LOOP. See systems/workers.js.
+  workersLastTickAt: 0,
+
   // Pile of goods (#69) — drops accumulated from the *current* active
   // loop. Resets when the loop target changes (or the loop ends). Keyed
   // by resource id, value is qty looted since loop start.

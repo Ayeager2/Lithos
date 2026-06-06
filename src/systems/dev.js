@@ -521,3 +521,161 @@ export function devApplyDysentery(state, durationMin = 5) {
     msg: `🛠️ Dysentery applied for ${durationMin} min.`,
   };
 }
+
+// ─── Patrol / Combat-loop / Workers / Coins (#66–#72) ────────────────────
+// These let you skip the grind on the entire idle-RPG loop: trigger a
+// patrol fight directly, force a boss encounter, bump per-mob kill counts
+// to test the reveal-threshold UI, set the town-workers echo, and stock
+// up on each coin tier for trade-route testing.
+
+import { getAllMobs, getMobsForEra, COIN_VALUE } from "../content/mobs.js";
+import { performPatrol } from "./patrol.js";
+import {
+  setActiveLoop as systemSetActiveLoop,
+  clearActiveLoop as systemClearActiveLoop,
+} from "./loop.js";
+import { computeEra } from "./era.js";
+
+// Reset the patrol cooldown to 0 — next click fires immediately.
+export function devClearPatrolCooldown(state) {
+  return {
+    run: { ...state.run, lastPatrolAt: 0 },
+    msg: `🛠️ Patrol cooldown cleared.`,
+  };
+}
+
+// Force-fire a patrol click. Bypasses cooldown via the clear above; if no
+// target is given, performPatrol rolls the era table.
+export function devTriggerPatrol(state, target = {}) {
+  const cleared = { ...state, run: { ...state.run, lastPatrolAt: 0 } };
+  const result = performPatrol(cleared, target);
+  return {
+    run: result.run,
+    persistent: result.persistent,
+    events: result.events,
+    msg: `🛠️ Patrol fired${
+      target.mobId ? ` (mob=${target.mobId})` : target.bossId ? ` (boss=${target.bossId})` : ""
+    }.`,
+  };
+}
+
+// Stamp a boss encounter directly — Shell will auto-open BossFightModal.
+export function devForceBossEncounter(state, bossId) {
+  return {
+    run: { ...state.run, patrolBossEncounter: bossId },
+    msg: `🛠️ Boss encounter staged: ${bossId}.`,
+  };
+}
+
+// Clear a stuck boss encounter without resolving the fight.
+export function devClearBossEncounter(state) {
+  const run = { ...state.run };
+  delete run.patrolBossEncounter;
+  return { run, msg: `🛠️ Boss encounter cleared.` };
+}
+
+// Set the per-mob kill count (drives the reveal thresholds in PatrolView
+// — hp at 1, damage at 3, accuracy at 5, dmgType at 10, drop names at 1,
+// drop qty at 5, drop chance at 10). value=999 unlocks everything.
+export function devSetMobsDefeated(state, mobId, value = 999) {
+  const mobsDefeated = { ...(state.run.mobsDefeated || {}) };
+  if (value <= 0) delete mobsDefeated[mobId];
+  else mobsDefeated[mobId] = value;
+  return {
+    run: { ...state.run, mobsDefeated },
+    msg: `🛠️ ${mobId} defeated → ${value}.`,
+  };
+}
+
+// Wipe every per-mob kill — useful for testing the "first encounter"
+// reveal-by-reveal UX from scratch.
+export function devClearMobsDefeated(state) {
+  return {
+    run: { ...state.run, mobsDefeated: {} },
+    msg: `🛠️ All mob kill counts wiped.`,
+  };
+}
+
+// Max-out every mob's kill count → every stat + drop revealed everywhere.
+export function devRevealAllMobs(state) {
+  const mobsDefeated = { ...(state.run.mobsDefeated || {}) };
+  for (const m of getAllMobs()) mobsDefeated[m.id] = 999;
+  return {
+    run: { ...state.run, mobsDefeated },
+    msg: `🛠️ All mob info revealed (kills → 999).`,
+  };
+}
+
+// Bump every mob to ~3 kills so most stats are revealed but the late
+// drop-qty / drop-chance reveals are still hidden — good middle-ground
+// for screenshotting the progressive-reveal UI.
+export function devPartialRevealMobs(state) {
+  const mobsDefeated = { ...(state.run.mobsDefeated || {}) };
+  for (const m of getAllMobs()) mobsDefeated[m.id] = 3;
+  return {
+    run: { ...state.run, mobsDefeated },
+    msg: `🛠️ All mobs → 3 kills (mid-reveal).`,
+  };
+}
+
+// Wrap setActiveLoop / clearActiveLoop in the dev-patch shape.
+export function devSetActiveLoop(state, kind, target) {
+  const result = systemSetActiveLoop(state, kind, target);
+  return {
+    run: result.run,
+    persistent: result.persistent,
+    events: result.events,
+    msg: `🛠️ Active loop → ${kind}${
+      target?.mobId ? `:${target.mobId}` : target?.bossId ? `:boss:${target.bossId}` : ""
+    }.`,
+  };
+}
+
+export function devClearActiveLoop(state) {
+  const result = systemClearActiveLoop(state);
+  return {
+    run: result.run,
+    persistent: result.persistent,
+    events: result.events,
+    msg: `🛠️ Active loop cleared.`,
+  };
+}
+
+// Wipe just the Pile of Goods accumulator (keeps the loop running but
+// resets the visible drop tally).
+export function devClearPile(state) {
+  return {
+    run: { ...state.run, activePile: { targetKey: null, drops: {} } },
+    msg: `🛠️ Pile of goods emptied.`,
+  };
+}
+
+// Set the townWorkers echo upgrade level (drives workers.js tick count).
+// Persistent — survives prestige.
+export function devSetTownWorkers(state, count = 0) {
+  const echoUpgrades = {
+    ...(state.persistent.echoUpgrades || {}),
+    townWorkers: Math.max(0, count),
+  };
+  return {
+    persistent: { ...state.persistent, echoUpgrades },
+    // Reset the clock so the next tick starts a fresh cycle from now.
+    run: { ...state.run, workersLastTickAt: 0 },
+    msg: `🛠️ Town workers → ${count}.`,
+  };
+}
+
+// Give a stack of one or all coin tiers. Trade routes (future) will spend
+// these — until then they're just persistent loot.
+export function devGiveCoins(state, tier = null, qty = 100) {
+  const inv = { ...(state.run.inventory || {}) };
+  if (tier && Object.prototype.hasOwnProperty.call(COIN_VALUE, tier)) {
+    inv[tier] = (inv[tier] || 0) + qty;
+    return { run: { ...state.run, inventory: inv }, msg: `🛠️ +${qty} ${tier}.` };
+  }
+  for (const t of Object.keys(COIN_VALUE)) inv[t] = (inv[t] || 0) + qty;
+  return {
+    run: { ...state.run, inventory: inv },
+    msg: `🛠️ +${qty} of every coin tier.`,
+  };
+}

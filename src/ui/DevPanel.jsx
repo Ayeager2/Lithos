@@ -16,18 +16,24 @@ import { getAllThreats } from "../content/threats.js";
 import { getAllSpells } from "../content/spells.js";
 import { getAllStudies, STUDY_PATHS } from "../content/studies.js";
 import { getAllWeapons } from "../content/weapons.js";
+import { getMobsForEra, getAllMobs, COIN_VALUE } from "../content/mobs.js";
+import { getAllBosses, getBossesAvailable } from "../content/bosses.js";
 import {
   SLOTS,
   HAND_SLOTS,
   getEquippable,
 } from "../systems/equipment.js";
 import { computeEra, getNextEraRequirements } from "../systems/era.js";
+import { getUnarmoredPenalty, getArmoredCount } from "../systems/combat.js";
+import { getPatrolCooldownMs } from "../systems/patrol.js";
+import { getWorkerCount } from "../systems/workers.js";
 
 const TABS = [
   { id: "quick", label: "🚀 Quick" },
   { id: "content", label: "🌍 Content" },
   { id: "state", label: "🧠 State" },
   { id: "encounters", label: "⚔️ Encounters" },
+  { id: "patrol", label: "🗡️ Patrol" },
   { id: "arcane", label: "🕯️ Arcane" },
   { id: "system", label: "⏱️ System" },
 ];
@@ -146,6 +152,7 @@ export default function DevPanel({ state, actions, onClose }) {
             <StateTab state={state} apply={apply} stats={stats} alignment={alignment} statuses={statuses} />
           )}
           {tab === "encounters" && <EncountersTab state={state} apply={apply} />}
+          {tab === "patrol" && <PatrolTab state={state} apply={apply} />}
           {tab === "arcane" && <ArcaneTab state={state} apply={apply} />}
           {tab === "system" && <SystemTab state={state} actions={actions} apply={apply} />}
         </div>
@@ -543,6 +550,198 @@ function SystemTab({ state, actions, apply }) {
       <Section title="Reset">
         <Btn label="Wipe run" danger onClick={() => actions.resetRun()} />
         <Btn label="💥 Nuke save (reload)" danger onClick={() => dev.devNuke()} />
+      </Section>
+    </>
+  );
+}
+
+// ─── Patrol / Combat-loop / Workers / Coins (#66–#72) ────────────────
+function PatrolTab({ state, apply }) {
+  const era = computeEra(state);
+  const mobsHere = getMobsForEra(Math.max(1, era));
+  const allBosses = getAllBosses();
+  const unlockedBossIds = new Set(getBossesAvailable(state).map((b) => b.id));
+  const mobsDefeated = state.run.mobsDefeated || {};
+  const activeLoop = state.run.activeLoop;
+  const pile = state.run.activePile || { targetKey: null, drops: {} };
+  const pileEntries = Object.entries(pile.drops || {}).filter(([, q]) => q > 0);
+  const workerCount = getWorkerCount(state);
+  const penalty = getUnarmoredPenalty(state);
+  const armored = getArmoredCount(state.run);
+  const cooldownMs = getPatrolCooldownMs(state);
+  const lastPatrol = state.run.lastPatrolAt || 0;
+  const onCooldown = Date.now() - lastPatrol < cooldownMs;
+  const cdRemainSec = onCooldown
+    ? Math.ceil((cooldownMs - (Date.now() - lastPatrol)) / 1000)
+    : 0;
+
+  return (
+    <>
+      <Section title="Patrol cooldown">
+        <div className="dev-row-stats muted">
+          Cooldown: {Math.round(cooldownMs / 100) / 10}s ·{" "}
+          {onCooldown ? `⏳ ${cdRemainSec}s remaining` : "ready"}
+        </div>
+        <Btn label="Clear cooldown" onClick={() => apply(dev.devClearPatrolCooldown(state))} />
+        <Btn label="🎲 Fire random patrol (era roll)"
+          onClick={() => apply(dev.devTriggerPatrol(state, {}))} />
+      </Section>
+
+      <Section title={`Force-fight a mob (Era ${era} pool — ${mobsHere.length})`}>
+        {mobsHere.length === 0 ? (
+          <div className="dev-row-stats muted">No mobs available at this era yet.</div>
+        ) : (
+          mobsHere.map((m) => {
+            const kills = mobsDefeated[m.id] || 0;
+            return (
+              <Btn key={m.id} small
+                label={`${m.icon} ${m.name} · k${kills}`}
+                onClick={() => apply(dev.devTriggerPatrol(state, { mobId: m.id }))}
+              />
+            );
+          })
+        )}
+        <div className="dev-row-stats muted">
+          Bypasses cooldown. Resolves passively through systems/combat.js.
+        </div>
+      </Section>
+
+      <Section title="Bosses (knowledge-gated)">
+        <div className="dev-row-stats muted">
+          Unlocked: {unlockedBossIds.size}/{allBosses.length} ·{" "}
+          {state.run.patrolBossEncounter
+            ? `staged: ${state.run.patrolBossEncounter}`
+            : "no encounter staged"}
+        </div>
+        {allBosses.map((b) => {
+          const unlocked = unlockedBossIds.has(b.id);
+          return (
+            <div key={b.id} style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+              <Btn small
+                label={`${b.icon || "👑"} ${b.name}${unlocked ? " ✓" : " 🔒"}`}
+                onClick={() => apply(dev.devForceBossEncounter(state, b.id))}
+              />
+              {unlocked && (
+                <Btn small
+                  label="⚔️ Fight via patrol"
+                  onClick={() => apply(dev.devTriggerPatrol(state, { bossId: b.id }))}
+                />
+              )}
+            </div>
+          );
+        })}
+        {state.run.patrolBossEncounter && (
+          <Btn label="Clear staged boss encounter" danger
+            onClick={() => apply(dev.devClearBossEncounter(state))} />
+        )}
+      </Section>
+
+      <Section title="Mob reveal thresholds (#70)">
+        <div className="dev-row-stats muted">
+          Per-mob kills drive the PatrolView reveal: hp@1 · dmg@3 · acc@5 ·
+          dmgType@10 · dropNames@1 · dropQty@5 · dropChance@10.
+        </div>
+        <Btn label="Reveal ALL mobs (kills → 999)"
+          onClick={() => apply(dev.devRevealAllMobs(state))} />
+        <Btn label="Partial reveal (kills → 3)"
+          onClick={() => apply(dev.devPartialRevealMobs(state))} />
+        <Btn label="Wipe all kill counts" danger
+          onClick={() => apply(dev.devClearMobsDefeated(state))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Per-mob bump (Era {era} pool):
+        </div>
+        {mobsHere.map((m) => {
+          const kills = mobsDefeated[m.id] || 0;
+          return (
+            <div key={m.id} style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
+              <span className="dev-stat-label" style={{ minWidth: 110 }}>
+                {m.icon} {m.name}
+              </span>
+              <span className="dev-stat-value">{kills}</span>
+              <Btn small label="+1" onClick={() =>
+                apply(dev.devSetMobsDefeated(state, m.id, kills + 1))} />
+              <Btn small label="+5" onClick={() =>
+                apply(dev.devSetMobsDefeated(state, m.id, kills + 5))} />
+              <Btn small label="max" onClick={() =>
+                apply(dev.devSetMobsDefeated(state, m.id, 999))} />
+              <Btn small label="0" onClick={() =>
+                apply(dev.devSetMobsDefeated(state, m.id, 0))} />
+            </div>
+          );
+        })}
+      </Section>
+
+      <Section title="Active loop (#68)">
+        <div className="dev-row-stats muted">
+          {activeLoop
+            ? `▶ ${activeLoop.kind} · ${
+                activeLoop.target?.mobId
+                  ? `mob:${activeLoop.target.mobId}`
+                  : activeLoop.target?.bossId
+                  ? `boss:${activeLoop.target.bossId}`
+                  : "any"
+              } · cycleMs ${activeLoop.cycleMs}`
+            : "⏸ none"}
+        </div>
+        {mobsHere.slice(0, 6).map((m) => (
+          <Btn key={m.id} small label={`▶ Loop ${m.icon} ${m.name}`}
+            onClick={() => apply(dev.devSetActiveLoop(state, "patrol", { mobId: m.id }))} />
+        ))}
+        <Btn label="⏹ Clear active loop" danger
+          onClick={() => apply(dev.devClearActiveLoop(state))} />
+      </Section>
+
+      <Section title="Pile of goods (#69)">
+        <div className="dev-row-stats muted">
+          {pile.targetKey ? `target: ${pile.targetKey}` : "no active loop pile"}
+          {" · "}
+          {pileEntries.length === 0
+            ? "empty"
+            : pileEntries.map(([id, q]) => `${id}:${q}`).join(" · ")}
+        </div>
+        <Btn label="Empty pile" onClick={() => apply(dev.devClearPile(state))} />
+      </Section>
+
+      <Section title="Town workers (#71)">
+        <div className="dev-row-stats muted">
+          Current: {workerCount} (max 5 from echoes upgrade) ·{" "}
+          last tick:{" "}
+          {state.run.workersLastTickAt
+            ? `${Math.round((Date.now() - state.run.workersLastTickAt) / 1000)}s ago`
+            : "never"}
+        </div>
+        {[0, 1, 2, 3, 5, 10].map((n) => (
+          <Btn key={n} small label={`Set → ${n}`}
+            onClick={() => apply(dev.devSetTownWorkers(state, n))} />
+        ))}
+      </Section>
+
+      <Section title="Unarmored penalty (#72)">
+        <div className="dev-row-stats muted">
+          Armor slots filled: {armored}/5{" "}
+          {penalty.armored >= 5
+            ? "— no penalty"
+            : `— −${Math.round(penalty.accPenalty * 100)}% acc, +${Math.round(
+                (penalty.dmgMult - 1) * 100
+              )}% dmg taken`}
+        </div>
+        <Btn label="🛡️ +1 of every weapon" onClick={() => apply(dev.devGiveAllWeapons(state))} />
+        <Btn label="🔄 Unequip all" danger onClick={() => apply(dev.devUnequipAll(state))} />
+        <div className="dev-row-stats muted">
+          (Equipment + armor crafting still lives in the Encounters tab.)
+        </div>
+      </Section>
+
+      <Section title="Coins / currency">
+        <div className="dev-row-stats muted">
+          {Object.keys(COIN_VALUE).map((t) => `${t}:${state.run.inventory?.[t] || 0}`).join(" · ")}
+        </div>
+        <Btn label="+100 of every coin tier" onClick={() => apply(dev.devGiveCoins(state, null, 100))} />
+        <Btn label="+999 of every coin tier" onClick={() => apply(dev.devGiveCoins(state, null, 999))} />
+        {Object.keys(COIN_VALUE).map((t) => (
+          <Btn key={t} small label={`+25 ${t}`}
+            onClick={() => apply(dev.devGiveCoins(state, t, 25))} />
+        ))}
       </Section>
     </>
   );

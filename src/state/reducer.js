@@ -37,6 +37,7 @@ import { performUseTool } from "../systems/consumables.js";
 import { performBuyEchoUpgrade, applyEchoUpgrades } from "../systems/echoes.js";
 import { performBossFightEnd } from "../systems/boss.js";
 import { setActiveLoop, clearActiveLoop, tickActiveLoop } from "../systems/loop.js";
+import { tickWorkers } from "../systems/workers.js";
 import {
   applyPassiveProduction,
   clearStalePests,
@@ -188,8 +189,19 @@ export function reducer(state, action) {
     }
 
     case ACTIONS.TICK_LOOP: {
-      const { run, persistent, events } = tickActiveLoop(state);
-      if (!events.length && run === state.run) return state;
+      // Active patrol/gather/etc loop
+      const loopResult = tickActiveLoop(state);
+      let run = loopResult.run;
+      let persistent = loopResult.persistent;
+      const events = [...(loopResult.events || [])];
+
+      // Town workers (#71) — passive drip from hired townspeople.
+      const workersState = { ...state, run };
+      const workersResult = tickWorkers(workersState);
+      if (workersResult.run !== run) run = workersResult.run;
+      events.push(...(workersResult.events || []));
+
+      if (!events.length && run === state.run && persistent === state.persistent) return state;
       return { persistent, run: appendLog(run, events) };
     }
 

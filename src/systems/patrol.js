@@ -14,6 +14,7 @@
 import { getMob, getMobsForEra } from "../content/mobs.js";
 import { resolveFight, getEffectiveWeapon, getCombatSkillForWeapon } from "./combat.js";
 import { gainXp, getSkillState } from "./skills.js";
+import { getSpdCooldownMult } from "./character.js";
 import { computeEra } from "./era.js";
 import { randInt } from "../util/rng.js";
 import { getBoss, getAllBosses, getBossesAvailable } from "../content/bosses.js";
@@ -32,7 +33,10 @@ export function getPatrolCooldownMs(state) {
     skills.magicCombat?.level || 0,
   );
   const reduction = lvl * 300;
-  return Math.max(PATROL_COOLDOWN_FLOOR_MS, PATROL_COOLDOWN_MS - reduction);
+  // SPD multiplier (#47) — every +1 SPD shaves 2% off the cooldown.
+  const base = Math.max(PATROL_COOLDOWN_FLOOR_MS, PATROL_COOLDOWN_MS - reduction);
+  const ms = Math.round(base * getSpdCooldownMult(state));
+  return Math.max(PATROL_COOLDOWN_FLOOR_MS, ms);
 }
 
 export function canPatrol(state, now = Date.now()) {

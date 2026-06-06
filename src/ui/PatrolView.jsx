@@ -23,10 +23,12 @@ import {
   getBossesAvailable,
 } from "../content/bosses.js";
 import { canPatrol } from "../systems/patrol.js";
+import { getUnarmoredPenalty } from "../systems/combat.js";
 import { computeEra } from "../systems/era.js";
 import { getResource, getDisplayResource } from "../content/resources.js";
 import { getResourceCap } from "../systems/storage.js";
 import { getActiveLoop, getLoopProgress } from "../systems/loop.js";
+import { getWorkerCount, getWorkerCycleMs } from "../systems/workers.js";
 
 const TIER_ORDER = { common: 0, uncommon: 1, rare: 2, apex: 3 };
 const TIER_LABEL = { common: "Common", uncommon: "Uncommon", rare: "Rare", apex: "Apex" };
@@ -240,6 +242,8 @@ function BossCard({ boss, state, isActive, loopPct, locked, unlockHint, onClick 
 function PileOfGoods({ state, activeLoop, activeMobId, activeBossId, onStop }) {
   const pile = state.run.activePile?.drops || {};
   const ids = Object.keys(pile).filter((id) => (pile[id] || 0) > 0);
+  const workerCount = getWorkerCount(state);
+  const workerCycleSec = Math.round(getWorkerCycleMs() / 1000);
   const targetName = (() => {
     if (activeMobId) {
       // Lookup the mob's name from the era-pool we have in scope at call site
@@ -263,16 +267,26 @@ function PileOfGoods({ state, activeLoop, activeMobId, activeBossId, onStop }) {
             </>
           )}
         </div>
-        {activeLoop && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs"
-            onClick={onStop}
-            title="Stop the auto-engage loop"
-          >
-            Stop
-          </button>
-        )}
+        <div className="patrol-pile-head-right">
+          {workerCount > 0 && (
+            <span
+              className="patrol-pile-workers"
+              title={`${workerCount} hired townsperson${workerCount === 1 ? "" : "s"} patrol the Era 1 wilds for you (~${workerCycleSec}s per worker per fight). Drops land in your inventory; check the Recent log.`}
+            >
+              🛠 × {workerCount}
+            </span>
+          )}
+          {activeLoop && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              onClick={onStop}
+              title="Stop the auto-engage loop"
+            >
+              Stop
+            </button>
+          )}
+        </div>
       </div>
       {ids.length === 0 ? (
         <p className="patrol-pile-empty muted">
@@ -403,6 +417,23 @@ export default function PatrolView({ state, actions }) {
             <span className="patrol-status-blocked">⚠️ {check.reason}</span>
           </div>
         )}
+        {(() => {
+          const pen = getUnarmoredPenalty(state);
+          if (pen.accPenalty === 0) return null;
+          const pct = Math.round(pen.accPenalty * 100);
+          const dmg = Math.round((pen.dmgMult - 1) * 100);
+          return (
+            <div
+              className="patrol-armor-warn"
+              title={`You're wearing ${pen.armored}/5 armor pieces. The wasteland eats the underdressed.`}
+            >
+              🩸 Underdressed: −{pct}% accuracy, +{dmg}% damage taken.{" "}
+              <span className="muted">
+                ({pen.armored}/5 armor slots filled — equip head/chest/legs/boots/gloves to soften it.)
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       <PileOfGoods

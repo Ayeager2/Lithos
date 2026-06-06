@@ -4,6 +4,7 @@ import { HUNT_TABLE, HUNT_CONFIG } from "../content/huntTable.js";
 import { RESOURCES } from "../content/resources.js";
 import { getToolEffects } from "../content/tools.js";
 import { getBonus, gainXp, getSkillState } from "./skills.js";
+import { getSpdCooldownMult } from "./character.js";
 import { applyToolWear } from "./crafting.js";
 import { clampToCap } from "./storage.js";
 import {
@@ -18,6 +19,8 @@ export function getHuntCooldownMs(state) {
   ms -= getBonus(state.run, "huntCooldownReduction");
   const toolEff = getToolEffects(state.run);
   ms -= toolEff.huntCooldownReduction || 0;
+  // SPD multiplier (#47) — applies after building/skill/tool reductions.
+  ms = Math.round(ms * getSpdCooldownMult(state));
   return Math.max(HUNT_CONFIG.minCooldownMs, ms);
 }
 

@@ -11,6 +11,7 @@ import { applyEffect } from "./survival.js";
 import { getStudyStatBonuses } from "./studies.js";
 import { applyDeathDebuff } from "./death.js";
 import { gainXp, getSkillState } from "./skills.js";
+import { getStatCombatBonuses } from "./character.js";
 import { randInt } from "../util/rng.js";
 
 // ─── Combat-skill routing (#34) ───────────────────────────────────────
@@ -119,6 +120,36 @@ export function getPersonalArmor(state) {
   return bonuses.armor || 0;
 }
 
+// ─── Unarmored penalty (#72) ──────────────────────────────────────────
+// Early-game brutality: until the player is wearing armor on most slots,
+// they're less accurate and take more damage. Counts five main armor
+// slots (head/chest/leggings/boots/gloves). Penalty curve:
+//   0 pieces  → -25% acc, +50% incoming dmg ("naked in the wastes")
+//   1–2       → -10% acc, +25% incoming dmg
+//   3–4       → -5%  acc, +10% incoming dmg
+//   5 pieces  → no penalty
+// Era 1 has no armor crafts shipped yet — that's intentional. Combat is
+// supposed to be brutal until armor crafting lands. Until then, smart
+// players gather drops and grind Era 2 forge upgrades quickly.
+export function getArmoredCount(run) {
+  const eq = run?.equipped || {};
+  let count = 0;
+  if (eq.head) count++;
+  if (eq.chest) count++;
+  if (eq.leggings) count++;
+  if (eq.boots) count++;
+  if (eq.gloves) count++;
+  return count;
+}
+
+export function getUnarmoredPenalty(state) {
+  const armored = getArmoredCount(state.run);
+  if (armored >= 5) return { accPenalty: 0, dmgMult: 1.0, armored };
+  if (armored >= 3) return { accPenalty: 0.05, dmgMult: 1.10, armored };
+  if (armored >= 1) return { accPenalty: 0.10, dmgMult: 1.25, armored };
+  return { accPenalty: 0.25, dmgMult: 1.50, armored };
+}
+
 // ─── Single-turn rollers (boss modal #40) ─────────────────────────────
 export function rollPlayerAttack(state, threatDef, rng = Math.random) {
   const weapon = getEffectiveWeapon(state.run);
@@ -127,9 +158,13 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
   const threatEva = cb.eva ?? 0.05;
   const skillId = getCombatSkillForWeapon(weapon);
   const sb = getCombatSkillBonuses(state.run, skillId);
-  const effAcc = wStats.acc + sb.accBonus;
+  const statBonuses = getStatCombatBonuses(state, weapon);
+  const penalty = getUnarmoredPenalty(state);
+  // STR/DEX/MAG (#47) mix in alongside the weapon-skill bonuses.
+  const effAcc = wStats.acc + sb.accBonus + statBonuses.accBonus - penalty.accPenalty;
   const effCrit = (wStats.crit || 0) + sb.critBonus;
-  const flatDmg = Math.floor(sb.damageBonus);
+  const flatDmg = Math.floor(sb.damageBonus + statBonuses.damageBonus);
+  const dmgMult = statBonuses.damageMult || 1.0;
 
   const hit = rng() < (effAcc - threatEva);
   if (!hit) {
@@ -146,6 +181,8 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
   }
   const [lo, hi] = wStats.damage;
   let dmg = randInt(rng, lo, hi) + flatDmg;
+  // MAG damage multiplier applies to the rolled+flat sum, before crit.
+  if (dmgMult !== 1.0) dmg = Math.max(0, Math.round(dmg * dmgMult));
   const isCrit = rng() < effCrit;
   if (isCrit) dmg *= 2;
   const line = isCrit
@@ -173,8 +210,11 @@ export function rollFoeAttack(state, threatDef, rng = Math.random) {
   const damageType = cb.damageType || "hp";
   const armor = damageType === "hp" ? getPersonalArmor(state) : 0;
   const flavor = threatDef.combatFlavor || {};
+  // DEX evasion (#47) layers on top of the base 5% sidestep chance.
+  const statBonuses = getStatCombatBonuses(state, weapon);
+  const playerEva = PLAYER_BASE_EVA + (statBonuses.evasionBonus || 0);
 
-  const hit = rng() < (threatAcc - PLAYER_BASE_EVA);
+  const hit = rng() < (threatAcc - playerEva);
   if (!hit) {
     const line = pickRandom(flavor.miss, rng) || pickRandom(THREAT_MISS_LINES, rng);
     return {
@@ -185,7 +225,13 @@ export function rollFoeAttack(state, threatDef, rng = Math.random) {
     };
   }
   const raw = randInt(rng, threatDmg.min, threatDmg.max);
-  const dmg = Math.max(0, raw - armor);
+  // Unarmored penalty (#72) — fewer pieces of armor → take more damage.
+  // hp damage is reduced by `armor` first, then multiplied by the penalty.
+  // sanity/spirit damage skip armor but still get the penalty (the mind
+  // takes a beating worse when you're naked, too).
+  const penalty = getUnarmoredPenalty(state);
+  const afterArmor = Math.max(0, raw - armor);
+  const dmg = Math.max(0, Math.ceil(afterArmor * penalty.dmgMult));
   const line = pickRandom(flavor.attack, rng) || pickRandom(THREAT_ATTACK_LINES, rng);
   return {
     hit: true,
@@ -224,9 +270,18 @@ export function resolveFight(state, threatDef, rng = Math.random) {
 
   const combatSkillId = getCombatSkillForWeapon(weapon);
   const skillBonuses = getCombatSkillBonuses(state.run, combatSkillId);
-  const effAcc = wStats.acc + skillBonuses.accBonus;
+  const statBonuses = getStatCombatBonuses(state, weapon);
+  const penalty = getUnarmoredPenalty(state);
+  // STR/DEX/MAG (#47) mix into the same combat math used by the boss-
+  // modal turn rollers. Keeps the two paths in sync.
+  const effAcc =
+    wStats.acc + skillBonuses.accBonus + statBonuses.accBonus - penalty.accPenalty;
   const effCrit = (wStats.crit || 0) + skillBonuses.critBonus;
-  const flatDamageBonus = Math.floor(skillBonuses.damageBonus);
+  const flatDamageBonus = Math.floor(
+    skillBonuses.damageBonus + statBonuses.damageBonus
+  );
+  const dmgMult = statBonuses.damageMult || 1.0;
+  const playerEva = PLAYER_BASE_EVA + (statBonuses.evasionBonus || 0);
 
   const startStats = state.run.stats || {};
   let playerHp = startStats.hp ?? 100;
@@ -255,6 +310,8 @@ export function resolveFight(state, threatDef, rng = Math.random) {
     if (playerHits) {
       const [lo, hi] = wStats.damage;
       let dmg = randInt(rng, lo, hi) + flatDamageBonus;
+      // MAG damage multiplier (#47) applies to rolled+flat sum, pre-crit.
+      if (dmgMult !== 1.0) dmg = Math.max(0, Math.round(dmg * dmgMult));
       const isCrit = rng() < effCrit;
       if (isCrit) dmg *= 2;
       foeHp = Math.max(0, foeHp - dmg);
@@ -271,11 +328,13 @@ export function resolveFight(state, threatDef, rng = Math.random) {
     }
 
     const threatHitRoll = rng();
-    const threatHits = threatHitRoll < (threatAcc - PLAYER_BASE_EVA);
+    const threatHits = threatHitRoll < (threatAcc - playerEva);
     if (threatHits) {
       const raw = randInt(rng, threatDmg.min, threatDmg.max);
       let reduced = raw;
       if (damageType === "hp") reduced = Math.max(0, raw - playerArmor);
+      // Unarmored penalty (#72) — applied to all damage types after armor.
+      reduced = Math.max(0, Math.ceil(reduced * penalty.dmgMult));
       if (damageType === "sanity") playerSanity = Math.max(0, playerSanity - reduced);
       else if (damageType === "spirit") playerSpirit = Math.max(0, playerSpirit - reduced);
       else playerHp = Math.max(0, playerHp - reduced);
@@ -327,11 +386,6 @@ export function resolveFight(state, threatDef, rng = Math.random) {
   run = wear.run;
   events.push(...wear.events);
 
-  return {
-    run,
-    persistent: state.persistent,
-    events,
-    outcome,
-    threatId: threatDef.id,
-  };
+
+  return { run, events, outcome };
 }

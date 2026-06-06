@@ -14,8 +14,9 @@
 //   4. Items        — EquipmentInventoryGrid (#45): top-tabbed item browser
 //                     that handles equip + use.
 //
-// STR is currently proxied by death-debuff magnitude until #47 lands the
-// real stat-modulation math.
+// STR/DEX/SPD/MAG are real now (#47) — derived from skills + studies +
+// death-debuff via systems/stats.js computeStats(). Base 10 each. Combat
+// math reads them through getStatCombatBonuses() in combat.js.
 
 import { useState } from "react";
 import { SLOTS, getEquippable } from "../systems/equipment.js";
@@ -24,6 +25,7 @@ import { getDeathDebuffMagnitude } from "../systems/death.js";
 import { computeEra } from "../systems/era.js";
 import { getActiveSkills } from "../content/skills.js";
 import { getSkillState, getSkillProgress } from "../systems/skills.js";
+import { computeStats } from "../systems/character.js";
 import EquipmentInventoryGrid from "./EquipmentInventoryGrid.jsx";
 
 // ─── Stat tooltips (read by hover) ───────────────────────────────────
@@ -35,10 +37,10 @@ const STAT_TIPS = {
   resolve: "Willpower. Drops from setbacks. Low Resolve dims most action gains.",
   sanity: "Your grip on the world. Damaged by demons, the void, the wrong words. At 0 the world stops making sense.",
   spirit: "Magical energy (Era 3+). Spent casting spells. Refills slowly; the Ritual converts fragments → spirit.",
-  str: "Strength — the bridge stat. Carries weight, swings weapons, resists damage. Currently proxied by your death-debuff state (full health = 10, a fully cascaded debuff drops it toward 5). Real STR modulation lands with #47.",
-  dex: "Dexterity — ranged accuracy and evasion. Placeholder until #47 wires the stat math.",
-  spd: "Speed — action cooldowns. Placeholder until #47.",
-  mag: "Magic — spell damage and effect magnitude. Placeholder until #47.",
+  str: "Strength — the bridge stat. Adds melee damage (+0.5 per point above 10). Grows with Swordplay and Butchering skill. Death-debuff cuts it by 1 per 10% magnitude.",
+  dex: "Dexterity — ranged accuracy (+1% per point above 10) and evasion (+0.5%/pt). Grows with Archery, Hunting, and Butchering skill.",
+  spd: "Speed — action cooldowns. Patrol, hunt, and gather all fire 2% faster per point above 10. Grows with your highest combat skill; death-debuff reduces it.",
+  mag: "Magic — spell + magic-weapon damage. Adds +0.5 flat damage and +5% multiplier per point above 10. Grows with Magic Combat skill and Spirit-line studies.",
   armor: "Personal armor — reduces hp damage from foes in combat. Sourced from study completions (Wardweave) and future armor crafts.",
 };
 
@@ -209,10 +211,11 @@ export default function CharacterView({ state, actions }) {
     ? (ringIndex) => actions.unequipRing(ringIndex)
     : null;
 
-  // STR proxy: 10 - floor(magnitude * 10). Magnitude 0 → STR 10.
-  // Magnitude 0.5 → STR 5. Until #47, this is the bridge stat readout.
+  // Real stat modulation (#47). STR/DEX/SPD/MAG derived from skills +
+  // studies + death-debuff. See systems/stats.js for the formulas.
   const ddMag = getDeathDebuffMagnitude(state.run);
-  const str = Math.max(0, 10 - Math.floor(ddMag * 10));
+  const derivedStats = computeStats(state);
+  const { str, dex, spd, mag } = derivedStats;
   const armor = getPersonalArmor(state);
 
   const rings = Array.isArray(equipped.rings) ? equipped.rings : [];
@@ -274,10 +277,10 @@ export default function CharacterView({ state, actions }) {
             {/* Bridge — STR folded in. Subtle divider keeps it visually
                 grouped but distinct from the survival rows above. */}
             <div className="char-col-divider" aria-hidden="true" />
-            <StatRow label="STR" value={str} max={10} icon="💪" tooltip={STAT_TIPS.str} kind="str" />
+            <StatRow label="STR" value={str} icon="💪" tooltip={STAT_TIPS.str} kind="str" />
             {ddMag > 0 && (
               <p className="muted char-col-note">
-                ⚠️ Death-debuff active (magnitude {Math.round(ddMag * 100)}%). Eat to recover — STR rises as the cascade lifts.
+                ⚠️ Death-debuff active (magnitude {Math.round(ddMag * 100)}%). Eat to recover — STR + SPD rise as the cascade lifts.
               </p>
             )}
           </div>
@@ -285,15 +288,15 @@ export default function CharacterView({ state, actions }) {
           {/* Combat */}
           <div className="char-col char-col--combat">
             <h4 className="char-col-title">Combat</h4>
-            <StatRow label="DEX" icon="🎯" tooltip={STAT_TIPS.dex} placeholder />
-            <StatRow label="SPD" icon="💨" tooltip={STAT_TIPS.spd} placeholder />
-            <StatRow label="MAG" icon="🪄" tooltip={STAT_TIPS.mag} placeholder />
+            <StatRow label="DEX" value={dex} icon="🎯" tooltip={STAT_TIPS.dex} kind="dex" />
+            <StatRow label="SPD" value={spd} icon="💨" tooltip={STAT_TIPS.spd} kind="spd" />
+            <StatRow label="MAG" value={mag} icon="🪄" tooltip={STAT_TIPS.mag} kind="mag" />
             {showSpirit && (
               <StatRow label="Spirit" value={Math.round(stats.spirit ?? 50)} max={100} icon="✨" tooltip={STAT_TIPS.spirit} kind="spirit" />
             )}
             <StatRow label="Armor" value={armor} icon="🛡️" tooltip={STAT_TIPS.armor} />
             <p className="muted char-col-note">
-              Combat stats start as placeholders. Real modulation lands with #47.
+              Combat stats grow with the relevant skills + studies. Base value is 10.
             </p>
           </div>
         </div>
