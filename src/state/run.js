@@ -40,6 +40,19 @@ export const RUN_DEFAULTS = {
   lastPatrolAt: 0,
   mobsDefeated: {},
 
+  // Auto-loop (#68) — single active idle action. When set, the loop
+  // runner re-fires the action every `cycleMs`. Clicking any other
+  // action replaces this (interrupt model). Shape:
+  //   { kind: "patrol", target: { mobId? bossId? }, startedAt, cycleMs }
+  // null = no active loop.
+  activeLoop: null,
+
+  // Pile of goods (#69) — drops accumulated from the *current* active
+  // loop. Resets when the loop target changes (or the loop ends). Keyed
+  // by resource id, value is qty looted since loop start.
+  //   { targetKey: "mob:wildDog" | "boss:era1_main_…", drops: { resId: N } }
+  activePile: { targetKey: null, drops: {} },
+
   // Passive production
   lastPassiveTickAt: 0,
   passiveAccum: {},

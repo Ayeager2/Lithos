@@ -616,6 +616,322 @@ button {
   }
 }
 
+/* ─── Patrol view (#67) ───────────────────────────────────────────── */
+.action-panel--patrol .patrol-status {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.patrol-status-blocked { color: #e08a8a; }
+.patrol-era {
+  margin-top: 20px;
+}
+.patrol-era-title {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+}
+.patrol-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.patrol-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-left: 3px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.patrol-card:hover:not(.is-disabled):not(.is-locked) {
+  background: rgba(255, 255, 255, 0.07);
+  border-left-color: var(--accent);
+  transform: translateY(-1px);
+}
+.patrol-card:active:not(.is-disabled):not(.is-locked) {
+  transform: translateY(0);
+}
+.patrol-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.patrol-card.is-locked {
+  cursor: help;
+  opacity: 0.65;
+  border-left-style: dashed;
+}
+.patrol-card--tier-uncommon { border-left-color: #8aa0d0; }
+.patrol-card--tier-rare     { border-left-color: #c08ad0; }
+.patrol-card--tier-apex     { border-left-color: #d09a4a; }
+.patrol-card--boss {
+  border-left-color: #c34141;
+  background: rgba(195, 65, 65, 0.06);
+}
+.patrol-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.patrol-card-icon { font-size: 28px; }
+.patrol-card-title { flex: 1; min-width: 0; }
+.patrol-card-name { font-weight: 600; font-size: 14px; }
+.patrol-card-sub { font-size: 11px; margin-top: 2px; }
+.patrol-card-tier {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.patrol-card-tier--common   { background: rgba(170, 170, 170, 0.2); color: #ccc; }
+.patrol-card-tier--uncommon { background: rgba(140, 170, 220, 0.2); color: #aac4e8; }
+.patrol-card-tier--rare     { background: rgba(200, 140, 220, 0.2); color: #d4a8e0; }
+.patrol-card-tier--apex     { background: rgba(220, 154, 74, 0.2); color: #e0b070; }
+.patrol-card-kills {
+  font-size: 11px;
+  color: #c5e88a;
+  margin-left: 4px;
+}
+.patrol-card-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+.patrol-card-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.patrol-card-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.patrol-card-drops {
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  padding-top: 6px;
+}
+.patrol-card-drops-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.patrol-card-drops-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+}
+.patrol-card-drop {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.patrol-card-drop-name { flex: 1; }
+.patrol-card-cta {
+  margin-top: 6px;
+  padding: 6px 8px;
+  background: var(--accent);
+  color: var(--bg);
+  text-align: center;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.patrol-card-cta--boss { background: #c34141; color: #fff; }
+.patrol-card.is-disabled .patrol-card-cta {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+}
+.patrol-card-drops-locked {
+  font-size: 12px;
+  font-style: italic;
+  padding: 4px 0;
+}
+.patrol-card-reveal-hint {
+  font-size: 11px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  font-style: italic;
+}
+.patrol-card-lock {
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Pile of Goods — drops accumulated during the current loop. Sits above
+   the era grid; resets when the player swaps targets. Each item has a
+   rich hover tooltip showing the inventory card. Reserved right-edge for
+   the future auto-advance / priorities gear icon. */
+.patrol-pile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.patrol-pile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.patrol-pile-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.patrol-pile-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+.patrol-pile-dot--live {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: pile-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pile-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.patrol-pile-empty {
+  font-size: 12px;
+  margin: 0;
+}
+.patrol-pile-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.patrol-pile-item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: help;
+}
+.patrol-pile-item:hover {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.patrol-pile-icon {
+  font-size: 14px;
+}
+.patrol-pile-qty {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.patrol-pile-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  opacity: 0;
+  pointer-events: none;
+  width: 240px;
+  padding: 10px 12px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  z-index: 50;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  text-align: left;
+}
+.patrol-pile-item:hover .patrol-pile-tooltip,
+.patrol-pile-item:focus-within .patrol-pile-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.patrol-pile-tip-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.patrol-pile-tip-icon {
+  font-size: 20px;
+}
+.patrol-pile-tip-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+}
+.patrol-pile-tip-qty {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.patrol-pile-tip-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.btn-xs {
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+/* Active-loop card — glowing border + filling progress bar at bottom. */
+.patrol-card.is-active-loop {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(220, 154, 74, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+.patrol-card-loopbar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: 0 50%;
+  transition: transform 0.1s linear;
+}
+
 /* Center-column view placeholders (#44 / #48 will fill these in). */
 .view-placeholder {
   padding: 24px;
@@ -5161,364 +5477,4 @@ body.motion-reduced .tool-durability-fill {
 .action-strip-row > * {
   flex: 1 1 0;
   min-width: 0;
-}
-
-/* The action-strip equivalent of .btn-primary, but built to live in a
-   uniform row of six. All same size, same color. Cooldown bar from
-   Gather/Hunt rendered inline by setting `progress`. */
-.btn-action {
-  position: relative;
-  overflow: hidden;
-  background: var(--accent-dim);
-  color: var(--bg);
-  border: 1px solid var(--accent);
-  font-weight: 600;
-  font-size: 14px;
-  padding: 12px 10px;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, transform 0.05s;
-  white-space: nowrap;
-}
-
-.btn-action:hover:not(:disabled) {
-  background: var(--accent);
-  color: var(--bg);
-}
-
-.btn-action:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.btn-action:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.btn-action.is-cooling {
-  cursor: wait;
-  opacity: 0.85;
-}
-
-.btn-action-icon {
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.btn-action-label {
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.btn-action .btn-hotkey {
-  background: rgba(0, 0, 0, 0.25);
-  color: var(--bg);
-}
-
-/* Action-strip meta row (small, right-aligned: Reset/End run) */
-.action-strip-meta {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  padding: 2px 0 0;
-}
-
-.btn-reset-run {
-  font-size: 12px;
-  padding: 4px 12px;
-}
-
-/* The EatButton and DrinkButton both live inside an action-strip-slot so
-   they inherit the 1fr sizing without polluting the button's internal
-   layout. Both share the same .btn-action visual via the same overrides. */
-.action-strip-slot {
-  display: flex;
-}
-
-.action-strip-slot .eat-btn-wrap,
-.action-strip-slot .drink-btn-wrap {
-  width: 100%;
-  display: flex;
-}
-
-.action-strip-slot .eat-btn-main,
-.action-strip-slot .drink-btn-main {
-  flex: 1 1 0;
-  min-width: 0;
-  /* Match .btn-action visual */
-  background: var(--accent-dim);
-  color: var(--bg);
-  border: 1px solid var(--accent);
-  font-weight: 600;
-  font-size: 14px;
-  padding: 12px 10px;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.action-strip-slot .eat-btn-main:hover:not(:disabled),
-.action-strip-slot .drink-btn-main:hover:not(:disabled) {
-  background: var(--accent);
-}
-
-.action-strip-slot .eat-btn-main:disabled,
-.action-strip-slot .drink-btn-main:disabled {
-  opacity: 0.45;
-}
-
-.action-strip-slot .eat-btn-chevron,
-.action-strip-slot .drink-btn-chevron {
-  background: var(--accent-dim);
-  color: var(--bg);
-  border: 1px solid var(--accent);
-  border-left: none;
-  padding: 10px 8px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  flex-shrink: 0;
-}
-
-.action-strip-slot .eat-btn-chevron:hover:not(:disabled),
-.action-strip-slot .drink-btn-chevron:hover:not(:disabled) {
-  background: var(--accent);
-}
-
-/* Mobile: stack action buttons in 2 rows of 3 if cramped */
-@media (max-width: 600px) {
-  .action-strip-row {
-    flex-wrap: wrap;
-  }
-  .action-strip-row > * {
-    flex: 1 1 30%;
-  }
-}
-
-/* ---- World-panel slim style (center column post-refactor) ---- */
-/* ActionPanel lost its action buttons + survival bars; the variant
-   --world strips the min-height that made the old panel feel weighty. */
-.action-panel--world {
-  min-height: auto !important;
-  padding: 16px 18px;
-}
-
-.action-panel--world .panel-header {
-  margin-bottom: 12px;
-}
-
-.action-panel--world .panel-header h2 {
-  font-size: 20px;
-  margin-bottom: 4px;
-}
-
-/* End layout refactor styles */
-
-/* ─── Boss-fight modal (#40) ──────────────────────────────────────── */
-.modal--boss {
-  max-width: 720px;
-  width: 92vw;
-}
-.modal--boss .modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.meta-item--challenges {
-  background: rgba(180, 60, 60, 0.25);
-  border: 1px solid rgba(255, 120, 120, 0.4);
-  color: #ffd9d9;
-  cursor: pointer;
-  font-weight: 600;
-}
-.meta-item--challenges:hover {
-  background: rgba(220, 80, 80, 0.35);
-}
-.meta-item-suffix {
-  margin-left: 6px;
-  opacity: 0.8;
-  font-size: 11px;
-}
-
-.boss-picker .boss-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.boss-row {
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.15);
-}
-.boss-row-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 6px;
-}
-.boss-row-icon {
-  font-size: 22px;
-}
-.boss-row-name {
-  flex: 1;
-  font-weight: 600;
-}
-.boss-row-tag {
-  margin-left: 6px;
-  font-size: 11px;
-  opacity: 0.6;
-  font-weight: 400;
-}
-.boss-row-desc {
-  margin: 6px 0 4px;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.boss-row-stats {
-  font-size: 12px;
-  margin: 0;
-}
-
-.boss-fight-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-.boss-fight-foe-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.boss-fight-foe-name {
-  font-weight: 600;
-}
-.boss-bar {
-  display: grid;
-  grid-template-columns: 56px 1fr 72px;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
-}
-.boss-bar-label {
-  opacity: 0.8;
-}
-.boss-bar-num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
-}
-.boss-bar-track {
-  height: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.boss-bar-fill {
-  height: 100%;
-  transition: width 0.3s ease;
-}
-.boss-bar--hp .boss-bar-fill { background: #c34141; }
-.boss-bar--sanity .boss-bar-fill { background: #6c8cd5; }
-.boss-bar--spirit .boss-bar-fill { background: #a574d5; }
-.boss-bar--foe .boss-bar-fill { background: #d59a41; }
-
-.boss-fight-weapon {
-  font-size: 11px;
-  margin-top: 6px;
-}
-
-.boss-fight-log {
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-  padding: 10px 12px;
-  max-height: 240px;
-  overflow-y: auto;
-  font-size: 13px;
-  line-height: 1.5;
-}
-.boss-fight-line {
-  margin: 0 0 4px;
-}
-.boss-fight-line--player-crit {
-  color: #ffd17a;
-  font-weight: 600;
-}
-.boss-fight-line--player-hit { color: #d8e9c8; }
-.boss-fight-line--player-miss { opacity: 0.6; }
-.boss-fight-line--foe-hit { color: #f0b3b3; }
-.boss-fight-line--foe-miss { opacity: 0.6; }
-.boss-fight-line--defend { color: #b3d4f0; }
-.boss-fight-line--spell { color: #d0b3f0; }
-.boss-fight-line--item { color: #c8e6f0; }
-.boss-fight-line--victory {
-  color: #c5e88a;
-  font-weight: 600;
-  margin-top: 6px;
-}
-.boss-fight-line--defeat {
-  color: #f08080;
-  font-weight: 600;
-  margin-top: 6px;
-}
-.boss-fight-line--flee { color: #c8c5b6; }
-.boss-fight-line--opener {
-  font-style: italic;
-  opacity: 0.9;
-}
-
-.boss-fight-actions {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-}
-.boss-fight-end {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.2);
-}
-.boss-fight-end-label {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.boss-subpicker {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-.boss-subpicker-list {
-  list-style: none;
-  padding: 0;
-  margin: 8px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.boss-subpicker-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
 }

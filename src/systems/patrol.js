@@ -13,7 +13,7 @@
 
 import { getMob, getMobsForEra } from "../content/mobs.js";
 import { resolveFight, getEffectiveWeapon, getCombatSkillForWeapon } from "./combat.js";
-import { gainXp } from "./skills.js";
+import { gainXp, getSkillState } from "./skills.js";
 import { computeEra } from "./era.js";
 import { randInt } from "../util/rng.js";
 import { getBoss, getAllBosses, getBossesAvailable } from "../content/bosses.js";
@@ -98,17 +98,29 @@ function pickFromTable(table, rng = Math.random) {
 }
 
 // Roll a drop table — each entry { resource, qty:number|[min,max], chance }.
-// Returns { inventory, parts[] } where parts is a list of "+N name" strings
-// for the log.
-function rollDrops(drops, inventory, rng = Math.random) {
+// Butchering skill (#70) bumps chance + qty:
+//   chance bonus: +0.01 per level, cap +0.20
+//   qty bonus:    +0.05 per level, cap +1.0 (additive multiplier)
+function getButcheringBonuses(run) {
+  const { level } = getSkillState(run, "butchering");
+  return {
+    chanceBonus: Math.min(0.20, level * 0.01),
+    qtyMult: 1 + Math.min(1.0, level * 0.05),
+  };
+}
+
+function rollDrops(drops, inventory, run, rng = Math.random) {
   if (!Array.isArray(drops)) return { inventory, parts: [] };
+  const { chanceBonus, qtyMult } = getButcheringBonuses(run || {});
   const next = { ...inventory };
   const parts = [];
   for (const d of drops) {
-    if (rng() >= (d.chance ?? 1)) continue;
-    const qty = Array.isArray(d.qty)
+    const effChance = Math.min(1, (d.chance ?? 1) + chanceBonus);
+    if (rng() >= effChance) continue;
+    const baseQty = Array.isArray(d.qty)
       ? randInt(rng, d.qty[0], d.qty[1])
       : (d.qty || 1);
+    const qty = Math.max(1, Math.floor(baseQty * qtyMult));
     if (qty <= 0) continue;
     next[d.resource] = (next[d.resource] || 0) + qty;
     parts.push(`+${qty} ${d.resource}`);
@@ -127,7 +139,12 @@ const LOCKED_BOSS_HINTS = [
 
 // ─── Main entry ──────────────────────────────────────────────────────
 
-export function performPatrol(state, now = Date.now(), rng = Math.random) {
+export function performPatrol(state, opts = {}, now = Date.now(), rng = Math.random) {
+  // Backward-compat: caller passes (state, now, rng) without opts.
+  if (typeof opts === "number") { rng = now || Math.random; now = opts; opts = {}; }
+  const targetMobId = opts.mobId || null;
+  const targetBossId = opts.bossId || null;
+
   const check = canPatrol(state, now);
   if (!check.ok) {
     return {
@@ -137,8 +154,42 @@ export function performPatrol(state, now = Date.now(), rng = Math.random) {
     };
   }
 
-  const table = buildRollTable(state);
-  const pick = pickFromTable(table, rng);
+  // Targeted click from a PatrolView card. Skip the roll table entirely.
+  let pick;
+  if (targetMobId) {
+    const m = getMob(targetMobId);
+    if (!m) {
+      return {
+        run: state.run,
+        persistent: state.persistent,
+        events: [{ kind: "actionFail", message: "That foe is not here." }],
+      };
+    }
+    pick = { kind: "mob", id: targetMobId, weight: 1 };
+  } else if (targetBossId) {
+    const b = getBoss(targetBossId);
+    if (!b) {
+      return {
+        run: state.run,
+        persistent: state.persistent,
+        events: [{ kind: "actionFail", message: "Unknown challenge." }],
+      };
+    }
+    // Verify the boss is actually unlocked before letting them try it.
+    const unlockedIds = new Set(getBossesAvailable(state).map((x) => x.id));
+    if (!unlockedIds.has(targetBossId)) {
+      return {
+        run: state.run,
+        persistent: state.persistent,
+        events: [{ kind: "actionFail", message: "You are not ready." }],
+      };
+    }
+    pick = { kind: "boss", id: targetBossId, weight: 1 };
+  } else {
+    const table = buildRollTable(state);
+    pick = pickFromTable(table, rng);
+  }
+
   if (!pick) {
     return {
       run: { ...state.run, lastPatrolAt: now },
@@ -204,7 +255,11 @@ export function performPatrol(state, now = Date.now(), rng = Math.random) {
     run = { ...run, mobsDefeated };
 
     // Drops.
-    const dropResult = rollDrops(mob.drops, run.inventory || {}, rng);
+    const dropResult = rollDrops(mob.drops, run.inventory || {}, run, rng);
+    // Butchering XP — every kill teaches you to take more from the bone.
+    const butch = gainXp(run, "butchering", Math.max(1, Math.floor((mob.combat?.hp || 4) / 6)));
+    run = { ...run, skills: butch.skills };
+    events.push(...butch.events);
     run = { ...run, inventory: dropResult.inventory };
     if (dropResult.parts.length > 0) {
       events.push({
@@ -259,24 +314,16 @@ export function performPatrol(state, now = Date.now(), rng = Math.random) {
   return { run, persistent: result.persistent, events, outcome: result.outcome };
 }
 
-// Bosses for the current era that exist but the player hasn't unlocked yet.
-// Used by the hint-line trigger above.
 function getLockedBossesForEra(state) {
   const era = computeEra(state);
   const available = getBossesAvailable(state);
   const availableIds = new Set(available.map((b) => b.id));
-  return getAllBosses().filter(
-    (b) => b.era <= era && !availableIds.has(b.id)
-  );
+  return getAllBosses().filter((b) => b.era <= era && !availableIds.has(b.id));
 }
 
 export function getPatrolStatus(state, now = Date.now()) {
   const last = state.run.lastPatrolAt || 0;
   const cd = getPatrolCooldownMs(state);
   const remain = Math.max(0, cd - (now - last));
-  return {
-    cooldownMs: cd,
-    remainMs: remain,
-    ready: remain === 0,
-  };
+  return { cooldownMs: cd, remainMs: remain, ready: remain === 0 };
 }

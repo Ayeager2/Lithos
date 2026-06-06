@@ -36,6 +36,7 @@ import { performCastSpell } from "../systems/spells.js";
 import { performUseTool } from "../systems/consumables.js";
 import { performBuyEchoUpgrade, applyEchoUpgrades } from "../systems/echoes.js";
 import { performBossFightEnd } from "../systems/boss.js";
+import { setActiveLoop, clearActiveLoop, tickActiveLoop } from "../systems/loop.js";
 import {
   applyPassiveProduction,
   clearStalePests,
@@ -176,6 +177,22 @@ export function reducer(state, action) {
       return { persistent, run: appendLog(state.run, events) };
     }
 
+    case ACTIONS.SET_ACTIVE_LOOP: {
+      const { run, persistent, events } = setActiveLoop(state, action.kind, action.target);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.CLEAR_ACTIVE_LOOP: {
+      const { run, persistent, events } = clearActiveLoop(state);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.TICK_LOOP: {
+      const { run, persistent, events } = tickActiveLoop(state);
+      if (!events.length && run === state.run) return state;
+      return { persistent, run: appendLog(run, events) };
+    }
+
     case ACTIONS.BOSS_FIGHT_END: {
       // Boss fight ended — commit damage + rewards + first-defeat etching.
       // Player-initiated, so stamp lastActionAt (studies clock pauses).
@@ -212,7 +229,8 @@ export function reducer(state, action) {
     }
 
     case ACTIONS.PATROL: {
-      const { run, persistent, events } = performPatrol(state);
+      const target = action.target || {};
+      const { run, persistent, events } = performPatrol(state, target);
       return { persistent, run: appendLogAndStamp(run, events) };
     }
 

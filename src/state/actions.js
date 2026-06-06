@@ -44,5 +44,10 @@ export const ACTIONS = {
   // Boss fight commit (#40). Dispatched by BossFightModal at end of fight.
   BOSS_FIGHT_END: "BOSS_FIGHT_END",
 
+  // Auto-loop (#68) — set/clear the single active idle action.
+  SET_ACTIVE_LOOP: "SET_ACTIVE_LOOP",
+  CLEAR_ACTIVE_LOOP: "CLEAR_ACTIVE_LOOP",
+  TICK_LOOP: "TICK_LOOP",
+
   DEV_PATCH: "DEV_PATCH",
 };

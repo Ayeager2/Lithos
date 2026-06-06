@@ -26,13 +26,23 @@ export function useGameStore() {
     return () => clearInterval(id);
   }, []);
 
+  // Auto-loop ticker (#68) — runs at 250ms so loops feel responsive
+  // and the per-card progress bar updates smoothly. The reducer
+  // short-circuits TICK_LOOP when nothing is active, so it's cheap idle.
+  useEffect(() => {
+    const id = setInterval(() => {
+      dispatch({ type: ACTIONS.TICK_LOOP });
+    }, 250);
+    return () => clearInterval(id);
+  }, []);
+
   const actions = {
     gather: () => dispatch({ type: ACTIONS.GATHER }),
     build: (buildingId) => dispatch({ type: ACTIONS.BUILD, buildingId }),
     research: (researchId) => dispatch({ type: ACTIONS.RESEARCH, researchId }),
     craft: (toolId) => dispatch({ type: ACTIONS.CRAFT_TOOL, toolId }),
     hunt: () => dispatch({ type: ACTIONS.HUNT }),
-    patrol: () => dispatch({ type: ACTIONS.PATROL }),
+    patrol: (target) => dispatch({ type: ACTIONS.PATROL, target }),
     eat: (preferredFoodId) => dispatch({ type: ACTIONS.EAT, preferredFoodId }),
     drink: (waterType) => dispatch({ type: ACTIONS.DRINK, waterType }),
     boilWater: () => dispatch({ type: ACTIONS.BOIL_WATER }),
@@ -56,6 +66,9 @@ export function useGameStore() {
     clearLog: () => dispatch({ type: ACTIONS.CLEAR_LOG }),
     buyEchoUpgrade: (upgradeId) => dispatch({ type: ACTIONS.BUY_ECHO_UPGRADE, upgradeId }),
     endBossFight: (payload) => dispatch({ type: ACTIONS.BOSS_FIGHT_END, payload }),
+    setActiveLoop: (kind, target) => dispatch({ type: ACTIONS.SET_ACTIVE_LOOP, kind, target }),
+    clearActiveLoop: () => dispatch({ type: ACTIONS.CLEAR_ACTIVE_LOOP }),
+    tickLoop: () => dispatch({ type: ACTIONS.TICK_LOOP }),
     devPatch: (patch) => dispatch({ type: ACTIONS.DEV_PATCH, patch }),
   };
 

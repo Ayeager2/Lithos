@@ -173,6 +173,29 @@ export const SKILLS = {
       "The spell stops asking for permission. It finds the target the way water finds the low ground.",
   },
 
+  // ==================== Butchering (#70) ====================
+  // The skill of getting more out of every kill. Earns XP on each mob
+  // victory in patrol; level scales drop chance + quantity at fight-end.
+  //   Drop chance bonus: +1% per level (cap +0.20 at lvl 20)
+  //   Drop quantity bonus: +5% per level (cap +1.0 / doubled at lvl 20)
+  // Read by systems/patrol.js rollDrops at commit time.
+  butchering: {
+    id: "butchering",
+    name: "Butchering",
+    icon: "🔪",
+    description: "The cleaner the cut, the more comes off the bone.",
+    active: true,
+    category: "survival",
+    xpCurve: STANDARD_CURVE,
+    maxLevel: 20,
+    bonuses: [
+      { stat: "dropChanceBonus", perLevel: 0.01, max: 0.20 },
+      { stat: "dropQtyBonus",    perLevel: 0.05, max: 1.0 },
+    ],
+    firstUnlockMessage:
+      "Your hands learn where the meat hides. The kill gives more.",
+  },
+
   // ==================== Stubs (future eras) ====================
   // These exist in the data file so the schema is stable and Era 2+ wiring
   // is a one-line "set active: true and add an XP trigger" change.
@@ -221,9 +244,6 @@ export const SKILLS = {
     icon: "🐾",
     description:
       "Reading sign. Broken twig, pressed dust, the world's quiet memory.",
-    // Tracking is currently a research node, not an active skill. The skill
-    // slot stays here as a stub for the deeper tracking system that arrives
-    // alongside Era 2 wildlife and trapping.
     active: false,
     category: "survival",
     xpCurve: STANDARD_CURVE,

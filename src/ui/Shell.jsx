@@ -4,6 +4,7 @@ import Scene from "./Scene.jsx";
 import ActionPanel from "./ActionPanel.jsx";
 import CharacterView from "./CharacterView.jsx";
 import CraftingView from "./CraftingView.jsx";
+import PatrolView from "./PatrolView.jsx";
 import ArcaneView from "./ArcaneView.jsx";
 import StudiesView from "./StudiesView.jsx";
 import LeftColumn from "./LeftColumn.jsx";
@@ -31,6 +32,7 @@ import { computeEra, getEra } from "../systems/era.js";
 const VIEWS = [
   { id: "world", icon: "🌍", label: "World" },
   { id: "character", icon: "👤", label: "Character" },
+  { id: "patrol", icon: "🗡️", label: "Patrol" },
   { id: "crafting", icon: "🛠️", label: "Crafting" },
 ];
 
@@ -141,6 +143,7 @@ export default function Shell({ state, actions, settingsHook }) {
           {view === "world" && <ActionPanel state={state} />}
           {view === "character" && <CharacterView state={state} actions={actions} />}
           {view === "crafting" && <CraftingView state={state} />}
+          {view === "patrol" && <PatrolView state={state} actions={actions} />}
           {view === "arcane" && <ArcaneView state={state} actions={actions} />}
           {view === "studies" && (
             <StudiesView
