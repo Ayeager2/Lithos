@@ -69,6 +69,7 @@ export function useGameStore() {
     setActiveLoop: (kind, target) => dispatch({ type: ACTIONS.SET_ACTIVE_LOOP, kind, target }),
     clearActiveLoop: () => dispatch({ type: ACTIONS.CLEAR_ACTIVE_LOOP }),
     tickLoop: () => dispatch({ type: ACTIONS.TICK_LOOP }),
+    setCombatStyle: (style) => dispatch({ type: ACTIONS.SET_COMBAT_STYLE, style }),
     devPatch: (patch) => dispatch({ type: ACTIONS.DEV_PATCH, patch }),
   };
 

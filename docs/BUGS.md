@@ -10,6 +10,86 @@ Add new bugs at the top. When fixing, leave the entry with status `fixed` and a 
 
 ---
 
+## #018 — Path Trees modal tabs render as default white buttons
+
+**Status:** ✅ fixed (#105 — 2026-06)
+**Severity:** paper-cut
+
+**Repro:** Open Arcane → Studies. The path tab strip (✨ Light / 🌑 Bend / 🌿 Elemental / ✒️ Sigilcraft / 🔔 Memory / 👂 Stoneword / ⚫ Voidcall) showed as bright white browser-default buttons that clashed with the dark theme.
+
+**Fix:** Added `.study-tab-strip` + `.study-tab` CSS — pill-shaped buttons, transparent base, accent border + tinted background on `is-active`. Matches the existing `.magic-tab` pattern so Studies and Magic share one tab visual language.
+
+---
+
+## #017 — "era 1" reads flat on patrol/gather/prey cards
+
+**Status:** ✅ fixed (#105 — 2026-06)
+**Severity:** paper-cut
+
+**Repro:** Patrol mob cards, Gather node cards, and Hunting prey cards showed "· era 1" / "· era 2" etc. — numeric and dry, doesn't fit the prose-flavored game.
+
+**Fix:** Added a tiny `eraLabel(n)` helper in PatrolView + GatherView that maps `1` → `"One"`, `2` → `"Two"`, etc. Card sublines now render "Era One / Two / Three".
+
+---
+
+## #016 — Auto-gather loop banner shows raw camelCase id
+
+**Status:** ✅ fixed (#104 — 2026-06)
+**Severity:** paper-cut
+
+**Repro:** Engage a gather node (e.g. `dustPatch`) → top of the Gather page showed "▶ Auto-gathering dustPatch" — raw id, no icon. Banner also sat below the Pile of Goods, hiding the active target from immediate view.
+
+**Fix:** Banner now uses `getGatherNode(activeNodeId)` / `getPrey(activePreyId)` to look up the proper display name + icon + tier chip, with a built-in progress bar and Stop button. Position moved above the Pile of Goods so the player sees what's running before what's been gathered.
+
+---
+
+## #015 — Dev panel "Unlock all Era N" skips magic path-tree studies
+
+**Status:** ✅ fixed (BUG-05 — 2026-06)
+**Severity:** medium
+
+**Repro:** Open dev panel → Quick tab → "🚀 Unlock all Era 3". Resources/buildings/research are unlocked but the Arcane Studies path trees (Light / Bend / Elemental / Sigilcraft / Memory / Stoneword) have nothing completed. Player had to manually use the Arcane tab's "Complete ALL studies" button to round out the dev jump.
+
+**Fix:** `devUnlockAll` / `devUnlockAllEra2` / `devUnlockAllEra3` in `src/systems/dev.js` now also call era-filtered study completion so a dev jump leaves the player with all era-appropriate path-tree studies done.
+
+---
+
+## #014 — Magic page header + tabs cut off on tablet
+
+**Status:** ✅ fixed (BUG-04 → #94 → #101 → #106 — 2026-06)
+**Severity:** medium
+
+**Repro:** Galaxy Tab S9 portrait. Open Magic view. Header text and the Cast/Spellbook/Conversions tabs ran past the right edge. Spell rows' Cast buttons hung off the right.
+
+**Fix:** Magic page rebuilt twice — first merging Cast/Spellbook/Conversions into a single tabbed page (#101), then rewriting as `patrol-card` tiles ordered by Study path (#106). Tabs use the same horizontal-scroll `.magic-tabs` pattern (scroll-snap row, never overflows). Cast button is now inside the card's flex container, not absolute-positioned.
+
+---
+
+## #013 — Hunting prey cards unstyled + inconsistent size
+
+**Status:** ✅ fixed (BUG-03 → folded into #97 — 2026-06)
+**Severity:** medium
+
+**Repro:** Old standalone HuntingView's prey cards (Dust Rabbit, Wind Sparrow, etc.) lacked the polished card styling of Patrol mob cards — bare borders, no consistent height, no drop section.
+
+**Fix:** Hunting folded into the new GatherView (#97) as a Hunting tab. `PreyCard` uses the same `patrol-card` shell as the gather NodeCard — head/title/tier/drops/CTA — so all auto-loop pages now read the same.
+
+---
+
+## #012 — Tablet layout + right-edge overflow
+
+**Status:** ✅ fixed (BUG-01 + BUG-02 — 2026-06)
+**Severity:** bad
+
+**Repro:** Galaxy Tab S9 portrait (712-800px wide). Two related failures:
+
+1. **Shell-grid stacks the rail above content instead of beside it.** Below the 900px desktop breakpoint the grid collapsed to `1fr` single column.
+2. **Inner cards still bled past the viewport right edge.**
+
+**Fix:** Adopted Bootstrap-style **mobile-first cascade** (`@media (min-width: 576|768|992px)`) — base layout is single-column phone-friendly, the rail-beside-content grid kicks in at the right tablet breakpoint. Cards use `minmax(0, 1fr)` + `box-sizing: border-box` so they can't push past their parent. Per the user's instruction to "study how bootstrap handles the problems then write the logic out they use", strict min-width-only queries replaced all the old max-width rules.
+
+---
+
 ## #010 — Page elongates as sidebar content grows (height-locked desktop shell)
 
 **Status:** ✅ fixed (Part A) — 2026-05

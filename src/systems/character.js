@@ -83,12 +83,17 @@ export function computeStats(state) {
 // accBonus:     additive to weapon acc (e.g. 0.05 = +5%)
 // evasionBonus: additive to player evasion (e.g. 0.03 = +3%)
 // damageMult:   multiplicative on rolled damage (1.0 = no change)
-export function getStatCombatBonuses(state, weapon) {
+export function getStatCombatBonuses(state, weapon, styleOverride) {
   const s = computeStats(state);
   const type = weapon?.weaponStats?.type;
-  const isRanged = type === "ranged";
   const subfam = weapon?.subfamily;
-  const isMagic = subfam === "wand" || subfam === "censer" || subfam === "talisman";
+  // Combat style (#82) — explicit override wins; otherwise inferred from
+  // current run.combatStyle, with subfamily as the legacy fallback.
+  const style = styleOverride || state?.run?.combatStyle || "melee";
+  const isMagic =
+    style === "magic" ||
+    subfam === "wand" || subfam === "censer" || subfam === "talisman";
+  const isRanged = !isMagic && (style === "ranged" || type === "ranged");
 
   let damageBonus = 0;
   let damageMult = 1.0;

@@ -4,6 +4,8 @@ import { getResearch, getAllResearch } from "../content/research.js";
 import { totalWater, spendWater } from "../content/resources.js";
 import { decayForAction, survivalActive, boostStats } from "./survival.js";
 import { computeEra } from "./era.js";
+import { getSkillState } from "./skills.js";
+import { getSkill } from "../content/skills.js";
 
 export function canListen(state, researchId) {
   const r = getResearch(researchId);
@@ -27,6 +29,22 @@ export function canListen(state, researchId) {
       }
       if (r.requires.alignment.evil && (align.evil || 0) < r.requires.alignment.evil) {
         return { ok: false, reason: "The stone has not opened this teaching yet." };
+      }
+    }
+    // Skill-level requirement (#102). The rock can teach the recipe but
+    // your hands must already know the work — research locks until the
+    // matching skill hits the required level.
+    if (r.requires.skillReq) {
+      for (const [skillId, needed] of Object.entries(r.requires.skillReq)) {
+        const { level } = getSkillState(state.run, skillId);
+        if (level < needed) {
+          const skillDef = getSkill(skillId);
+          const skillName = skillDef?.name || skillId;
+          return {
+            ok: false,
+            reason: `Need ${skillName} Lv ${needed} (you're Lv ${level}).`,
+          };
+        }
       }
     }
   }

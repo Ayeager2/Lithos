@@ -2,9 +2,18 @@
 // Style mirrors the Tools modal but flatter — spells are quick-cast,
 // not crafted, so the detail pane is replaced with an inline Cast button
 // inside each row.
+//
+// ArcaneView (#65 + #75) uses this file's `SpellsBody` export to render
+// the magic-casting page in the center column. SpellsBody adds a
+// "Spirit conversions" section above the spell list — Ritual (fragments
+// → Spirit) lives here, with room for future conversion-style actions
+// (fragment grinder, sanity well, etc.). Ritual no longer lives in the
+// bottom ActionStrip.
 
 import { useEffect, useState } from "react";
 import { getKnownSpells, canCastSpell } from "../systems/spells.js";
+import { canPerformSurvivalAction } from "../systems/survival.js";
+import { SURVIVAL } from "../content/survival.js";
 
 function fmtSec(sec) {
   if (sec <= 0) return "ready";
@@ -65,15 +74,73 @@ function SpellsContent({ state, actions }) {
   );
 }
 
+// Spirit conversions (#75) — Ritual now lives here. Future conversion-
+// style actions land in this section too. Hidden until the player has
+// researched arcaneAwakening (the gate for the Ritual itself).
+function SpiritConversions({ state, actions }) {
+  const ritualKnown = !!state.run.researched?.arcaneAwakening;
+  if (!ritualKnown) return null;
+
+  const ritualCheck = canPerformSurvivalAction(state, "ritual");
+  const ritualDef = SURVIVAL?.actions?.ritual || {};
+  const costParts = [];
+  if (ritualDef.cost?.fragments) costParts.push(`${ritualDef.cost.fragments} ✨ fragments`);
+  if (ritualDef.cost?.water) costParts.push(`${ritualDef.cost.water} 💧 water`);
+  const effParts = [];
+  if (ritualDef.effect?.spirit) effParts.push(`+${ritualDef.effect.spirit} spirit`);
+  if (ritualDef.effect?.sanity) effParts.push(`+${ritualDef.effect.sanity} sanity`);
+
+  return (
+    <div className="arcane-conversions">
+      <h3 className="arcane-section-title">Spirit conversions</h3>
+      <p className="muted arcane-section-lead">
+        Turn what you have into what you need.
+      </p>
+      <ul className="conversion-list">
+        <li className={`conversion-row ${ritualCheck.ok ? "is-ready" : "is-blocked"}`}>
+          <div className="conversion-row-head">
+            <span className="conversion-row-icon" aria-hidden="true">🕯️</span>
+            <span className="conversion-row-name">Ritual</span>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={actions.ritual}
+              disabled={!ritualCheck.ok}
+              title={ritualCheck.ok ? "Perform the Ritual" : ritualCheck.reason}
+            >
+              Perform
+            </button>
+          </div>
+          <p className="conversion-row-desc muted">
+            Sit with the shards. The fragments pour into Spirit, the way water finds a riverbed.
+          </p>
+          <p className="conversion-row-cost muted">
+            Cost: {costParts.join(" · ")} · Gain: {effParts.join(" · ")}
+          </p>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 // Reusable inline body — used by ArcaneView in the center column.
 export function SpellsBody({ state, actions }) {
   return (
     <section className="action-panel action-panel--arcane">
       <div className="panel-header">
-        <h2>Spells</h2>
-        <p className="muted">Cast costs Fragments and Spirit.</p>
+        <h2>Arcane</h2>
+        <p className="muted">
+          Cast what the Stone taught you. Convert fragments to Spirit when the well runs low.
+        </p>
       </div>
-      <SpellsContent state={state} actions={actions} />
+
+      <SpiritConversions state={state} actions={actions} />
+
+      <div className="arcane-spells-section">
+        <h3 className="arcane-section-title">Spells</h3>
+        <p className="muted arcane-section-lead">Cast costs Fragments and Spirit.</p>
+        <SpellsContent state={state} actions={actions} />
+      </div>
     </section>
   );
 }

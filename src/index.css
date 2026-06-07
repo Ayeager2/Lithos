@@ -90,6 +90,32 @@ html, body, #root {
   line-height: 1.5;
 }
 
+/* Universal border-box so padding never pushes content past container
+   width — fixes mobile overflow on cards, panels, rails. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Belt-and-suspenders: nothing should extend past the viewport. */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Images, SVGs, canvas, video should never overflow their container. */
+img, svg, canvas, video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Pre/code blocks can have long lines — wrap them on small screens
+   rather than forcing horizontal scroll. */
+pre, code {
+  max-width: 100%;
+  overflow-x: auto;
+  word-wrap: break-word;
+}
+
 h1, h2, h3 {
   font-family: var(--font-display);
   letter-spacing: 0.04em;
@@ -101,18 +127,123 @@ button {
 }
 
 /* ---- shell ---- */
-
+/* Base shell is full-width; max-width + larger padding ladder up via
+   the mobile-first cascade in the responsive section further down. */
 .shell {
-  max-width: 720px;
   margin: 0 auto;
-  padding: 24px 20px 80px;
 }
 
-@media (min-width: 900px) {
+/* (Old 900px max-width rule removed; the mobile-first cascade below
+   handles shell sizing across all breakpoints.) */
+
+/* ─── Mobile-first content rules (#85-91). XS base (phone portrait)
+   gets the tightest layout; larger breakpoints layer back on top. ─── */
+
+/* Phone XS base — shell takes full width, tight padding, all multi-col
+   grids collapse to a single column. */
+.shell {
+  width: 100%;
+  max-width: 100%;
+  padding: 12px 8px 80px;
+}
+/* .action-panel padding ladder lives with the action-panel section
+   below — single mobile-first cascade, no duplicate rule. */
+.wasteland-actions .btn-action {
+  min-width: 0;
+  flex: 1 1 calc(50% - 4px);
+}
+.patrol-card-grid,
+.spellbook-grid,
+.char-grid,
+.char-grid--two {
+  /* Bootstrap pattern: 1 column on phone; min-width:0 on the cell
+     prevents intrinsic content from forcing the grid wider. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+}
+.patrol-card-grid > *,
+.spellbook-grid > *,
+.char-grid > *,
+.char-grid--two > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.char-col {
+  padding: 10px 12px;
+}
+.char-stat-row {
+  font-size: 12px;
+  grid-template-columns: 20px 1fr auto;
+  gap: 6px;
+  min-width: 0;
+}
+.char-stat-label,
+.char-stat-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.char-slots,
+.char-slots--accessories {
+  grid-template-columns: repeat(2, 1fr);
+}
+.magic-tabs {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+/* sm — small tablet portrait / phone landscape. Restore desktop
+   shell widths; card grids can start using multi-column auto-fill. */
+@media (min-width: 576px) {
+  .shell {
+    max-width: 720px;
+    padding: 16px 14px 80px;
+  }
+  .action-panel {
+    padding: 18px 18px;
+  }
+  .patrol-card-grid,
+  .spellbook-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  .char-slots,
+  .char-slots--accessories {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* md — tablet / small laptop. Wider cards, character grid splits to 2-up. */
+@media (min-width: 768px) {
+  .char-grid,
+  .char-grid--two {
+    grid-template-columns: 1fr 1fr;
+  }
+  .char-slots,
+  .char-slots--accessories {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* lg — laptop / desktop. Full shell width, larger cards. */
+@media (min-width: 992px) {
   .shell {
     max-width: 1100px;
   }
+  .action-panel {
+    padding: 20px 22px;
+  }
+  .patrol-card-grid,
+  .spellbook-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
 }
+
+/* (Older mid-range max-width blocks removed in the Bootstrap-pattern
+   rewrite — see the mobile-first cascade above using min-width only.) */
 
 .shell-header {
   display: flex;
@@ -320,22 +451,32 @@ button {
   opacity: 0.7;
 }
 
-/* Skills section — Survival + Combat sub-columns mirroring the stat grid. */
+/* Skills section (#107) — mobile-first. xs stacks columns; sm+ goes to
+   two columns (Survival / Combat). Secondary grid uses --cols so Craft
+   / Industry / Arcane sit side-by-side once they exist. */
 .char-skills-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
   margin-top: 4px;
 }
 .char-skills-grid--secondary {
-  grid-template-columns: 1fr;
   margin-top: 12px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 576px) {
+  .char-skills-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .char-skills-grid--secondary {
+    grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  }
 }
 .char-skill-col {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 .char-skill-col-title {
   font-size: 12px;
@@ -349,21 +490,23 @@ button {
   font-style: italic;
   padding: 8px 0;
 }
-/* Tighter skill rows inside the character page — the inline grid is more
-   compact than the standalone Skills tab was. */
+/* Skill rows inside the character page — keep horizontal padding so the
+   bar + text don't kiss the column edge (#103/#107). */
 .char-skill-col .skills-list {
   margin: 0;
   padding: 0;
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .char-skill-col .skill-row {
-  padding: 6px 0;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 6px;
 }
-
-@media (max-width: 759px) {
-  .char-skills-grid {
-    grid-template-columns: 1fr;
-  }
+.char-skill-col .skill-row + .skill-row {
+  margin-top: 0;
 }
 
 .char-equipment {
@@ -522,13 +665,16 @@ button {
 .ei-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
+  /* #103 polish — more breathing room, tighter typography, no edge-kiss. */
+  gap: 8px;
+  padding: 14px 16px;
   background: rgba(0, 0, 0, 0.18);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
+  min-width: 0;
 }
+.ei-card * { min-width: 0; }
 .ei-card--hidden {
   opacity: 0.5;
   font-style: italic;
@@ -556,16 +702,33 @@ button {
 .ei-card-qty.qty--warn { color: var(--warn); }
 .ei-card-qty.qty--full { color: var(--bad); }
 
+/* Weapon stat chips (#103) — replaces the smooshed
+   "dmg 2-5 · acc 85% · crit 10%" inline string. Each stat gets its own
+   rounded chip with icon prefix; wraps cleanly on narrow cards. */
 .ei-card-stats {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin: 2px 0;
+}
+.ei-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text);
 }
 .ei-card-desc {
-  font-size: 11px;
-  line-height: 1.4;
-  opacity: 0.8;
+  font-size: 12px;
+  line-height: 1.45;
+  opacity: 0.85;
+  padding: 2px 0;
 }
 .ei-card-dur {
   height: 4px;
@@ -652,7 +815,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px 14px;
+  /* #103 breathing room — text + drops shouldn't touch the card edge. */
+  padding: 14px 16px;
   text-align: left;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
@@ -662,6 +826,18 @@ button {
   color: var(--text);
   font: inherit;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  /* Bootstrap card pattern — never overflow parent. */
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.patrol-card * { min-width: 0; }
+.patrol-card-desc,
+.patrol-card-name {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .patrol-card:hover:not(.is-disabled):not(.is-locked) {
   background: rgba(255, 255, 255, 0.07);
@@ -991,29 +1167,58 @@ button {
 
 /* ---- responsive grid ---- */
 
+/* ─── Shell layout — strict mobile-first / min-width-only (Bootstrap
+   pattern). Base styles assume phone portrait (≤575px). Each breakpoint
+   above layers on top with min-width queries; no max-width queries in
+   this cascade. Bootstrap-style breakpoints:
+     sm  ≥ 576px  — phone landscape / small tablet portrait
+     md  ≥ 768px  — tablet portrait / small laptop
+     lg  ≥ 992px  — laptop / desktop
+     xl  ≥ 1200px — wide desktop
+   ─── */
 .shell-grid {
+  /* xs (phone): rail on top as a horizontal strip, content below,
+     right column hidden by default — fits 360px viewports. */
   display: grid;
   grid-template-columns: 1fr;
   grid-template-areas:
-    "center"
     "left"
+    "center"
     "right";
-  gap: 16px;
+  gap: 10px;
   margin-bottom: 16px;
 }
 
-@media (min-width: 900px) {
+/* sm — small tablet portrait. Rail becomes vertical on the left
+   beside the content. Right column stays collapsed unless opened. */
+@media (min-width: 576px) {
   .shell-grid {
-    /* Left column is just the 40px rail. Right column collapses when
-       the right panel is closed. Center takes whatever remains. */
-    grid-template-columns: 40px minmax(0, 1fr) 280px;
-    grid-template-areas: "left center right";
-    gap: 20px;
+    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-areas: "left center";
+    gap: 12px;
     align-items: start;
-    position: relative; /* anchor for right-side overlay */
+    position: relative; /* anchor for the right overlay panel */
   }
-  .shell-grid.right-collapsed {
-    grid-template-columns: 40px minmax(0, 1fr) 0;
+  .shell-grid:not(.right-collapsed) {
+    grid-template-columns: 40px minmax(0, 1fr) 220px;
+    grid-template-areas: "left center right";
+  }
+}
+
+/* md — full tablet / small laptop. Right panel a touch larger. */
+@media (min-width: 768px) {
+  .shell-grid:not(.right-collapsed) {
+    grid-template-columns: 40px minmax(0, 1fr) 260px;
+  }
+}
+
+/* lg — laptop / desktop. Wider gutters, full-size right panel. */
+@media (min-width: 992px) {
+  .shell-grid {
+    gap: 20px;
+  }
+  .shell-grid:not(.right-collapsed) {
+    grid-template-columns: 40px minmax(0, 1fr) 280px;
   }
 }
 
@@ -1022,14 +1227,15 @@ button {
    tab), it renders as an absolute-positioned floating panel over the
    center column so the center keeps its widened layout. */
 
-/* In overlay mode the entire shell-area--left (rail + lc-content) floats
-   over the center column starting at the grid's left edge. */
+/* Left-side overlay — floating on every viewport.
+   xs (phone): fixed to viewport edge, capped width.
+   sm+: absolute inside the shell-grid (relative anchor). */
 .shell-area--left.mode-overlay {
-  position: absolute;
-  top: 0;
+  position: fixed;
+  top: 56px;
   left: 0;
-  width: 280px;
-  max-height: 100%;
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 72px);
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -1037,16 +1243,45 @@ button {
   z-index: 30;
   overflow: hidden;
 }
+@media (min-width: 576px) {
+  .shell-area--left.mode-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 280px;
+    max-width: calc(100% - 56px);
+    max-height: 100%;
+  }
+}
 .shell-area--left.mode-overlay .lc-content {
   max-height: 100%;
 }
+/* Overlay panels — floating on every viewport.
+   The panel pulls itself out of grid flow and anchors to the viewport
+   so it always covers the center content. Mobile-first sizing:
+   xs (phone): fixed to viewport edges, wide but capped so the user can
+     still see the edge of the page behind it.
+   sm+ (tablet/desktop): fixed width tied to the shell, anchored top-right. */
 .shell-area--right.mode-overlay {
-  position: absolute;
-  top: 0;
+  position: fixed;
+  top: 56px; /* sits below the header */
   right: 0;
-  width: 280px;
-  max-height: 100%;
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 72px);
   z-index: 30;
+}
+@media (min-width: 576px) {
+  .shell-area--right.mode-overlay {
+    /* On tablet+ anchor inside the shell-grid (which is position:relative
+       starting at sm). Switching from `fixed` → `absolute` so it stays
+       inside the centered shell instead of viewport edge. */
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 280px;
+    max-width: calc(100% - 56px);
+    max-height: 100%;
+  }
 }
 .right-col--overlay {
   background: var(--bg-elev);
@@ -1132,22 +1367,19 @@ button {
   margin-bottom: 6px;
 }
 
-/* Mobile (≤900px): keep everything in normal flow; panels just hide when
-   closed (no overlay needed since the layout is already a single column). */
-@media (max-width: 899px) {
-  .shell-grid.left-collapsed .shell-area--left .lc-content { display: none; }
-  .shell-grid.right-collapsed .shell-area--right { display: none; }
-  .shell-area--left.mode-overlay .lc-content--overlay,
-  .shell-area--right.mode-overlay {
-    position: static;
-    width: 100%;
-  }
-  .panel-edge-tab--left { left: 0; }
-}
+/* (Older max-width rules removed.)
+   Right panel visibility now follows the React `rightMode` state directly:
+   - mode-grid    → render in grid (default desktop, hidden on phones via
+                    the .shell-grid:not(.right-collapsed) rules above).
+   - mode-closed  → React renders an empty aside; nothing inside to show.
+   - mode-overlay → aside floats above content (desktop) or appears in
+                    flow at the bottom of the stack (phone).
+   The old display:none-on-right-collapsed rule wrongly fired even when
+   the panel was in overlay mode, making it invisible. Removed. */
 
-.shell-area--left   { grid-area: left; }
-.shell-area--center { grid-area: center; }
-.shell-area--right  { grid-area: right; }
+.shell-area--left   { grid-area: left; min-width: 0; }
+.shell-area--center { grid-area: center; min-width: 0; max-width: 100%; overflow-x: hidden; }
+.shell-area--right  { grid-area: right; min-width: 0; }
 
 .shell-footer {
   margin-top: 24px;
@@ -1222,14 +1454,29 @@ button {
   cursor: pointer;
 }
 
-/* ---- action panel (center) ---- */
+/* ---- action panel (center) ---- mobile-first padding ladder.
+   xs base = 14px 10px so it fits 360px phones; sm/md/lg widen out. */
 
 .action-panel {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 20px 22px;
+  /* #103 breathing room — never let text kiss the border on phone. */
+  padding: 16px 14px;
   text-align: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+@media (min-width: 576px) {
+  .action-panel {
+    padding: 18px 18px;
+  }
+}
+@media (min-width: 992px) {
+  .action-panel {
+    padding: 22px 24px;
+  }
 }
 
 .action-panel .panel-header {
@@ -3537,111 +3784,6 @@ ar-fill {
   text-shadow: 0 0 4px rgba(178, 158, 197, 0.5);
 }
 
-/* ---- skills panel (right column tab) ---- */
-
-.skills-panel {
-  padding: 4px 2px;
-}
-
-.skills-intro {
-  font-size: 12px;
-  margin-bottom: 12px;
-  font-style: italic;
-  line-height: 1.4;
-}
-
-.skills-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.skill-row {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-}
-
-.skill-row--dim {
-  opacity: 0.55;
-}
-
-.skill-row--max {
-  border-color: var(--accent-dim);
-}
-
-.skill-row-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.skill-icon {
-  font-size: 16px;
-}
-
-.skill-name {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.skill-level {
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.skill-row--max .skill-level {
-  color: var(--awaken);
-}
-
-.skill-bar {
-  background: var(--bg-elev);
-  border-radius: 3px;
-  height: 6px;
-  overflow: hidden;
-  position: relative;
-}
-
-.skill-bar-fill {
-  height: 100%;
-  background: linear-gradient(to right, var(--accent-dim), var(--accent));
-  transition: width 0.3s ease-out;
-}
-
-.skill-row--dim .skill-bar-fill {
-  background: var(--text-faint);
-}
-
-.skill-row--max .skill-bar-fill {
-  background: linear-gradient(to right, var(--accent), var(--awaken));
-  width: 100% !important;
-}
-
-.skill-row-meta {
-  font-size: 10px;
-  margin-top: 4px;
-  font-variant-numeric: tabular-nums;
-}
-
-body.motion-reduced .skill-bar-fill {
-  transition: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body:not(.motion-full) .skill-bar-fill {
-    transition: none;
-  }
-}
-
 /* ---- tools modal (Crafts list) ---- */
 
 .modal--tools {
@@ -4601,7 +4743,14 @@ body.motion-reduced .tool-durability-fill {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  /* Allow long descriptions / names to wrap instead of pushing the
+     Cast button past the right edge on narrow viewports. */
+  overflow-wrap: break-word;
 }
+.spell-row * { min-width: 0; }
 
 .spell-row.is-blocked {
   opacity: 0.7;
@@ -4611,15 +4760,24 @@ body.motion-reduced .tool-durability-fill {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .spell-row-icon {
   font-size: 20px;
+  flex-shrink: 0;
 }
 
 .spell-row-name {
   font-weight: 600;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.spell-row-head .btn-sm {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .btn-sm {
@@ -4637,6 +4795,454 @@ body.motion-reduced .tool-durability-fill {
 .spell-row-cost {
   margin: 0;
   font-size: 12px;
+}
+
+/* ---- Mini music player (#88, #89) — inline widget. Lives in Settings
+   by default; optionally also in the shell header via a per-user toggle.
+   Variants: .music-player--settings, .music-player--header. ---- */
+.music-player {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  font-size: 12px;
+  max-width: 100%;
+}
+.music-player--header {
+  padding: 2px 10px 2px 2px;
+  font-size: 11px;
+  border-radius: 18px;
+}
+.music-player--header .music-player-btn {
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+}
+.music-player--header .music-player-label {
+  max-width: 140px;
+}
+.music-player-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+.music-player-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.06);
+  color: var(--text);
+  border-color: var(--accent-dim, #b08850);
+}
+.music-player-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.music-player-btn--play {
+  background: var(--accent-dim, #b08850);
+  color: #1a1410;
+  border-color: var(--accent, #d4a866);
+}
+.music-player-btn--play:hover:not(:disabled) {
+  background: var(--accent, #d4a866);
+  color: #1a1410;
+}
+.music-player-label {
+  padding: 0 8px 0 4px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* Mobile shrink for header variant — keep the controls usable when the
+   header has limited room next to era + Echoes. */
+@media (max-width: 720px) {
+  .music-player--header .music-player-label {
+    max-width: 80px;
+  }
+  .music-player--header .music-player-btn {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* ---- Music mute list (#87) ---- */
+.music-mute-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.music-mute-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.music-mute-row:hover {
+  background: rgba(255,255,255,0.04);
+}
+.music-mute-row.is-muted .music-mute-name {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* ---- Gather view (#97) — reuses .magic-tabs / .patrol-card. ---- */
+.gather-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-style: italic;
+}
+.gather-tab-lead {
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+/* Loop banner (#104) — sits above Pile of Goods. Compact patrol-card
+   aesthetic with icon, name, accent-left border, and a slim progress
+   bar along the bottom edge. */
+.gather-loop-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin: 0 0 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent, #d4a866);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 0;
+}
+.gather-loop-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  width: 36px;
+  text-align: center;
+}
+.gather-loop-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.gather-loop-verb {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+.gather-loop-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gather-loop-stop {
+  flex-shrink: 0;
+}
+.gather-loop-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  background: var(--accent, #d4a866);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 0.1s linear;
+  pointer-events: none;
+}
+
+/* ---- Combat style picker (#82) ---- */
+.combat-style-picker {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 4px;
+  flex-wrap: wrap;
+}
+.combat-style-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+}
+.combat-style-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.06);
+}
+.combat-style-btn.is-active {
+  background: var(--accent-dim, #b08850);
+  color: #1a1410;
+  border-color: var(--accent, #d4a866);
+  font-weight: 600;
+}
+.combat-style-btn.is-unavailable {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Magic page rows (#101) — compact list grouped by category.
+   Replaces the bloated Cast/Spellbook tabs. Mobile-first. ---- */
+.magic-section {
+  margin-top: 14px;
+}
+.magic-section-title {
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.magic-section-count {
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: normal;
+}
+.magic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.magic-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* #103 breathing room — was 8px 10px, felt smooshed against rounded
+     border. Bumped to 12px 14px for comfortable read room on phone. */
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.02);
+  min-width: 0;
+}
+.magic-row.is-locked {
+  opacity: 0.5;
+}
+.magic-row-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+.magic-row-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.magic-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.magic-row-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.magic-row-cost {
+  font-size: 11px;
+}
+.magic-row-desc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.magic-row-cast {
+  flex-shrink: 0;
+  align-self: center;
+  min-width: 56px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* ---- Magic view tabs (#84) — scroll-snap row that never overflows
+   the page. xs base: tight padding, horizontal scroll if needed. ---- */
+.magic-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
+  max-width: 100%;
+}
+.magic-tabs::-webkit-scrollbar { height: 3px; }
+.magic-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.magic-tab {
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 0.12s, border-color 0.12s;
+}
+@media (min-width: 576px) {
+  .magic-tab {
+    padding: 8px 14px;
+  }
+}
+.magic-tab:hover {
+  color: var(--text);
+}
+.magic-tab.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.magic-tab-body {
+  min-height: 200px;
+}
+.magic-empty {
+  padding: 24px 12px;
+  text-align: center;
+}
+.spellbook-summary {
+  font-size: 12px;
+  margin: 0 0 8px;
+}
+
+/* ---- Spellbook view (#81) ---- */
+.spellbook-section {
+  margin-top: 16px;
+}
+.spellbook-section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.spellbook-section-count {
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.spellbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.spellbook-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.spellbook-card.is-locked {
+  opacity: 0.55;
+}
+.spellbook-card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.spellbook-card-icon { font-size: 18px; }
+.spellbook-card-name { font-weight: 600; }
+.spellbook-card-desc { font-size: 12px; line-height: 1.35; margin: 0; }
+.spellbook-card-cost { font-size: 11px; margin: 0; }
+.spellbook-cast-btn { align-self: flex-start; }
+.spellbook-empty-hint { margin-top: 12px; font-size: 13px; }
+
+/* ---- Wasteland actions (#77) — primary buttons inside ActionPanel ---- */
+.wasteland-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.wasteland-action-slot {
+  display: flex;
+}
+
+/* ---- ArcaneView (#75) sections ---- */
+.arcane-section-title {
+  margin: 24px 0 4px;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted, #9aa0a6);
+}
+.arcane-section-lead {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.arcane-conversions {
+  margin-bottom: 12px;
+}
+.conversion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.conversion-row {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.conversion-row.is-blocked {
+  opacity: 0.7;
+}
+.conversion-row-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conversion-row-icon {
+  font-size: 20px;
+}
+.conversion-row-name {
+  font-weight: 600;
+  flex: 1;
+}
+.conversion-row-desc {
+  margin: 6px 0 2px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.conversion-row-cost {
+  margin: 0;
+  font-size: 12px;
+}
+.arcane-spells-section .arcane-section-title:first-child {
+  margin-top: 12px;
 }
 
 /* ---- Era 3: Alchemy / consumables in Tools modal ---- */
@@ -4851,17 +5457,37 @@ body.motion-reduced .tool-durability-fill {
 /* Rail: fixed-width icon column. Hovering a button "pops out" its label
    as an overlay to the right (absolute-positioned) — no reflow, content
    pane keeps its width. Pattern borrowed from Discord's server bar. */
+/* Rail — strict mobile-first. xs (phone) renders as a horizontal
+   scrollable strip at the top of the shell. sm+ (≥576px) the rail
+   flips to a vertical 40px sidebar with pop-out labels. */
 .lc-rail {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 40px;
+  /* xs base: horizontal strip */
+  flex-direction: row;
+  width: 100%;
   flex-shrink: 0;
-  padding: 4px 0 4px 0;
+  padding: 4px;
+  gap: 4px;
   background: var(--bg);
-  border-right: 1px solid var(--border);
+  border-right: none;
+  border-bottom: 1px solid var(--border);
   position: relative;
   z-index: 1;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.lc-rail::-webkit-scrollbar { height: 4px; }
+.lc-rail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+@media (min-width: 576px) {
+  .lc-rail {
+    flex-direction: column;
+    width: 40px;
+    padding: 4px 0;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    overflow-x: visible;
+  }
 }
 
 .lc-rail-btn {
@@ -4871,14 +5497,26 @@ body.motion-reduced .tool-durability-fill {
   background: transparent;
   color: var(--text-muted);
   border: none;
-  border-left: 2px solid transparent;
-  padding: 8px 4px;
+  /* xs base: phone strip — underline-active style */
+  border-bottom: 2px solid transparent;
+  padding: 6px 10px;
+  gap: 6px;
   cursor: pointer;
   font: inherit;
   text-align: left;
   white-space: nowrap;
-  border-radius: 0;
+  border-radius: 6px;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+@media (min-width: 576px) {
+  .lc-rail-btn {
+    /* Vertical rail — left-edge active marker */
+    border-bottom: none;
+    border-left: 2px solid transparent;
+    padding: 8px 4px;
+    border-radius: 0;
+  }
 }
 
 .lc-rail-btn:hover {
@@ -4889,7 +5527,14 @@ body.motion-reduced .tool-durability-fill {
 .lc-rail-btn.is-active {
   background: var(--bg-elev);
   color: var(--accent);
-  border-left-color: var(--accent);
+  /* xs phone: underline active */
+  border-bottom-color: var(--accent);
+}
+@media (min-width: 576px) {
+  .lc-rail-btn.is-active {
+    border-left-color: var(--accent);
+    border-bottom-color: transparent;
+  }
 }
 
 .lc-rail-icon {
@@ -4901,35 +5546,48 @@ body.motion-reduced .tool-durability-fill {
   flex-shrink: 0;
 }
 
-/* Pop-out label: absolutely positioned just to the right of the icon.
-   Hidden by default, fades + slides in when the button is hovered or
-   focused. Doesn't displace the content pane. */
+/* Rail label — xs base: inline visible next to icon (phone strip).
+   sm+: pop-out absolute label that fades in on hover/focus over the
+   vertical rail. */
 .lc-rail-label {
-  position: absolute;
-  left: calc(100% - 2px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-6px);
-  background: var(--bg-elev2);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-left-color: var(--accent-dim);
-  padding: 6px 12px;
-  border-radius: 0 6px 6px 0;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  position: static;
+  opacity: 1;
+  pointer-events: auto;
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
+  font-size: 13px;
+  color: inherit;
   white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.35);
-  transition: opacity 0.16s ease, transform 0.16s ease;
-  z-index: 5;
 }
 
-.lc-rail-btn:hover .lc-rail-label,
-.lc-rail-btn:focus-visible .lc-rail-label {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
+@media (min-width: 576px) {
+  .lc-rail-label {
+    position: absolute;
+    left: calc(100% - 2px);
+    top: 50%;
+    transform: translateY(-50%) translateX(-6px);
+    background: var(--bg-elev2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-left-color: var(--accent-dim);
+    padding: 6px 12px;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.35);
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    z-index: 5;
+  }
+  .lc-rail-btn:hover .lc-rail-label,
+  .lc-rail-btn:focus-visible .lc-rail-label {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
 }
 
 /* Content pane: holds the active tab's body */
@@ -5017,477 +5675,167 @@ body.motion-reduced .tool-durability-fill {
   margin: 10px 0 0;
 }
 
-/* ---- Notification badges (BUGS.md #007) ----
-   Small red circle with a count, used on:
-     - Left-column rail icons (.lc-rail-badge)
-     - Trigger-card open button (.lc-trigger-badge)
-     - Stone strip icon (.stone-icon-badge)
-   Same visual language across the three so the player learns "red dot =
-   actionable" once and reads it everywhere. */
-
-.lc-rail-badge,
-.lc-trigger-badge,
-.stone-icon-badge {
-  background: #c8443c;
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: 0;
-  text-shadow: none;
-  box-shadow: 0 0 0 2px var(--bg, #1b1b1b),
-              0 0 6px rgba(200, 68, 60, 0.55);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-}
-
-/* Rail icon badge sits at the top-right of the 30px icon box. */
-.lc-rail-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  /* On desktop the rail is narrow — pull the badge a bit so it doesn't
-     run off the right side. */
-  transform: translate(40%, -40%);
-}
-
-@media (max-width: 900px) {
-  /* Mobile rail tabs flow horizontally — keep the badge anchored to the
-     icon rather than the right edge of the button (which would float far
-     away when the label is inline). */
-  .lc-rail-badge {
-    position: absolute;
-    top: 4px;
-    right: auto;
-    left: 22px;
-    transform: none;
-  }
-}
-
-/* Inline badge on the trigger card's "Open …" button. Sits to the right
-   of the label with a small gap. */
-.lc-trigger-badge {
-  margin-left: 8px;
-  vertical-align: middle;
-}
-
-/* Stone strip icon badge — anchor to top-right of the icon span. */
-.stone-icon {
-  position: relative;
-}
-
-.stone-icon-badge {
-  position: absolute;
-  top: -4px;
-  right: -10px;
-  /* The stone strip's background can be either dormant-grey or awakened-
-     purple — the badge ring uses bg-elev so it stays visible on either. */
-  box-shadow: 0 0 0 2px var(--bg-elev, #232323),
-              0 0 6px rgba(200, 68, 60, 0.55);
-}
-
-/* ---- Stone strip active-study indicator (Task #30) ----
-   Subtle thin progress bar at the bottom of the stone-info section when
-   the player has an active arcane study. Lets them feel the clock tick
-   even when they're not on the Studies tab. */
-.stone-study-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  font-size: 11px;
-}
-
-.stone-study-bar-icon {
-  flex-shrink: 0;
-  font-size: 12px;
-  line-height: 1;
-  opacity: 0.85;
-}
-
-.stone-study-bar-track {
-  flex: 1;
-  height: 4px;
-  background: var(--bg-elev, #232323);
-  border-radius: 2px;
-  overflow: hidden;
-  border: 1px solid var(--border, #3a3a3a);
-}
-
-.stone-study-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #d4a45c, #d4894c);
-  transition: width 0.25s ease-out;
-  border-radius: 1px;
-}
-
-.stone-study-bar.is-paused .stone-study-bar-fill {
-  background: var(--text-muted, #6a5a4a);
-  opacity: 0.6;
-}
-
-.stone-study-bar.is-paused .stone-study-bar-icon {
-  opacity: 0.5;
-  animation: stone-study-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes stone-study-pulse {
-  0%, 100% { opacity: 0.4; }
-  50%      { opacity: 0.8; }
-}
-
-/* ---- Studies panel (left rail tab content — Task #30) ---- */
-
-.studies-panel {
-  padding: 4px 2px;
-}
-
-.studies-panel-title {
-  font-size: 13px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 0 0 4px;
-}
-
-.studies-panel-lead {
-  font-size: 12px;
-  font-style: italic;
-  margin: 0 0 12px;
-}
-
-.studies-section-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 14px 0 4px;
-}
-
-.studies-empty {
-  font-size: 12px;
-  padding: 10px 4px;
-  text-align: center;
-  font-style: italic;
-}
-
-.studies-open-trees {
-  width: 100%;
-  margin-top: 14px;
-}
-
-.studies-completed {
-  font-size: 11px;
-  margin-top: 10px;
-  text-align: center;
-  font-style: italic;
-}
-
-/* ---- Per-study row inside StudiesPanel ---- */
-
-.study-row {
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.study-row.is-active {
-  border-color: var(--accent, #d4a45c);
-  background: rgba(212, 164, 92, 0.06);
-}
-
-.study-row.is-active.is-paused {
-  border-color: var(--text-muted, #6a5a4a);
-  background: rgba(100, 100, 100, 0.04);
-}
-
-.study-row-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.study-row-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.study-row-name {
-  flex: 1;
-  font-size: 12px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.study-row-time {
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.study-row-bar {
-  width: 100%;
-  height: 6px;
-  background: var(--bg-elev2);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.study-row-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #b29ec5, #d4a45c);
-  transition: width 0.25s ease-out;
-  border-radius: 3px;
-}
-
-.study-row.is-active.is-paused .study-row-bar-fill {
-  background: var(--text-muted, #6a5a4a);
-  opacity: 0.6;
-}
-
-.study-row-status {
-  font-size: 10px;
-  font-style: italic;
-}
-
-.study-row-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.btn-tiny {
-  padding: 3px 8px;
-  font-size: 11px;
-}
-
-/* ---- StudyTreeModal — path tabs across the top ---- */
-
+/* ─── Path Trees modal tabs (#105) — reuse the magic-tab pill pattern
+   so the Studies and Magic pages share one visual language.
+   Default `study-tab` had no styling → browser white buttons. */
 .study-tab-strip {
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
-  padding: 8px 16px 0;
+  flex-wrap: wrap;
+  margin: 8px 0 12px;
+  padding: 4px 0;
   border-bottom: 1px solid var(--border);
 }
-
 .study-tab {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid transparent;
-  border-bottom: none;
   padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
   font: inherit;
   font-size: 12px;
-  font-weight: 500;
   cursor: pointer;
-  border-radius: 6px 6px 0 0;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
 }
-
 .study-tab:hover {
   color: var(--text);
-  background: var(--bg-elev);
+  border-color: var(--accent);
 }
-
 .study-tab.is-active {
+  background: rgba(220, 154, 74, 0.12);
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.study-tab-icon { font-size: 14px; }
+.study-tab-label { letter-spacing: 0.02em; }
+
+/* ─── Magic-page spell cards (#106) — path-tier chip colors and a
+   right-aligned Cast button that drops in without breaking the
+   patrol-card layout. */
+.patrol-card-tier--path {
+  background: rgba(220, 154, 74, 0.18);
+  color: #e0b070;
+}
+.patrol-card-tier--path-light      { background: rgba(255, 224, 130, 0.18); color: #ffe082; }
+.patrol-card-tier--path-bend       { background: rgba(180, 110, 255, 0.18); color: #b48cff; }
+.patrol-card-tier--path-elemental  { background: rgba(140, 220, 140, 0.18); color: #98d39b; }
+.patrol-card-tier--path-sigilcraft { background: rgba(140, 200, 230, 0.18); color: #9ec9e6; }
+.patrol-card-tier--path-memory     { background: rgba(240, 200, 140, 0.18); color: #e9c187; }
+.patrol-card-tier--path-stoneword  { background: rgba(200, 200, 210, 0.18); color: #c8c8d2; }
+.patrol-card-tier-
+-path-voidcall   { background: rgba(120, 120, 140, 0.22); color: #b0b0c0; }
+
+.patrol-card--magic {
+  position: relative;
+}
+.patrol-card--magic.is-locked {
+  opacity: 0.55;
+}
+.patrol-card--magic.is-cooling {
+  outline: 1px dashed var(--accent);
+}
+.patrol-card-cta-btn {
+  margin-top: 8px;
+  width: 100%;
+  letter-spacing: 0.04em;
+}
+
+.magic-empty {
+  grid-column: 1 / -1;
+  padding: 24px 12px;
+  text-align: center;
+}
+/* ─── Crafting page (#48) — uses the shared patrol-card grid + magic-tab
+   strip. These rules just add the discipline-specific bits. */
+.patrol-card--craft {
+  position: relative;
+}
+.patrol-card--craft.is-owned {
+  border-color: var(--accent-dim);
+  background: rgba(220, 154, 74, 0.04);
+}
+.patrol-card-desc--effect {
+  font-style: italic;
   color: var(--text);
-  background: var(--bg-elev);
-  border-color: var(--border);
-  border-bottom-color: transparent;
-  margin-bottom: -1px; /* overlap the strip's bottom border */
+  opacity: 0.85;
 }
-
-.study-tab-icon {
-  font-size: 14px;
+.craft-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
 }
-
-/* Path-specific accent tints on active tabs */
-.study-tab--light.is-active   { border-top: 2px solid #d4a45c; }
-.study-tab--bend.is-active    { border-top: 2px solid #6a4870; }
-.study-tab--elemental.is-active { border-top: 2px solid #6a8a4a; }
-.study-tab--sigilcraft.is-active { border-top: 2px solid #7a6ac5; }
-.study-tab--memory.is-active  { border-top: 2px solid #b29ec5; }
-.study-tab--stoneword.is-active { border-top: 2px solid #8a7a6a; }
-.study-tab--voidcall.is-active { border-top: 2px solid #1a1a1a; }
-
-/* Off-path edge marker (cross-path parent indicator) */
-.tree-edge.is-offpath {
-  stroke-dasharray: 3 3;
-  opacity: 0.6;
+.craft-card-actions .patrol-card-cta-btn {
+  margin-top: 0;
+  flex: 1;
 }
-
-.tree-offpath-label {
-  font-size: 9px;
-  fill: var(--text-muted);
-  font-style: italic;
-  pointer-events: none;
-}
-
-/* In-progress node mark (orange ⏳ pip in the upper-left corner) */
-.tree-node-inprogress-mark circle {
-  fill: #d4894c;
-  stroke: #11150f;
-  stroke-width: 1.5;
-  filter: drop-shadow(0 0 4px rgba(212, 137, 76, 0.55));
-}
-
-.tree-node-inprogress-mark text {
-  fill: #fff;
+.craft-card-owned-cta {
+  margin-top: 8px;
+  padding: 6px 10px;
+  text-align: center;
   font-size: 12px;
-  font-weight: 700;
-  pointer-events: none;
-  user-select: none;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-dim);
+  border: 1px dashed var(--accent-dim);
+  border-radius: 4px;
 }
-
-/* In-progress / complete styling extensions on tree nodes */
-.tree-node--in-progress .tree-node-bg {
-  stroke: #d4894c;
-  filter: drop-shadow(0 0 5px rgba(212, 137, 76, 0.35));
-}
-
-.tree-node--complete .tree-node-bg {
-  fill: rgba(178, 158, 197, 0.18);
-  stroke: rgba(178, 158, 197, 0.85);
-}
-
-.tree-node--affordable .tree-node-bg {
-  /* affordance handled by the is-affordable class — keep this empty so
-     specificity ordering is clear */
-}
-
-/* In-progress / completion text in the detail panel */
-.tree-detail-inprogress {
-  font-size: 12px;
-  font-style: italic;
-  padding: 8px 0;
-  color: var(--accent-dim, #b08850);
-}
-
-.research-duration {
+.patrol-card-reqs {
   font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  margin: 6px 0;
+  margin: 4px 0 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.patrol-card-req--short {
+  color: #c34141;
+}
+.patrol-card-drop--short {
+  color: #c34141;
+  opacity: 0.85;
 }
 
-/* ---- Mobile fallback: rail becomes horizontal tabs on narrow viewports ---- */
-
-@media (max-width: 900px) {
-  .left-col {
-    flex-direction: column;
-  }
-
-  .lc-rail {
-    flex-direction: row;
-    width: 100%;
-    overflow-x: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding: 4px;
-    gap: 4px;
-  }
-
-  .lc-rail-btn {
-    border-left: none;
-    border-bottom: 2px solid transparent;
-    padding: 6px 10px;
-    border-radius: 6px;
-    gap: 6px;
-  }
-
-  .lc-rail-btn.is-active {
-    border-left-color: transparent;
-    border-bottom-color: var(--accent);
-  }
-
-  /* Mobile: labels become inline (no pop-out), positioned next to icons */
-  .lc-rail-label {
-    position: static;
-    transform: none;
-    opacity: 1;
-    pointer-events: auto;
-    background: transparent;
-    border: none;
-    border-left: none;
-    padding: 0;
-    box-shadow: none;
-    font-size: 13px;
-    color: inherit;
-    white-space: nowrap;
-  }
-
-  .lc-rail-btn:hover .lc-rail-label,
-  .lc-rail-btn:focus-visible .lc-rail-label {
-    transform: none;
-  }
-
-  .lc-content {
-    padding: 12px 2px 2px;
-  }
+/* Tier chip colors for crafting category labels — pulls from existing
+   palette. Falls back to common if not matched. */
+.patrol-card-tier--primitive  { background: rgba(170, 170, 170, 0.18); color: #ccc; }
+.patrol-card-tier--bronze     { background: rgba(205, 127, 50, 0.18);  color: #e6a766; }
+.patrol-card-tier--iron       { background: rgba(180, 190, 200, 0.18); color: #cdd4dc; }
+.patrol-card-tier--arcane     { background: rgba(180, 110, 255, 0.18); color: #b48cff; }
+.patrol-card-tier--alchemy    { background: rgba(140, 220, 140, 0.18); color: #98d39b; }
+.patrol-card-tier--consumable { background: rgba(240, 200, 140, 0.18); color: #e9c187; }
+.patrol-card-flavor {
+  font-size: 11px;
+  font-style: italic;
+  margin: 4px 0 0;
+  opacity: 0.75;
 }
 
-/* ---- Stone strip: split inner clickable region + Channel button ---- */
-
-.stone-strip {
-  /* Was a single button on a flat strip; now a flex container so the
-     Channel button can sit inline on the right. */
-  justify-content: space-between;
-  cursor: default;
-}
-
-.stone-strip-inner {
+/* ─── Crafting success chip (#113) — shows discipline + level + success %.
+   Tone shifts with chance so the player can see at a glance which crafts
+   are safe vs. likely to waste materials. */
+.craft-card-success {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex: 1;
-  min-width: 0;
-  padding: 2px 0;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 4px 8px;
   border-radius: 6px;
-  outline: none;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
 }
-
-.stone-strip.is-clickable .stone-strip-inner {
-  cursor: pointer;
+.craft-card-success-skill {
+  flex: 1;
+  letter-spacing: 0.02em;
 }
-
-.stone-strip.is-clickable .stone-strip-inner:hover .stone-flavor {
-  text-shadow: 0 0 6px rgba(216, 196, 119, 0.4);
+.craft-card-success-pct {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
-
-.stone-strip-inner:focus-visible {
-  box-shadow: 0 0 0 2px var(--accent-dim);
-}
-
-.stone-channel-btn {
-  flex-shrink: 0;
-  margin-left: 12px;
-}
-
-/* ---- Action strip (footer) ---- */
-/* Six uniform buttons, equal size, equal color. The strip replaces the
-   old footer's single Reset/Channel button. Channel-the-Rock now lives
-   in the stone strip above. */
-
-.action-strip {
-  margin-top: 16px;
-  border-top: 1px solid var(--border);
-  padding: 14px 0 4px;
-  display: flex;
-  flex-directi
+.craft-card-success--ok     { border-color: rgba(140, 220, 140, 0.5); color: #b8e0b8; }
+.craft-card-success--warn   { border-color: rgba(220, 180, 100, 0.5); color: #e0c890; }
+.craft-card-success--danger { border-color: rgba(220, 120, 100, 0.5); color: #e0a090; }

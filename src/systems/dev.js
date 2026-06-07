@@ -172,7 +172,12 @@ export function devUnlockAll(state) {
   patch = devLevelAllSkills(s, 5); s = { ...s, run: patch.run };
   patch = devMaxStats(s); s = { ...s, run: patch.run };
   patch = devGiveAll(s, 999); s = { ...s, run: patch.run };
-  return { run: s.run, msg: `🛠️ Full Era 1 unlocked.` };
+  // BUG-05: also complete the Arcane Studies path trees so the dev jump
+  // leaves every magic node unlocked (Light / Bend / Elemental / Sigilcraft
+  // / Memory / Stoneword). Era 1 doesn't gate any studies but completing
+  // here keeps the helper consistent across eras.
+  patch = devCompleteAllStudies(s); s = { ...s, run: patch.run };
+  return { run: s.run, msg: `🛠️ Full Era 1 unlocked (+ studies).` };
 }
 
 // ============== Era 2 / Era 3 helpers ==============
@@ -220,7 +225,9 @@ export function devUnlockAllEra2(state) {
   patch = devLevelAllSkills(s, 10); s = { ...s, run: patch.run };
   patch = devMaxStats(s); s = { ...s, run: patch.run };
   patch = devGiveAll(s, 999); s = { ...s, run: patch.run };
-  return { run: s.run, msg: `🛠️ Full Era 2 unlocked.` };
+  // BUG-05: complete the Arcane Studies path trees too.
+  patch = devCompleteAllStudies(s); s = { ...s, run: patch.run };
+  return { run: s.run, msg: `🛠️ Full Era 2 unlocked (+ studies).` };
 }
 
 export function devUnlockAllEra3(state) {
@@ -232,7 +239,10 @@ export function devUnlockAllEra3(state) {
   patch = devLevelAllSkills(s, 15); s = { ...s, run: patch.run };
   patch = devMaxStats(s); s = { ...s, run: patch.run };
   patch = devGiveAll(s, 999); s = { ...s, run: patch.run };
-  return { run: s.run, msg: `🛠️ Full Era 3 unlocked.` };
+  // BUG-05: complete every Arcane Studies node so the magic system is
+  // fully unlocked alongside the rest of Era 3.
+  patch = devCompleteAllStudies(s); s = { ...s, run: patch.run };
+  return { run: s.run, msg: `🛠️ Full Era 3 unlocked (+ studies).` };
 }
 
 export function devSetAlignment(state, side, value = 5) {
@@ -553,9 +563,8 @@ export function devTriggerPatrol(state, target = {}) {
     run: result.run,
     persistent: result.persistent,
     events: result.events,
-    msg: `🛠️ Patrol fired${
-      target.mobId ? ` (mob=${target.mobId})` : target.bossId ? ` (boss=${target.bossId})` : ""
-    }.`,
+    msg: `🛠️ Patrol fired${target.mobId ? ` (mob=${target.mobId})` : target.bossId ? ` (boss=${target.bossId})` : ""
+      }.`,
   };
 }
 
@@ -625,9 +634,8 @@ export function devSetActiveLoop(state, kind, target) {
     run: result.run,
     persistent: result.persistent,
     events: result.events,
-    msg: `🛠️ Active loop → ${kind}${
-      target?.mobId ? `:${target.mobId}` : target?.bossId ? `:boss:${target.bossId}` : ""
-    }.`,
+    msg: `🛠️ Active loop → ${kind}${target?.mobId ? `:${target.mobId}` : target?.bossId ? `:boss:${target.bossId}` : ""
+      }.`,
   };
 }
 

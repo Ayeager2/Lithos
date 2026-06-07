@@ -23,6 +23,39 @@ import {
   getBossesAvailable,
 } from "../content/bosses.js";
 import { canPatrol } from "../systems/patrol.js";
+import { getEquippedMagicDef, getEquippedRangedDef } from "../systems/combat.js";
+
+// Combat style picker (#82) — Melvor-style melee / ranged / magic toggle.
+// Disables a style if the player has no compatible gear.
+function CombatStylePicker({ state, actions }) {
+  const style = state.run?.combatStyle || "melee";
+  const hasRanged = !!getEquippedRangedDef(state.run);
+  const hasMagic = !!getEquippedMagicDef(state.run);
+  const spirit = state.run?.stats?.spirit ?? 0;
+  const styles = [
+    { id: "melee", icon: "⚔️", label: "Melee", available: true, tip: "STR-driven attacks. No resource cost." },
+    { id: "ranged", icon: "🏹", label: "Ranged", available: hasRanged, tip: hasRanged ? "DEX-driven bow/throwing attacks." : "Equip a ranged weapon." },
+    { id: "magic", icon: "✨", label: "Magic", available: hasMagic, tip: hasMagic ? `MAG-driven attacks. Costs Spirit per swing (have ${Math.round(spirit)}).` : "Equip an arcane weapon (e.g. Fragment Knife) in either hand." },
+  ];
+  return (
+    <div className="combat-style-picker" role="radiogroup" aria-label="Combat style">
+      {styles.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          role="radio"
+          aria-checked={style === s.id}
+          className={`combat-style-btn ${style === s.id ? "is-active" : ""} ${s.available ? "" : "is-unavailable"}`}
+          onClick={() => s.available && actions.setCombatStyle?.(s.id)}
+          disabled={!s.available && style !== s.id}
+          title={s.tip}
+        >
+          <span aria-hidden="true">{s.icon}</span> {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 import { getUnarmoredPenalty } from "../systems/combat.js";
 import { computeEra } from "../systems/era.js";
 import { getResource, getDisplayResource } from "../content/resources.js";
@@ -32,27 +65,31 @@ import { getWorkerCount, getWorkerCycleMs } from "../systems/workers.js";
 
 const TIER_ORDER = { common: 0, uncommon: 1, rare: 2, apex: 3 };
 const TIER_LABEL = { common: "Common", uncommon: "Uncommon", rare: "Rare", apex: "Apex" };
+
+// "era 1" → "Era One" — flavor reads better in card sublines (#105).
+const ERA_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+const eraLabel = (n) => `Era ${ERA_WORDS[n] || n}`;
 const TIER_KIND = { common: "common", uncommon: "uncommon", rare: "rare", apex: "apex" };
 
 // Reveal thresholds (#70) — drives the idle-RPG "see ??? until you've
 // fought it enough" loop. Each field unlocks at the listed kill count
 // for that specific mob (read state.run.mobsDefeated[mobId]).
 const REVEAL = {
-  hp:          1,   // first kill reveals HP
-  damage:      3,   // 3 kills reveals damage range
-  accuracy:    5,
-  damageType:  10,
-  dropNames:   1,   // 1 kill shows what drops, but not qty/chance
-  dropQty:     5,
-  dropChance:  10,
+  hp: 1,   // first kill reveals HP
+  damage: 3,   // 3 kills reveals damage range
+  accuracy: 5,
+  damageType: 10,
+  dropNames: 1,   // 1 kill shows what drops, but not qty/chance
+  dropQty: 5,
+  dropChance: 10,
 };
 function nextRevealHint(kills) {
   // Returns the next thing about to unlock — used as flavor text.
-  if (kills < REVEAL.hp)         return "Beat 1 to reveal HP.";
-  if (kills < REVEAL.dropNames)  return "Beat 1 to see what it drops.";
-  if (kills < REVEAL.damage)     return `Beat ${REVEAL.damage - kills} more to reveal its damage.`;
-  if (kills < REVEAL.dropQty)    return `Beat ${REVEAL.dropQty - kills} more to learn how much it drops.`;
-  if (kills < REVEAL.accuracy)   return `Beat ${REVEAL.accuracy - kills} more to read its accuracy.`;
+  if (kills < REVEAL.hp) return "Beat 1 to reveal HP.";
+  if (kills < REVEAL.dropNames) return "Beat 1 to see what it drops.";
+  if (kills < REVEAL.damage) return `Beat ${REVEAL.damage - kills} more to reveal its damage.`;
+  if (kills < REVEAL.dropQty) return `Beat ${REVEAL.dropQty - kills} more to learn how much it drops.`;
+  if (kills < REVEAL.accuracy) return `Beat ${REVEAL.accuracy - kills} more to read its accuracy.`;
   if (kills < REVEAL.damageType) return `Beat ${REVEAL.damageType - kills} more to learn its kind.`;
   if (kills < REVEAL.dropChance) return `Beat ${REVEAL.dropChance - kills} more to learn drop odds.`;
   return null;
@@ -196,7 +233,7 @@ function BossCard({ boss, state, isActive, loopPct, locked, unlockHint, onClick 
             <span className="patrol-card-tier patrol-card-tier--apex">
               {boss.tier === "main" ? "Main Boss" : "Mini Boss"}
             </span>
-            <span className="patrol-card-kind muted">· era {boss.era}</span>
+            <span className="patrol-card-kind muted">· {eraLabel(boss.era)}</span>
             {beaten && <span className="patrol-card-kills">· beaten</span>}
           </div>
         </div>
@@ -395,11 +432,21 @@ export default function PatrolView({ state, actions }) {
 
   const eras = Object.keys(byEra).map(Number).sort((a, b) => a - b);
 
+  // Click engaged card → stop. Click different card → swap target.
+  // Click locked/blocked → ignore. Mirror of Gather/Hunting pattern.
   const handleMob = (mobId) => {
+    if (activeMobId === mobId) {
+      actions.clearActiveLoop?.();
+      return;
+    }
     if (!check.ok) return;
     actions.setActiveLoop("patrol", { mobId });
   };
   const handleBoss = (bossId) => {
+    if (activeBossId === bossId) {
+      actions.clearActiveLoop?.();
+      return;
+    }
     if (!check.ok) return;
     actions.setActiveLoop("patrol", { bossId });
   };
@@ -412,6 +459,7 @@ export default function PatrolView({ state, actions }) {
         <p className="muted">
           What walks the wasteland — and what walks toward you. Click a foe to auto-engage.
         </p>
+        <CombatStylePicker state={state} actions={actions} />
         {!check.ok && !hasLoop && (
           <div className="patrol-status muted">
             <span className="patrol-status-blocked">⚠️ {check.reason}</span>
@@ -472,6 +520,18 @@ export default function PatrolView({ state, actions }) {
                     loopPct={activeBossId === b.id ? loopPct : 0}
                     locked={locked}
                     unlockHint={locked ? describeLock(b, state) : null}
+                    onClick={() => handleBoss(b.id)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+t={locked ? describeLock(b, state) : null}
                     onClick={() => handleBoss(b.id)}
                   />
                 );

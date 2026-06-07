@@ -344,19 +344,28 @@ function ItemCard({ state, actions, entry }) {
           {capChip}
         </span>
       </div>
-      {/* Weapon stats inline (compact). Full compare tooltip lands in #46. */}
+      {/* Weapon stats — chip layout (#103). Each stat sits in its own
+          rounded chip with an icon prefix so the row stops looking
+          smooshed. Wraps naturally on narrow cards. */}
       {def?.weaponStats && (
-        <div className="ei-card-stats muted">
+        <div className="ei-card-stats">
           {def.weaponStats.damage && (
-            <span>
-              dmg {def.weaponStats.damage[0]}–{def.weaponStats.damage[1]}
+            <span className="ei-stat-chip" title="Damage range">
+              <span aria-hidden="true">⚔️</span>{" "}
+              {def.weaponStats.damage[0]}–{def.weaponStats.damage[1]}
             </span>
           )}
           {def.weaponStats.acc != null && (
-            <span>· acc {Math.round(def.weaponStats.acc * 100)}%</span>
+            <span className="ei-stat-chip" title="Attack accuracy">
+              <span aria-hidden="true">🎯</span>{" "}
+              {Math.round(def.weaponStats.acc * 100)}%
+            </span>
           )}
           {def.weaponStats.crit != null && def.weaponStats.crit > 0 && (
-            <span>· crit {Math.round(def.weaponStats.crit * 100)}%</span>
+            <span className="ei-stat-chip" title="Critical hit chance">
+              <span aria-hidden="true">✨</span>{" "}
+              {Math.round(def.weaponStats.crit * 100)}%
+            </span>
           )}
         </div>
       )}

@@ -15,7 +15,9 @@ export const RESEARCH = {
     id: "fire", name: "Fire", icon: "🔥",
     whisper: "The stone speaks of fire. Of warmth. Of stones struck against dry wood until something catches and remembers what it is.",
     cost: { wood: 5, stone: 3 },
-    requires: { hutBuilt: true },
+    // The rock teaches the lesson; your hands still have to know the
+    // work. Building Lv 1 is just "you've raised a roof before" (#102).
+    requires: { hutBuilt: true, skillReq: { building: 1 } },
     effect: { unlocksBuilding: "firepit" },
     onLearnedMessage: "You listen, and the stone teaches you fire. You can build a pit now, if you have the will.",
     tier: 1, col: 1, parents: [],
@@ -45,7 +47,8 @@ export const RESEARCH = {
     id: "hiddenStores", name: "Hidden Stores", icon: "📦",
     whisper: "The stone speaks of caches. Of placing what you must keep where the hungry cannot find it.",
     cost: { food: 5, wood: 10 },
-    requires: { hutBuilt: true },
+    // Cairn structure — needs more hands-on building experience (#102).
+    requires: { hutBuilt: true, skillReq: { building: 3 } },
     effect: { foodStealReduction: 1 },
     onLearnedMessage: "You listen, and the stone teaches you to hide. The hungry find less when they come.",
     tier: 2, col: 1, parents: ["foraging"],

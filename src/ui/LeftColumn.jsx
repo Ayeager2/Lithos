@@ -27,11 +27,11 @@ export default function LeftColumn({
   setView,
   views,
   onOpenBuildings,
+  onOpenStudies,
 }) {
   // Visibility of each tab.
-  // Inventory + Skills + Challenges retired — see header comment above.
-  const knownSpells = getKnownSpells(state);
-  const arcaneVisible = knownSpells.length > 0;
+  // Arcane retired from rail (#84) — Magic is now a top-rail view.
+  // Inventory + Skills + Challenges retired earlier — see header comment.
   const buildings = getKnownBuildings(state);
   const buildingsVisible = buildings.length > 0;
   const studiesVisible = !!state.run.built?.stoneAltar;
@@ -44,15 +44,6 @@ export default function LeftColumn({
   // Tab descriptors. Each has either `viewId` (swaps view) or `onClick`
   // (triggers a modal directly).
   const tabs = [
-    {
-      id: "arcane",
-      icon: "✨",
-      label: "Arcane",
-      tip: "What the Stone teaches when you listen long enough.",
-      visible: arcaneVisible,
-      actionable: 0,
-      viewId: "arcane",
-    },
     {
       id: "buildings",
       icon: "🏛️",
@@ -69,7 +60,7 @@ export default function LeftColumn({
       tip: "Sit at the altar. Real lessons take time. The clock pauses when you act.",
       visible: studiesVisible,
       actionable: studiesActionable,
-      viewId: "studies",
+      onClick: onOpenStudies,
     },
   ].filter((t) => t.visible);
 

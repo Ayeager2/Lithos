@@ -10,6 +10,8 @@ import {
 } from "../systems/saveIO.js";
 import CreditsSection from "./CreditsSection.jsx";
 import { getMusic, getAllMusic } from "../content/audio.js";
+import { skipToNextEligibleTrack, getCurrentMusicId } from "../systems/audio.js";
+import MusicPlayer from "./MusicPlayer.jsx";
 
 // One row in the keybindings section. Click to start capturing a new key.
 // During capture, the next key press becomes the new binding (Esc cancels,
@@ -61,9 +63,8 @@ function KeybindingRow({ label, action, currentKey, onRebind, onClear, allBindin
       <div className="settings-label">{label}</div>
       <div className="settings-options">
         <button
-          className={`settings-option keybind-button ${
-            capturing ? "is-capturing" : ""
-          }`}
+          className={`settings-option keybind-button ${capturing ? "is-capturing" : ""
+            }`}
           onClick={() => {
             setCapturing(!capturing);
             setConflictKey(null);
@@ -74,8 +75,8 @@ function KeybindingRow({ label, action, currentKey, onRebind, onClear, allBindin
               ? `"${conflictKey.toUpperCase()}" already used — try another`
               : "Press a key… (Esc to cancel, Backspace to clear)"
             : currentKey
-            ? currentKey.toUpperCase()
-            : "—"}
+              ? currentKey.toUpperCase()
+              : "—"}
         </button>
       </div>
     </div>
@@ -102,7 +103,14 @@ function OptionRow({ label, options, value, onChange }) {
   );
 }
 
-export default function SettingsModal({ settings, update, state, onClose }) {
+export default function SettingsModal({
+  settings,
+  update,
+  state,
+  prestigeEligible,
+  onReset,
+  onClose,
+}) {
   const allMusic = getAllMusic();
   const unlocked = state.persistent.unlockedMusic || {};
   const unlockedTracks = allMusic.filter((m) => unlocked[m.id]);
@@ -348,12 +356,38 @@ export default function SettingsModal({ settings, update, state, onClose }) {
             {unlockedTracks.length > 0 && (
               <>
                 <div className="settings-row">
-                  <div className="settings-label">Music</div>
+                  <div className="settings-label">Player</div>
+                  <MusicPlayer state={state} settings={settings} variant="settings" />
+                </div>
+                <div className="settings-row">
+                  <div className="settings-label">In header</div>
+                  <div className="settings-options">
+                    <button
+                      type="button"
+                      className={`settings-option ${!settings.showMusicPlayerInHeader ? "is-active" : ""}`}
+                      onClick={() => update({ showMusicPlayerInHeader: false })}
+                    >
+                      Hidden
+                    </button>
+                    <button
+                      type="button"
+                      className={`settings-option ${settings.showMusicPlayerInHeader ? "is-active" : ""}`}
+                      onClick={() => update({ showMusicPlayerInHeader: true })}
+                    >
+                      Show
+                    </button>
+                  </div>
+                </div>
+                <p className="muted settings-help">
+                  When "Show" is on, the player also appears in the Lithos header so you don't have to open Settings to skip.
+                </p>
+
+                <div className="settings-row">
+                  <div className="settings-label">Now playing</div>
                   <div className="settings-options music-tracks">
                     <button
-                      className={`settings-option ${
-                        !settings.pinnedMusicId ? "is-active" : ""
-                      }`}
+                      className={`settings-option ${!settings.pinnedMusicId ? "is-active" : ""
+                        }`}
                       onClick={() => update({ pinnedMusicId: null })}
                       title="Music auto-selects based on your current era"
                     >
@@ -362,21 +396,62 @@ export default function SettingsModal({ settings, update, state, onClose }) {
                     {unlockedTracks.map((t) => (
                       <button
                         key={t.id}
-                        className={`settings-option ${
-                          settings.pinnedMusicId === t.id ? "is-active" : ""
-                        }`}
+                        className={`settings-option ${settings.pinnedMusicId === t.id ? "is-active" : ""
+                          }`}
                         onClick={() => update({ pinnedMusicId: t.id })}
                         title={`${t.title}${t.artist ? ` — ${t.artist}` : ""}`}
                       >
                         {t.title}
                       </button>
                     ))}
+                    <button
+                      className="settings-option"
+                      onClick={() => skipToNextEligibleTrack(state, settings)}
+                      title="Skip to the next unlocked, un-muted track"
+                    >
+                      ⏭ Skip
+                    </button>
                   </div>
                 </div>
                 <p className="muted settings-help">
                   {settings.pinnedMusicId && pinnedTrack
                     ? `Pinned: "${pinnedTrack.title}" — plays regardless of era.`
                     : "Auto: music changes as you progress through eras. New tracks unlock when you reach the era they belong to."}
+                </p>
+
+                {/* Per-track mute (#87) — checkbox list. Muted tracks are
+                    skipped by auto-rotation; pin still overrides mute. */}
+                <div className="settings-row">
+                  <div className="settings-label">Mute tracks</div>
+                  <div className="music-mute-list">
+                    {unlockedTracks.map((t) => {
+                      const muted = !!settings.mutedMusicIds?.[t.id];
+                      return (
+                        <label
+                          key={t.id}
+                          className={`music-mute-row ${muted ? "is-muted" : ""}`}
+                          title={muted
+                            ? `Muted — auto-rotation will skip "${t.title}"`
+                            : `Mute "${t.title}" in auto-rotation`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={muted}
+                            onChange={(e) => {
+                              const next = { ...(settings.mutedMusicIds || {}) };
+                              if (e.target.checked) next[t.id] = true;
+                              else delete next[t.id];
+                              update({ mutedMusicIds: next });
+                            }}
+                          />
+                          <span className="music-mute-name">{t.title}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <p className="muted settings-help">
+                  Muted tracks are skipped during auto-rotation. Pinning a track still plays it even when muted.
                 </p>
               </>
             )}
@@ -411,10 +486,34 @@ export default function SettingsModal({ settings, update, state, onClose }) {
             </div>
           </section>
 
+          {onReset && (
+            <section className="settings-section">
+              <h3>Run</h3>
+              <div className="settings-row">
+                <div>
+                  <p style={{ margin: 0 }}>
+                    {prestigeEligible ? "End run" : "Reset run"}
+                  </p>
+                  <p className="muted" style={{ margin: "4px 0 0", fontSize: 12 }}>
+                    {prestigeEligible
+                      ? "Channel the Stone — convert this run's progress to Echoes and start over."
+                      : "Wipe this run and start fresh. Persistent unlocks (Echoes, skills shop) remain."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-reset-run"
+                  onClick={onReset}
+                >
+                  {prestigeEligible ? "End run" : "Reset run"}
+                </button>
+              </div>
+            </section>
+          )}
+
           <CreditsSection />
         </div>
       </div>
     </div>
   );
 }
-

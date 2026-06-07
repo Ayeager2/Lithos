@@ -7,6 +7,7 @@ import { getBonus, gainXp, getSkillState } from "./skills.js";
 import { getSpdCooldownMult } from "./character.js";
 import { applyToolWear } from "./crafting.js";
 import { clampToCap } from "./storage.js";
+import { getPrey } from "../content/prey.js";
 import {
   decayForAction,
   survivalActive,
@@ -95,7 +96,19 @@ function describeDrop(result, qty) {
   return `${res?.icon || ""} +${qty} ${res?.name || result.id}.`;
 }
 
-export function performHunt(state, rng = Math.random) {
+export function performHunt(state, opts = {}, now = Date.now(), rng = Math.random) {
+  // Backward-compat: caller may pass (state, rng) with no opts.
+  if (typeof opts === "function") { rng = opts; opts = {}; }
+  if (typeof opts === "number") { rng = now; now = opts; opts = {}; }
+  const targetPreyId = opts.preyId || null;
+
+  // Prey-targeted hunt (#79) — bypass the abstract hunt-table roll and
+  // resolve the specific prey from content/prey.js. Drops come from the
+  // prey's drop table; failure is rolled against prey.difficulty.
+  if (targetPreyId) {
+    return performTargetedHunt(state, targetPreyId, now, rng);
+  }
+
   const check = canHunt(state);
   if (!check.ok) {
     if (check.msRemaining > 0) {
@@ -207,4 +220,131 @@ export function getHuntStatus(state) {
     cooldownMs: getHuntCooldownMs(state),
     ready: canHunt(state).ok,
   };
+}
+
+// ─── Targeted prey hunt (#79) ────────────────────────────────────────
+// Click a HuntingView card → resolve that specific prey. Drops come from
+// the prey def. Butchering skill scales drop chance + qty (mirrors mobs).
+function getButcheringBonuses(run) {
+  const { level } = getSkillState(run, "butchering");
+  return {
+    chanceBonus: Math.min(0.20, level * 0.01),
+    qtyMult: 1 + Math.min(1.0, level * 0.05),
+  };
+}
+
+function rollPreyDrops(prey, inventory, run, rng) {
+  if (!Array.isArray(prey.drops)) return { inventory, parts: [] };
+  const { chanceBonus, qtyMult } = getButcheringBonuses(run);
+  const next = { ...inventory };
+  const parts = [];
+  for (const d of prey.drops) {
+    const effChance = Math.min(1, (d.chance ?? 1) + chanceBonus);
+    if (rng() >= effChance) continue;
+    const baseQty = Array.isArray(d.qty)
+      ? randInt(rng, d.qty[0], d.qty[1])
+      : (d.qty || 1);
+    const qty = Math.max(1, Math.floor(baseQty * qtyMult));
+    if (qty <= 0) continue;
+    next[d.resource] = (next[d.resource] || 0) + qty;
+    parts.push(`+${qty} ${d.resource}`);
+  }
+  return { inventory: next, parts };
+}
+
+function performTargetedHunt(state, preyId, now, rng) {
+  const prey = getPrey(preyId);
+  if (!prey) {
+    return {
+      run: state.run,
+      persistent: state.persistent,
+      events: [{ kind: "actionFail", message: "That prey is not here." }],
+    };
+  }
+
+  // Gate: still need the hunt tool + cooldown check.
+  const check = canHunt(state);
+  if (!check.ok) {
+    if (check.msRemaining > 0) {
+      return { run: state.run, persistent: state.persistent, events: [] };
+    }
+    return {
+      run: state.run,
+      persistent: state.persistent,
+      events: [{ kind: "huntFail", message: check.reason }],
+    };
+  }
+
+  let run = {
+    ...state.run,
+    inventory: { ...state.run.inventory },
+    gathered: { ...(state.run.gathered || {}) },
+    preyDefeated: { ...(state.run.preyDefeated || {}) },
+    lastHuntAt: now,
+  };
+  const events = [];
+
+  // Opener line.
+  const opener = prey.huntFlavor?.opener?.[Math.floor(rng() * (prey.huntFlavor.opener.length || 1))]
+    || `${prey.icon} You start your stalk.`;
+  events.push({ kind: "hunt", message: opener });
+
+  const fail = rng() < (prey.difficulty || 0.4);
+  if (fail) {
+    const failLine = prey.huntFlavor?.fail?.[Math.floor(rng() * (prey.huntFlavor.fail.length || 1))]
+      || `${prey.icon} You lost it.`;
+    events.push({ kind: "hunt", message: failLine });
+    const xpRes = gainXp(run, "hunting", 1);
+    run = { ...run, skills: xpRes.skills };
+    events.push(...xpRes.events);
+    return { run, persistent: state.persistent, events };
+  }
+
+  // Success: roll drops + apply status hit if defined.
+  const { inventory, parts } = rollPreyDrops(prey, run.inventory, run, rng);
+  run.inventory = inventory;
+  for (const [resId, qty] of Object.entries(inventory)) {
+    if ((state.run.inventory[resId] || 0) < qty) {
+      run.gathered[resId] = (run.gathered[resId] || 0) +
+        (qty - (state.run.inventory[resId] || 0));
+    }
+  }
+  run.preyDefeated[prey.id] = (run.preyDefeated[prey.id] || 0) + 1;
+
+  const successLine = prey.huntFlavor?.success?.[Math.floor(rng() * (prey.huntFlavor.success.length || 1))]
+    || `${prey.icon} The prey falls.`;
+  events.push({ kind: "hunt", message: successLine });
+  if (parts.length > 0) {
+    events.push({ kind: "resource", message: `🎒 ${parts.join(", ")}` });
+  }
+
+  // XP from prey def (override), default to hp/4 if missing.
+  const xpGain = prey.xp || 2;
+  const xpRes = gainXp(run, "hunting", xpGain);
+  run = { ...run, skills: xpRes.skills };
+  events.push(...xpRes.events);
+
+  // Butchering XP — small flat per kill, since drop tables drive it.
+  const butcherXp = gainXp(run, "butchering", Math.max(1, Math.floor(xpGain / 2)));
+  run = { ...run, skills: butcherXp.skills };
+  events.push(...butcherXp.events);
+
+  // Tool wear on the bow/snare.
+  const wear = applyToolWear(run, "hunt");
+  run = wear.run;
+  events.push(...wear.events);
+
+  // Inventory clamp.
+  const clamped = clampToCap(run.inventory, { ...state, run }, state.run.inventory);
+  run = { ...run, inventory: clamped.inventory };
+  for (const [id, lost] of Object.entries(clamped.overflow)) {
+    if (lost > 0) {
+      events.push({
+        kind: "actionFail",
+        message: `📦 ${lost} ${id} wasted — nowhere to put it.`,
+      });
+    }
+  }
+
+  return { run, persistent: state.persistent, events };
 }

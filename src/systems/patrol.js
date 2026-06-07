@@ -315,7 +315,16 @@ export function performPatrol(state, opts = {}, now = Date.now(), rng = Math.ran
     }
   }
 
-  return { run, persistent: result.persistent, events, outcome: result.outcome };
+  // resolveFight only returns { run, events, outcome } (no persistent),
+  // so fall back to the caller's persistent slice to avoid dropping it
+  // through the auto-loop tick chain (which would crash App.jsx reading
+  // state.persistent.unlockedMusic).
+  return {
+    run,
+    persistent: result.persistent || state.persistent,
+    events,
+    outcome: result.outcome,
+  };
 }
 
 function getLockedBossesForEra(state) {

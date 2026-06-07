@@ -12,6 +12,13 @@ export const SETTINGS_DEFAULTS = {
   sfxVolume: 80,
   muted: false,
   pinnedMusicId: null,
+  // Per-track mute (#87). Map of trackId → true. Muted tracks are skipped
+  // by pickAutoTrack and never play unless explicitly pinned by the user.
+  mutedMusicIds: {},
+  // Mini-player home (#88). When false, only the Settings modal shows
+  // the player controls. When true, an extra copy lives in the shell
+  // header so the user doesn't have to open Settings every time.
+  showMusicPlayerInHeader: false,
   keybindings: {
     gather: "g",
     rest: "r",

@@ -5,12 +5,11 @@ import ActionPanel from "./ActionPanel.jsx";
 import CharacterView from "./CharacterView.jsx";
 import CraftingView from "./CraftingView.jsx";
 import PatrolView from "./PatrolView.jsx";
-import ArcaneView from "./ArcaneView.jsx";
-import StudiesView from "./StudiesView.jsx";
+import GatherView from "./GatherView.jsx";
+import MagicView from "./MagicView.jsx";
 import LeftColumn from "./LeftColumn.jsx";
 import StonePanel from "./StonePanel.jsx";
 import RightColumn from "./RightColumn.jsx";
-import ActionStrip from "./ActionStrip.jsx";
 import TeachingsTreeModal from "./TeachingsTreeModal.jsx";
 import BuildingsTreeModal from "./BuildingsTreeModal.jsx";
 import StudyTreeModal from "./StudyTreeModal.jsx";
@@ -20,6 +19,7 @@ import BossFightModal from "./BossFightModal.jsx";
 import EventModal from "./EventModal.jsx";
 import SettingsModal from "./SettingsModal.jsx";
 import SettingsTrigger from "./SettingsTrigger.jsx";
+import MusicPlayer from "./MusicPlayer.jsx";
 import PrestigeModal from "./PrestigeModal.jsx";
 import PrestigeShop from "./PrestigeShop.jsx";
 import { getPrestigeReward } from "../systems/prestige.js";
@@ -33,7 +33,9 @@ const VIEWS = [
   { id: "world", icon: "🌍", label: "World" },
   { id: "character", icon: "👤", label: "Character" },
   { id: "patrol", icon: "🗡️", label: "Patrol" },
+  { id: "gather", icon: "🌿", label: "Gather" },
   { id: "crafting", icon: "🛠️", label: "Crafting" },
+  { id: "magic", icon: "📖", label: "Magic" },
 ];
 
 // Right-panel mode — left panel is rail-only now (no lc-content),
@@ -106,6 +108,13 @@ export default function Shell({ state, actions, settingsHook }) {
       <header className="shell-header">
         <h1>Lithos</h1>
         <div className="shell-meta">
+          {settingsHook.settings?.showMusicPlayerInHeader && (
+            <MusicPlayer
+              state={state}
+              settings={settingsHook.settings}
+              variant="header"
+            />
+          )}
           {era > 0 && <span className="meta-item meta-era">{eraInfo.name}</span>}
           {showEchoes && (
             <button
@@ -135,23 +144,25 @@ export default function Shell({ state, actions, settingsHook }) {
             setView={setView}
             views={VIEWS}
             onOpenBuildings={() => setBuildingsOpen(true)}
+            onOpenStudies={() => setStudyTreeOpen(true)}
             onOpenBossFight={() => setBossFight({ initialBossId: null })}
           />
         </aside>
 
         <main className={`shell-area shell-area--center shell-area--view-${view}`}>
-          {view === "world" && <ActionPanel state={state} />}
-          {view === "character" && <CharacterView state={state} actions={actions} />}
-          {view === "crafting" && <CraftingView state={state} />}
-          {view === "patrol" && <PatrolView state={state} actions={actions} />}
-          {view === "arcane" && <ArcaneView state={state} actions={actions} />}
-          {view === "studies" && (
-            <StudiesView
+          {view === "world" && (
+            <ActionPanel
               state={state}
               actions={actions}
-              onOpenStudyTree={() => setStudyTreeOpen(true)}
+              settings={settingsHook.settings}
+              settingsHook={settingsHook}
             />
           )}
+          {view === "character" && <CharacterView state={state} actions={actions} />}
+          {view === "crafting" && <CraftingView state={state} actions={actions} />}
+          {view === "patrol" && <PatrolView state={state} actions={actions} />}
+          {view === "gather" && <GatherView state={state} actions={actions} />}
+          {view === "magic" && <MagicView state={state} actions={actions} />}
         </main>
 
         <aside
@@ -187,15 +198,8 @@ export default function Shell({ state, actions, settingsHook }) {
         onChannel={handleResetClick}
       />
 
-      <ActionStrip
-        state={state}
-        actions={actions}
-        settings={settingsHook.settings}
-        settingsHook={settingsHook}
-        prestigeEligible={eligibleForPrestige}
-        showResetButton={true}
-        onReset={handleResetClick}
-      />
+      {/* ActionStrip retired with #79 — its remaining inhabitants moved:
+          Hunt → HuntingView, Reset/End-run → SettingsModal. */}
 
       {teachingsOpen && (
         <TeachingsTreeModal
@@ -296,6 +300,11 @@ export default function Shell({ state, actions, settingsHook }) {
           settings={settingsHook.settings}
           update={settingsHook.update}
           state={state}
+          prestigeEligible={eligibleForPrestige}
+          onReset={() => {
+            setSettingsOpen(false);
+            handleResetClick();
+          }}
           onClose={() => setSettingsOpen(false)}
         />
       )}

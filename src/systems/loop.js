@@ -1,5 +1,8 @@
-// Auto-loop runner (#68 Phase 1).
+// Auto-loop runner (#68 Phase 1, extended in #97 for gather discipline).
 import { performPatrol, getPatrolCooldownMs, canPatrol } from "./patrol.js";
+import { performHunt, getHuntCooldownMs, canHunt } from "./hunting.js";
+import { performGatherNode, getGatherNodeCycleMs, canGatherNode } from "./gather.js";
+import { getGatherNode } from "../content/gatherNodes.js";
 
 export function getActiveLoop(state) {
   return state.run.activeLoop || null;
@@ -13,11 +16,18 @@ export function getLoopProgress(loop, now = Date.now()) {
 
 export function computeCycleMs(state, kind, target = {}) {
   if (kind === "patrol") return getPatrolCooldownMs(state);
+  if (kind === "hunt") return getHuntCooldownMs(state);
+  if (kind === "gather") {
+    const node = getGatherNode(target?.nodeId);
+    return getGatherNodeCycleMs(node);
+  }
   return 8_000;
 }
 
 function fireForKind(state, kind, target) {
   if (kind === "patrol") return performPatrol(state, target);
+  if (kind === "hunt") return performHunt(state, target);
+  if (kind === "gather") return performGatherNode(state, target);
   return { run: state.run, persistent: state.persistent, events: [] };
 }
 
@@ -29,6 +39,16 @@ function loopShouldAbort(state, loop) {
       return check.reason || "Patrol stopped.";
     }
   }
+  if (loop.kind === "hunt") {
+    const check = canHunt(state);
+    if (!check.ok && !/Catching your breath/i.test(check.reason || "")) {
+      return check.reason || "Hunt stopped.";
+    }
+  }
+  if (loop.kind === "gather") {
+    const check = canGatherNode(state, loop.target?.nodeId);
+    if (!check.ok) return check.reason || "Gather stopped.";
+  }
   return null;
 }
 
@@ -36,6 +56,8 @@ function targetKey(kind, target) {
   if (!kind) return null;
   if (target?.mobId) return `${kind}:mob:${target.mobId}`;
   if (target?.bossId) return `${kind}:boss:${target.bossId}`;
+  if (target?.preyId) return `${kind}:prey:${target.preyId}`;
+  if (target?.nodeId) return `${kind}:node:${target.nodeId}`;
   return `${kind}:any`;
 }
 
@@ -50,10 +72,15 @@ export function setActiveLoop(state, kind, target = {}, now = Date.now()) {
   }
   const cycleMs = computeCycleMs(state, kind, target);
   const newKey = targetKey(kind, target);
+  // Fire the first cycle immediately on activation — bias startedAt back
+  // by one cycle so the next TICK_LOOP (250ms later) triggers the first
+  // attack. Without this the player has to wait the full cooldown (12s
+  // for patrol) before anything visibly happens, which reads as broken.
+  const startedAt = now - cycleMs;
   return {
     run: {
       ...state.run,
-      activeLoop: { kind, target, startedAt: now, cycleMs },
+      activeLoop: { kind, target, startedAt, cycleMs },
       activePile: { targetKey: newKey, drops: {} },
     },
     persistent: state.persistent,
@@ -100,7 +127,12 @@ export function tickActiveLoop(state, now = Date.now()) {
     const beforeInv = curState.run.inventory || {};
     const result = fireForKind(curState, loop.kind, loop.target);
     allEvents.push(...(result.events || []));
-    curState = { run: result.run, persistent: result.persistent };
+    // Belt-and-suspenders: never let persistent be dropped through the
+    // loop chain — fireForKind callees may forget to thread it back.
+    curState = {
+      run: result.run,
+      persistent: result.persistent || curState.persistent,
+    };
 
     const afterInv = curState.run.inventory || {};
     const pile = { ...(curState.run.activePile?.drops || {}) };
@@ -150,4 +182,4 @@ export function tickActiveLoop(state, now = Date.now()) {
     persistent: curState.persistent,
     events: allEvents,
   };
-}
+} 

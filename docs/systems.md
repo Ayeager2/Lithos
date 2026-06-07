@@ -239,7 +239,7 @@ The `warded` status (5 min after Banish spell) rejects all `kind: "demon"` threa
 ### 🟢 Skills (learning by doing)
 **State.** Per-skill XP and level, run-local. Wipes on prestige. Each meaningful action grants XP to the matching skill — no points to spend, no UI to navigate. Skills surface as a tab in the right column once any XP is earned.
 
-**Active skills (Era 1):** Foraging (every gather), Hunting (every hunt), Crafting (every tool crafted), Building (every building). Stub data for future skills (Pottery, Mining, Smithing, Tracking) lives in the same content file with `active: false` so Era 2 wires them up by flipping a flag and adding XP triggers.
+**Active skills (Era 1):** Foraging (every gather), Hunting (every hunt), Toolcraft (every tool crafted), **Building (every building, #102)**. Combat skills (Swordplay, Archery, Magic Combat, Butchering) come online with the relevant equipment / kill. Gather disciplines (#97): Woodcutting, Fishing, Farming, Husbandry, Mining (was always stubbed, now active) all earn XP from their gather node. Tracking remains stubbed (`active: false`) — reserved for #35.
 
 **Bonuses are declarative.** Each skill defines `bonuses: [{ stat, perLevel, max }]`. Systems aggregate via `getBonus(state, statName)`. Foraging adds a tiny per-level gather yield + speed reduction. Hunting reduces hunt cooldown (300ms/level), boosts hunt yield, and shifts drop weights toward birds. Crafting adds a per-level chance to refund a single material per tool. Building reduces the survival cost of building actions.
 
@@ -270,8 +270,34 @@ The `warded` status (5 min after Banish spell) rejects all `kind: "demon"` threa
 
 ---
 
-### 🟢 Hunting
-**State.** Separate action with its own long cooldown (8000ms base, floored at 2500ms). Gated behind owning a Net or Snare in inventory. Drains energy (-10) and thirst (+3) per attempt; successful bird drops add another +2 thirst spike. Yield table is weighted heavily toward "nothing" and grubs at level 0; bird meat and feathers climb in frequency as Hunting skill levels up. The Hunt button shows a live cooldown bar like Gather. Bindable to a key (default H).
+### 🟢 Gather (unified discipline page — #97 → #104)
+**State.** `state.run.activeLoop` (single active loop, shared with Patrol). The Gather page in the center column hosts seven tabs — Forage, Mining, Wood, Fishing, Farming, Husbandry, Hunting. Each tab pulls from `content/gatherNodes.js` (20 nodes spread across 6 disciplines) or `content/prey.js` (Hunting tab). Click a node card → `actions.setActiveLoop("gather", { nodeId })` (or `"hunt"` for prey) → `systems/loop.js` fires the matching `performGatherNode` / `performHunt` every `cycleMs`. Drops accrue into a shared **Pile of Goods** above the tab body (`state.run.activePile`). Click another card to swap targets (auto-resets pile); click the same card again or Stop to halt.
+
+**Loop banner (#104).** Sits above the Pile. Looks up `getGatherNode(activeNodeId)` / `getPrey(activePreyId)` so the banner reads the proper display name + icon + tier instead of the raw camelCase id. Includes a built-in progress bar (`scaleX(loopPct)`) and Stop button.
+
+**Skills per discipline.** Each node declares `skill: "<skillId>"`; XP routes through `gainXp(run, skillId, xp)` on every cycle. Foraging / Woodcutting / Fishing / Mining / Farming / Husbandry all have active skills as of #97.
+
+**Where.** `src/content/gatherNodes.js`, `src/content/prey.js`, `src/systems/gather.js` (`performGatherNode`), `src/systems/hunting.js` (`performHunt` — separate because butchering bonuses), `src/systems/loop.js` (auto-loop runner), `src/ui/GatherView.jsx`.
+
+**Long arc.** Era-locked nodes (each carries `era: N`) hide behind the era gate, so each era opens new tiers within the same tabs. Tool-gated nodes (need a Stone Axe to harvest a Hardwood node, etc.) wire in via `tool: "stoneAxe"` once #35 ships.
+
+---
+
+### 🟢 Magic page (tabbed by Study path — #101 → #106)
+**State.** Single center-column page. Tabs mirror the Path Trees modal order exactly so Studies and Magic read across to each other: Foundation / ✨ Light / 🌑 Bend / 🌿 Elemental / ✒️ Sigilcraft / 🔔 Memory / 👂 Stoneword / ⚫ Voidcall / 🪔 Conversions. Buckets derived from `SPELL_PATH` (a static map in `MagicView.jsx`) which itself was built from `STUDIES[].effect.unlocksSpell`. Spells not in the map (Era 3 awakening spells: mendingWord, soothe, innerHearth, banish, plus the awakening's `bend`) bucket into Foundation. Ritual is synthetic — `_ritual: true`, lives in Conversions.
+
+**Cards.** `patrol-card` shape for visual parity with Patrol/Hunting/Gather: icon, path-colored tier chip (`.patrol-card-tier--path-light/bend/elemental/...`), description, cost chips (fragments / spirit / water), full-width Cast CTA. Locked spells dim with 🔒. Cooling spells outline-dash and show remaining seconds.
+
+**Empty tabs hide.** As content fills out the Elemental / Sigilcraft / Stoneword paths, their tabs unhide automatically.
+
+**Where.** `src/ui/MagicView.jsx`, `src/content/spells.js`, `src/content/studies.js` (STUDY_PATHS), `src/systems/spells.js` (canCastSpell, getKnownSpells), `src/index.css` (`.patrol-card-tier--path-*`).
+
+---
+
+### 🟢 Hunting (Era 1 — original action; now folded into Gather)
+**State.** Separate action with its own long cooldown (8000ms base, floored at 2500ms). Gated behind owning a Net or Snare in inventory. Drains energy (-10) and thirst (+3) per attempt; successful bird drops add another +2 thirst spike. Yield table is weighted heavily toward "nothing" and grubs at level 0; bird meat and feathers climb in frequency as Hunting skill levels up.
+
+**As of #97 the legacy Hunting page is gone.** The Hunting tab inside GatherView holds the prey roster (`content/prey.js`) and fires `performHunt` through the same auto-loop runner as the other Gather tabs.
 
 **The first hunts are mostly failures.** This is intentional — narrative framing as "you don't know what you're doing yet, the birds are quick, the wasteland isn't kind." Log messages call out that you ARE hunting birds even when you scared up grubs instead.
 

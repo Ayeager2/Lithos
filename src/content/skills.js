@@ -251,7 +251,97 @@ export const SKILLS = {
     bonuses: [],
     firstUnlockMessage: "",
   },
+
+  // Gather disciplines (#97).
+  woodcutting: {
+    id: "woodcutting", name: "Woodcutting", icon: "🪓",
+    description: "Reading the grain. Taking only what dries clean.",
+    active: true, category: "survival",
+    xpCurve: STANDARD_CURVE, maxLevel: 20, bonuses: [],
+    firstUnlockMessage: "🪓 You learned to choose the right tree.",
+  },
+  fishing: {
+    id: "fishing", name: "Fishing", icon: "🎣",
+    description: "Patience with line and lure. The water gives only when watched.",
+    active: true, category: "survival",
+    xpCurve: STANDARD_CURVE, maxLevel: 20, bonuses: [],
+    firstUnlockMessage: "🎣 You learned to wait for the bite.",
+  },
+  farming: {
+    id: "farming", name: "Farming", icon: "🌾",
+    description: "Coaxing the ash to give. Seasons inside seasons.",
+    active: true, category: "industry",
+    xpCurve: STANDARD_CURVE, maxLevel: 20, bonuses: [],
+    firstUnlockMessage: "🌾 You learned to plant a row that holds.",
+  },
+  animalHusbandry: {
+    id: "animalHusbandry", name: "Husbandry", icon: "🐓",
+    description: "Keeping warm things alive. Wool, eggs, milk — the slow yields.",
+    active: true, category: "industry",
+    xpCurve: STANDARD_CURVE, maxLevel: 20, bonuses: [],
+    firstUnlockMessage: "🐓 You learned to keep what keeps you.",
+  },
 };
+
+// ─── Per-discipline crafting skills (#112) — each Crafting tab routes
+// XP into its matching skill. `smithing` activates as the Blacksmithing
+// skill (was already in this file dormant for #36).
+SKILLS.blacksmithing = {
+  id: "blacksmithing", name: "Blacksmithing", icon: "🔨",
+  description: "Heat, hammer, quench. The shape the world will respect.",
+  active: true, category: "craft",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [
+    // Higher blacksmithing = better chance to succeed on a blacksmithing craft.
+    { stat: "blacksmithingSuccess", perLevel: 0.04, max: 0.80 },
+  ],
+  firstUnlockMessage: "🔨 Your first piece holds true.",
+};
+SKILLS.alchemy = {
+  id: "alchemy", name: "Alchemy", icon: "🧪",
+  description: "Steep, distil, reduce. What the green parts of the world know.",
+  active: true, category: "craft",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [
+    { stat: "alchemySuccess", perLevel: 0.04, max: 0.80 },
+  ],
+  firstUnlockMessage: "🧪 The mixture takes. Steam, not smoke.",
+};
+SKILLS.fletching = {
+  id: "fletching", name: "Fletching", icon: "🪶",
+  description: "Shaft true, fletching even, nock cut. The arrow flies how it was made.",
+  active: true, category: "craft",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [
+    { stat: "fletchingSuccess", perLevel: 0.04, max: 0.80 },
+  ],
+  firstUnlockMessage: "🪶 The shaft draws straight. The feathers bind.",
+};
+SKILLS.woodworking = {
+  id: "woodworking", name: "Woodworking", icon: "🪵",
+  description: "Grain, glue, joint. Wood asked nicely will hold for a long time.",
+  active: true, category: "craft",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [
+    { stat: "woodworkingSuccess", perLevel: 0.04, max: 0.80 },
+  ],
+  firstUnlockMessage: "🪵 The joint sits flush. No glue needed.",
+};
+SKILLS.tailoring = {
+  id: "tailoring", name: "Tailoring", icon: "🧵",
+  description: "Cordage, hide, fabric. The hand that ties the world to the body.",
+  active: true, category: "craft",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [
+    { stat: "tailoringSuccess", perLevel: 0.04, max: 0.80 },
+  ],
+  firstUnlockMessage: "🧵 The stitch is clean. Nothing pulls loose.",
+};
+
+/* Mark legacy mining + tracking active so they show in the Gather rail.
+   smithing is now the blacksmithing skill above; the legacy "smithing"
+   entry stays dormant for back-compat saves. */
+if (SKILLS.mining) SKILLS.mining.active = true;
 
 export const getSkill = (id) => SKILLS[id] || null;
 export const getAllSkills = () => Object.values(SKILLS);

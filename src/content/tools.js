@@ -16,8 +16,8 @@ export const TOOLS = {
     cost: { wood: 6, stone: 2 },
     requires: { researched: "netWeaving" },
     effect: { unlocksAction: "hunt" },
-    durability: { max: 12, wearsOn: "hunt" },
-    effectSummary: "Unlocks the Hunt action. · 12 hunts before it frays.",
+    durability: { max: 6, wearsOn: "hunt" },
+    effectSummary: "Unlocks the Hunt action. · 6 hunts before it frays.",
     onCraftedMessage: "🕸️ You finish the net. The lashings hold.",
     onBrokenMessage: "🕸️ The net comes apart in your hands.",
     tier: 1, col: 0,
@@ -29,8 +29,8 @@ export const TOOLS = {
     cost: { wood: 8, stone: 3, feathers: 2 },
     requires: { researched: "trapping", skill: { hunting: 2 } },
     effect: { huntYieldBonus: 1, huntCooldownReduction: 1500, huntBetterBirds: 4 },
-    durability: { max: 20, wearsOn: "hunt" },
-    effectSummary: "+1 hunt yield · -1500ms hunt cooldown · 20 hunts.",
+    durability: { max: 10, wearsOn: "hunt" },
+    effectSummary: "+1 hunt yield · -1500ms hunt cooldown · 10 hunts.",
     onCraftedMessage: "🪤 The snare is set.",
     onBrokenMessage: "🪤 The snare line snaps.",
     tier: 1, col: 1,
@@ -42,8 +42,8 @@ export const TOOLS = {
     cost: { wood: 5, stone: 2 },
     requires: { researched: "diggingStickCraft" },
     effect: { gatherSpeedup: 100, waterBonus: 1 },
-    durability: { max: 25, wearsOn: "gather" },
-    effectSummary: "-100ms gather · +1 water on water gathers · 25 gathers.",
+    durability: { max: 12, wearsOn: "gather" },
+    effectSummary: "-100ms gather · +1 water on water gathers · 12 gathers.",
     onCraftedMessage: "🥢 You shape the stick and harden the tip.",
     onBrokenMessage: "🥢 The tip splinters and snaps off.",
     tier: 1, col: 2,
@@ -55,8 +55,8 @@ export const TOOLS = {
     cost: { water: 3, feathers: 1, stone: 1 },
     requires: { researched: "waterCarrying" },
     effect: { waterBonus: 1 },
-    durability: { max: 30, wearsOn: "waterGather" },
-    effectSummary: "+1 water on water gathers · 30 water-fills.",
+    durability: { max: 15, wearsOn: "waterGather" },
+    effectSummary: "+1 water on water gathers · 15 water-fills.",
     onCraftedMessage: "🧴 You stitch and seal. The skin holds.",
     onBrokenMessage: "🧴 The seal gives way.",
     tier: 1, col: 3,
@@ -76,8 +76,8 @@ export const TOOLS = {
     // Combat (Task #33 reads this): hatchet-leaning. Decent damage band,
     // moderate accuracy, low crit. A worse battle axe by design.
     weaponStats: { type: "melee", damage: [3, 6], acc: 0.7, crit: 0.04 },
-    durability: { max: 50, wearsOn: "gather" },
-    effectSummary: "-150ms gather · +2 wood on wood gathers · 50 gathers. Wieldable: 3-6 dmg.",
+    durability: { max: 35, wearsOn: "gather" },
+    effectSummary: "-150ms gather · +2 wood on wood gathers · 35 gathers. Wieldable: 3-6 dmg.",
     onCraftedMessage: "🪓 The axe head is bound. Weight in the hand. Edges that bite.",
     onBrokenMessage: "🪓 The axe head splits from the haft. Time to make another.",
     tier: 2, col: 0,
@@ -96,8 +96,8 @@ export const TOOLS = {
     // Combat: heavy, slow, poor accuracy. Why would you? Mostly so the
     // player CAN if they have to. Numbers say: don't.
     weaponStats: { type: "melee", damage: [2, 5], acc: 0.55, crit: 0.02 },
-    durability: { max: 50, wearsOn: "gather" },
-    effectSummary: "-100ms gather · +2 stone on stone gathers · 50 gathers. Wieldable (poorly): 2-5 dmg.",
+    durability: { max: 35, wearsOn: "gather" },
+    effectSummary: "-100ms gather · +2 stone on stone gathers · 35 gathers. Wieldable (poorly): 2-5 dmg.",
     onCraftedMessage: "⛏️ The pickaxe is whole. The earth's bones look softer now.",
     onBrokenMessage: "⛏️ The pick chips and breaks at the head.",
     tier: 2, col: 1,
@@ -115,8 +115,8 @@ export const TOOLS = {
     // Combat: high accuracy (it's a known shape in your hand), good crit
     // (sharp), low damage band (it's small).
     weaponStats: { type: "melee", damage: [2, 5], acc: 0.85, crit: 0.1 },
-    durability: { max: 60, wearsOn: "hunt" },
-    effectSummary: "+1 hunt yield · +1 food on food gathers · 60 hunts. Wieldable: 2-5 dmg, +crit.",
+    durability: { max: 40, wearsOn: "hunt" },
+    effectSummary: "+1 hunt yield · +1 food on food gathers · 40 hunts. Wieldable: 2-5 dmg, +crit.",
     onCraftedMessage: "🔪 The knife is keen. The bird gives up more meat under your hand now.",
     onBrokenMessage: "🔪 The blade chips and falls from the grip.",
     tier: 2, col: 2,
@@ -134,8 +134,8 @@ export const TOOLS = {
     effect: { huntCooldownReduction: 2500, huntYieldBonus: 2, huntBetterBirds: 8 },
     // Combat: ranged. High damage, good accuracy, modest crit.
     weaponStats: { type: "ranged", damage: [5, 9], acc: 0.8, crit: 0.05 },
-    durability: { max: 60, wearsOn: "hunt" },
-    effectSummary: "+2 hunt yield · -2500ms hunt cooldown · way more birds · 60 hunts. Ranged: 5-9 dmg.",
+    durability: { max: 40, wearsOn: "hunt" },
+    effectSummary: "+2 hunt yield · -2500ms hunt cooldown · way more birds · 40 hunts. Ranged: 5-9 dmg.",
     onCraftedMessage: "🏹 The bow is finished. You draw, release. The arrow flies. Something far falls.",
     onBrokenMessage: "🏹 The string snaps and the limb cracks. A bow's work is done.",
     tier: 2, col: 3,
@@ -153,8 +153,8 @@ export const TOOLS = {
     requires: { researched: "arcaneAwakening", builtBuilding: "forge" },
     effect: { huntYieldBonus: 2, foodBonus: 2, sanityPerFoodGather: -1 },
     weaponStats: { type: "melee", damage: [4, 8], acc: 0.88, crit: 0.15 },
-    durability: { max: 80, wearsOn: "hunt" },
-    effectSummary: "+2 hunt yield · +2 food on food gathers · -1 sanity per food gather (the blade hums) · 80 hunts. Wieldable: 4-8 dmg, high crit.",
+    durability: { max: 100, wearsOn: "hunt" },
+    effectSummary: "+2 hunt yield · +2 food on food gathers · -1 sanity per food gather (the blade hums) · 100 hunts. Wieldable: 4-8 dmg, high crit.",
     onCraftedMessage: "🗡️ The Fragment Knife is whole. Light bends along the edge.",
     onBrokenMessage: "🗡️ The shard inlay shatters. The blade goes quiet, then breaks.",
     tier: 3, col: 0,
@@ -323,4 +323,25 @@ export function getToolEffects(run) {
     if (typeof e.demonSanityMult === "number") eff.demonSanityMult *= e.demonSanityMult;
   }
   return eff;
+}
+
+// ─── Discipline router (#112) — maps a tool to one of the six Crafting
+// tabs (blacksmithing / alchemy / fletching / farming / woodworking /
+// tailoring). Prefer an explicit `tool.discipline` field; otherwise
+// fall back to a category-+-id heuristic so existing content keeps
+// working without per-tool edits. Mirrored in CraftingView for the tab
+// strip — change both if the rules change.
+export function getToolDiscipline(tool) {
+  if (!tool) return "blacksmithing";
+  if (tool.discipline) return tool.discipline;
+  if (tool.category === "consumable" || tool.category === "alchemy") return "alchemy";
+  if (tool.id === "bow") return "fletching";
+  if (tool.category === "primitive") {
+    if (tool.id === "net" || tool.id === "snare" || tool.id === "waterSkin") return "tailoring";
+    return "woodworking";
+  }
+  if (tool.id === "wardingTalisman") return "tailoring";
+  if (tool.id === "spiritCenser") return "alchemy";
+  // bronze / iron / arcane edged tools default to blacksmithing.
+  return "blacksmithing";
 }

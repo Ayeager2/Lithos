@@ -120,6 +120,12 @@ export const RUN_DEFAULTS = {
   // saves that don't have the field yet.
   equipped: freshEquipped(),
 
+
+  // Combat style (#82) — melee / ranged / magic toggle. Drives which
+  // weapon slot is consulted, which combat skill earns XP, and which stat
+  // scales damage. Magic attacks additionally drain Spirit per swing.
+  combatStyle: "melee",
+
   log: [],
 };
 

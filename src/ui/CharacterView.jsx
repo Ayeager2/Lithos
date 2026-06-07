@@ -236,7 +236,13 @@ export default function CharacterView({ state, actions }) {
   const craftSkills = activeSkills.filter((s) => s.category === "craft");
   const arcaneSkills = activeSkills.filter((s) => s.category === "arcane");
   const industrySkills = activeSkills.filter((s) => s.category === "industry");
-  const otherSkills = [...craftSkills, ...arcaneSkills, ...industrySkills];
+  // Craft / Industry / Arcane each get their own column when populated
+  // — folding them into a single "Other" pile was confusing (#107).
+  const secondaryCols = [
+    { id: "craft",    title: "Craft",    skills: craftSkills    },
+    { id: "industry", title: "Industry", skills: industrySkills },
+    { id: "arcane",   title: "Arcane",   skills: arcaneSkills   },
+  ].filter((c) => c.skills.length > 0);
 
   // Jump-nav target — anchor scrolling + visual highlight.
   const handleJump = (id) => {
@@ -322,14 +328,20 @@ export default function CharacterView({ state, actions }) {
             emptyHint="Fight something to earn combat skills."
           />
         </div>
-        {otherSkills.length > 0 && (
-          <div className="char-skills-grid char-skills-grid--secondary">
-            <SkillColumn
-              state={state}
-              title="Other"
-              skills={otherSkills}
-              emptyHint=""
-            />
+        {secondaryCols.length > 0 && (
+          <div
+            className="char-skills-grid char-skills-grid--secondary"
+            style={{ "--cols": secondaryCols.length }}
+          >
+            {secondaryCols.map((c) => (
+              <SkillColumn
+                key={c.id}
+                state={state}
+                title={c.title}
+                skills={c.skills}
+                emptyHint=""
+              />
+            ))}
           </div>
         )}
       </div>
@@ -395,6 +407,27 @@ export default function CharacterView({ state, actions }) {
                   <span className="char-slot-label muted">Ring {i + 1}</span>
                   <span className="char-slot-value">
                     <span aria-hidden="true">{def?.icon || ""}</span>{" "}
+                    {def?.name || r.id}
+                  </span>
+                </button>
+              );
+            })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── 4. Items ─── */}
+      <div id="char-items" className="char-section">
+        <h3 className="char-section-title">Items</h3>
+        {actions && (
+          <EquipmentInventoryGrid state={state} actions={actions} />
+        )}
+      </div>
+    </section>
+  );
+}
+rue">{def?.icon || ""}</span>{" "}
                     {def?.name || r.id}
                   </span>
                 </button>

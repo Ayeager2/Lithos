@@ -188,6 +188,18 @@ export function reducer(state, action) {
       return { persistent, run: appendLogAndStamp(run, events) };
     }
 
+    case ACTIONS.SET_COMBAT_STYLE: {
+      const style = action.style;
+      if (!["melee", "ranged", "magic"].includes(style)) return state;
+      return {
+        ...state,
+        run: appendLog(
+          { ...state.run, combatStyle: style },
+          [{ kind: "info", message: `🎯 Combat style: ${style}.` }]
+        ),
+      };
+    }
+
     case ACTIONS.TICK_LOOP: {
       // Active patrol/gather/etc loop
       const loopResult = tickActiveLoop(state);

@@ -5,7 +5,12 @@
 import {
   getEquippedMeleeDef,
   getEquippedRangedDef,
+  getEquippable,
 } from "./equipment.js";
+
+// Re-export so UI views can read it via combat.js alongside other helpers.
+export { getEquippedRangedDef };
+
 import { applyToolWear } from "./crafting.js";
 import { applyEffect } from "./survival.js";
 import { getStudyStatBonuses } from "./studies.js";
@@ -27,7 +32,12 @@ const SUBFAMILY_TO_SKILL = {
   throwing: "archery",
 };
 
-export function getCombatSkillForWeapon(weapon) {
+export function getCombatSkillForWeapon(weapon, style) {
+  // Magic style (#82) — always routes to magicCombat regardless of weapon
+  // subfamily. The weapon's underlying subfamily would point at "knife"
+  // for a Fragment Knife wielded magically, which would otherwise give
+  // swordplay XP. The style override fixes that.
+  if (style === "magic") return "magicCombat";
   if (!weapon || !weapon.subfamily) return null;
   return SUBFAMILY_TO_SKILL[weapon.subfamily] || null;
 }
@@ -108,11 +118,47 @@ function substitute(template, subs) {
 }
 
 export function getEffectiveWeapon(run) {
+  // Combat style (#82) — pick the weapon appropriate to the selected style.
+  // Magic style needs a magic-capable item in either hand; falls back to
+  // melee if missing so the player doesn't get fists with 0 damage.
+  const style = run?.combatStyle || "melee";
+  if (style === "magic") {
+    const mag = getEquippedMagicDef(run);
+    if (mag && mag.weaponStats) return mag;
+  }
+  if (style === "ranged") {
+    const ranged = getEquippedRangedDef(run);
+    if (ranged && ranged.weaponStats) return ranged;
+  }
   const melee = getEquippedMeleeDef(run);
   if (melee && melee.weaponStats) return melee;
   const ranged = getEquippedRangedDef(run);
   if (ranged && ranged.weaponStats) return ranged;
   return FISTS;
+}
+
+// Magic weapon lookup (#82) — checks both hand slots for arcane-category
+// items with weapon stats. Today: Fragment Knife counts when wielded
+// "magically" (its weaponStats are melee-flagged but the arcane category
+// + spirit cost makes it the magic-style choice). Future: dedicated wands
+// will land with weaponStats.type = "magic".
+export function getEquippedMagicDef(run) {
+  const eq = run?.equipped || {};
+  const tryHand = (slot) => {
+    const inst = eq[slot];
+    if (!inst || inst.twoHandedHeldIn) return null;
+    const def = getEquippable(inst.id);
+    if (def?.category === "arcane" && def?.weaponStats) return def;
+    return null;
+  };
+  return tryHand("handLeft") || tryHand("handRight");
+}
+
+// Per-attack Spirit cost for magic style. Scales with weapon damage range.
+export function getMagicSpiritCost(weapon) {
+  if (!weapon?.weaponStats?.damage) return 2;
+  const avgDmg = (weapon.weaponStats.damage[0] + weapon.weaponStats.damage[1]) / 2;
+  return Math.max(1, Math.min(5, Math.round(avgDmg / 3)));
 }
 
 export function getPersonalArmor(state) {
@@ -156,15 +202,37 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
   const wStats = weapon.weaponStats || FISTS.weaponStats;
   const cb = threatDef.combat || {};
   const threatEva = cb.eva ?? 0.05;
-  const skillId = getCombatSkillForWeapon(weapon);
+  const style = state.run?.combatStyle || "melee";
+  const skillId = getCombatSkillForWeapon(weapon, style);
   const sb = getCombatSkillBonuses(state.run, skillId);
-  const statBonuses = getStatCombatBonuses(state, weapon);
+  const statBonuses = getStatCombatBonuses(state, weapon, style);
   const penalty = getUnarmoredPenalty(state);
   // STR/DEX/MAG (#47) mix in alongside the weapon-skill bonuses.
   const effAcc = wStats.acc + sb.accBonus + statBonuses.accBonus - penalty.accPenalty;
   const effCrit = (wStats.crit || 0) + sb.critBonus;
   const flatDmg = Math.floor(sb.damageBonus + statBonuses.damageBonus);
   const dmgMult = statBonuses.damageMult || 1.0;
+
+  // Magic style (#82) — fizzle the attack if Spirit can't pay the cost.
+  // Spirit is drained by the caller (resolveFight stamps it on run; the
+  // boss-modal turn UI applies it through BOSS_FIGHT_END). Here we just
+  // report the spiritCost on the result so the consumer can deduct.
+  const spiritCost = style === "magic" ? getMagicSpiritCost(weapon) : 0;
+  const currentSpirit = state.run?.stats?.spirit ?? 0;
+  const fizzle = style === "magic" && currentSpirit < spiritCost;
+
+  if (fizzle) {
+    return {
+      hit: false,
+      isCrit: false,
+      dmg: 0,
+      spiritCost,
+      fizzle: true,
+      weaponName: weapon.name,
+      skillId,
+      message: `🪔 The ${weapon.name} sputters — not enough Spirit.`,
+    };
+  }
 
   const hit = rng() < (effAcc - threatEva);
   if (!hit) {
@@ -174,6 +242,7 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
       hit: false,
       isCrit: false,
       dmg: 0,
+      spiritCost,
       weaponName: weapon.name,
       skillId,
       message: substitute(line, { weapon: weapon.name, threat: threatDef.name }),
@@ -192,6 +261,7 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
     hit: true,
     isCrit,
     dmg,
+    spiritCost,
     weaponName: weapon.name,
     skillId,
     message: substitute(line, {
@@ -268,9 +338,10 @@ export function resolveFight(state, threatDef, rng = Math.random) {
   const threatDmg = cb.damage || { min: 2, max: 4 };
   const damageType = cb.damageType || "hp";
 
-  const combatSkillId = getCombatSkillForWeapon(weapon);
+  const style = state.run?.combatStyle || "melee";
+  const combatSkillId = getCombatSkillForWeapon(weapon, style);
   const skillBonuses = getCombatSkillBonuses(state.run, combatSkillId);
-  const statBonuses = getStatCombatBonuses(state, weapon);
+  const statBonuses = getStatCombatBonuses(state, weapon, style);
   const penalty = getUnarmoredPenalty(state);
   // STR/DEX/MAG (#47) mix into the same combat math used by the boss-
   // modal turn rollers. Keeps the two paths in sync.
@@ -300,13 +371,33 @@ export function resolveFight(state, threatDef, rng = Math.random) {
     message: openerLine || `⚔️ A ${threatDef.name} closes the distance.`,
   });
 
+  // Magic style (#82) — pre-compute spirit cost per swing. Drains from
+  // playerSpirit on every attempt (hit or miss); fizzles + 0 dmg if the
+  // player can't afford the cost this round.
+  const magicSpiritCost = style === "magic" ? getMagicSpiritCost(weapon) : 0;
+
   let round = 0;
   let outcome = "stalemate";
   while (round < MAX_ROUNDS) {
     round++;
 
+    // Magic fizzle check — happens BEFORE the hit roll. Player still
+    // takes their turn (foe attacks normally) but their swing whiffs.
+    let fizzled = false;
+    if (style === "magic") {
+      if (playerSpirit < magicSpiritCost) {
+        fizzled = true;
+        events.push({
+          kind: "combat",
+          message: `🪔 The ${weapon.name} sputters — not enough Spirit.`,
+        });
+      } else {
+        playerSpirit = Math.max(0, playerSpirit - magicSpiritCost);
+      }
+    }
+
     const playerHitRoll = rng();
-    const playerHits = playerHitRoll < (effAcc - threatEva);
+    const playerHits = !fizzled && playerHitRoll < (effAcc - threatEva);
     if (playerHits) {
       const [lo, hi] = wStats.damage;
       let dmg = randInt(rng, lo, hi) + flatDamageBonus;
@@ -317,7 +408,7 @@ export function resolveFight(state, threatDef, rng = Math.random) {
       foeHp = Math.max(0, foeHp - dmg);
       const line = isCrit ? pickRandom(PLAYER_CRIT_LINES, rng) : pickRandom(PLAYER_HIT_LINES, rng);
       events.push({ kind: "combat", message: substitute(line, { weapon: weapon.name, threat: threatDef.name, dmg }) });
-    } else {
+    } else if (!fizzled) {
       const line = pickRandom(PLAYER_MISS_LINES, rng);
       events.push({ kind: "combat", message: substitute(line, { weapon: weapon.name, threat: threatDef.name }) });
     }

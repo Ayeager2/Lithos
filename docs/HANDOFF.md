@@ -53,6 +53,13 @@ Per-system status in `docs/systems.md`. Grouped highlights:
 - **Tooltips** — native `title` attribute on stat rows, study rows, and all rail icons.
 - **Active-study indicator** — 1s live-extrapolated progress bar in Stone strip; bar moves smoothly between 15s TICK commits.
 - **Crafting view** — still a stub; #48 fills it with sub-tabbed disciplines.
+- **Gather view (#97 → #104)** — unified center page replacing the old standalone HuntingView. Top tabs: Forage / Mining / Wood / Fishing / Farming / Husbandry / Hunting. Each tab is a `patrol-card` grid of `gatherNodes.js` entries (20 nodes across 6 disciplines, each w/ id/name/icon/discipline/skill/era/tier/drops/xp/cycleMs/flavor). Click a card → auto-loop runs `performGatherNode()` (or `performHunt()` for Hunting tab) every `cycleMs`. Drops accrue into a **shared Pile of Goods** (#69 pattern). Loop banner sits above the Pile (#104) — shows the node icon + proper display name + tier chip + progress bar + Stop button, instead of the raw camelCase id.
+- **Magic view (#101 → #106)** — single tabbed page. Cast + Spellbook + Conversions merged. **Tab order mirrors the Path Trees modal exactly** (Foundation / ✨Light / 🌑Bend / 🌿Elemental / ✒️Sigilcraft / 🔔Memory / 👂Stoneword / ⚫Voidcall / 🪔Conversions). Bucket map (`SPELL_PATH` in `MagicView.jsx`) derived from `STUDIES[].effect.unlocksSpell`. Empty paths hide their tab. Spells render as **patrol-card tiles** for visual parity with Patrol / Hunting / Gather: icon, path-colored tier chip, description, cost chips, full-width Cast CTA. Ritual lives in Conversions as a synthetic spell.
+- **Path Trees modal styling (#105)** — `.study-tab` pill buttons now match the project's dark theme (transparent + accent border on active) instead of browser-default white.
+- **Era labels (#105)** — `eraLabel()` helper in PatrolView/GatherView renders "Era One / Two / Three" instead of "era 1" on all card sublines.
+- **Building skill (#102)** — new `craft`-category skill in `content/skills.js`. Reduces survival cost of building actions (`buildEffortReduction` bonus, 0.03/lvl, cap 0.5). XP granted on `BUILD` actions. Some research nodes (fire, hiddenStores) now carry a `skillReq: { building: N }` precondition checked by `canListen()`.
+- **Skills under Character (#107)** — Survival/Combat columns at sm+ breakpoint; Craft/Industry/Arcane each get their own column via `--cols` (no more "Other" pile). Mobile-first cascade. Rows get horizontal padding so bars/text don't kiss the column edge (#103 carry-over). Duplicate `.skill-row` CSS block (~100 lines) removed.
+- **Breathing room pass (#103)** — `.action-panel`, `.patrol-card`, `.ei-card`, `.magic-row`, and skill rows all get explicit horizontal padding so text never touches container borders.
 
 ### Locked design decisions
 - **Spirit = magic-energy stat** (was reserved as Mana; locked active in Era 3+)
@@ -73,13 +80,11 @@ Per-system status in `docs/systems.md`. Grouped highlights:
 ## Next moves (suggested order: #44 → #35 onward)
 
 **Combat arc (7/7 done — full combat phase complete):**
-- **#35** — specialized gather actions (Chop / Mine / Forage) + resources (iron_ore, coal, herbs, mushrooms, arrows) + skills (mining, woodcutting, fletching).
 - **#36** — iron tier + smithing skill (dual-use Iron Hatchet vs Iron Battle Axe; Iron ingot recipe at Forge).
 - **#37** — weapon enchants tied to Arcane Studies. Enchant slots per weapon level (1/2/3). Unlocks via Light/Bend/Elemental completions. Altar UI.
 
-**Character / Crafting page arc (#46–#49; #43 + #44 + #45 + #54 shipped):**
+**Character / Crafting page arc (#46, #48, #49; #43 + #44 + #45 + #47 + #54 shipped):**
 - **#46** tooltip-compare on hover (multi-slot ring handling).
-- **#47** combat stats actually modulate combat (STR melee+protein; DEX ranged+acc+eva; MAG spell dmg; SPD cooldowns; Spirit regen).
 - **#48** Crafting page — full takeover sub-tabbed (Blacksmithing/Alchemy/Fletching/Farming/Woodworking/Tailoring). ToolsModal retires.
 - **#49** polish — tab transitions, hover states, equip flourishes, damaged-stat red overlay on stat bars.
 
@@ -122,6 +127,10 @@ Test recipes:
 - **Ascension QoL**: Quick → 🚀 Unlock all Era 3 → State → max stats → Channel the Rock → new run starts hut-raised, fragments still readable as "Arcane Shards"
 - **Echo Shop**: Channel the Rock → click header Echoes badge OR Echo Shop button on prestige modal → buy upgrades → new run seeds with their effects (verify via Inventory + stat bars)
 - **Sanity-damage threat**: equip any weapon → Encounters → Force Soulless Stalker → sanity drains per round, armor doesn't help
+- **Gather page (#97 / #104)**: Left rail 🌿 Gather → tab strip (Forage / Mining / Wood / Fishing / Farming / Husbandry / Hunting). Click a Dust Patch in Forage → auto-loop starts; loop banner appears **above** the Pile of Goods showing 🌫️ Dust Patch · Common with a progress bar + Stop button. Drops accrue in the Pile. Click a different node → swaps target. Switch to Hunting tab → click a prey card → loop continues against the prey.
+- **Magic page (#106)**: Dev → State → set studies (Light: greaterMending; Bend: greaterBend) → State → grant Spirit + fragments → Left rail Magic → tab strip mirrors the Path Trees modal order (Foundation / ✨Light / 🌑Bend / 🌿Elemental / ...). Each known spell renders as a patrol-card tile with path-colored chip + Cast CTA. Locked spells dim with 🔒. Empty paths hide their tab.
+- **Path Trees colors (#105)**: Arcane → Studies → tabs render as dark pills with accent border on active (no more white browser-default buttons). Studies + Magic share the same tab visual language.
+- **Skills under Character (#107)**: Character → 🎯 Skills section. Survival + Combat columns side-by-side on sm+ viewports. Once Building skill earns XP (build any structure) it shows in a separate Craft column instead of being mashed into "Other".
 
 ## Onboarding prompt for a fresh agent
 

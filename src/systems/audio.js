@@ -188,33 +188,106 @@ export function playSfx(sfxId) {
   const audio = new Audio(def.file);
   audio.loop = false;
   audio.volume = effectiveVolume("sfx", def.volume ?? 1.0);
-  audio.play().catch(() => {});
+  audio.play().catch(() => { });
   activeSfx.add(audio);
   audio.addEventListener("ended", () => activeSfx.delete(audio));
 }
 
 // ---- Music selection logic ----
 
-function pickAutoTrack(state, era) {
+// Treats a track as eligible only if it's been unlocked AND the user
+// hasn't muted it. Pinning bypasses mute (explicit pick beats mute).
+function isTrackEligible(track, unlocked, muted) {
+  if (!track) return false;
+  if (!unlocked[track.id]) return false;
+  if (muted && muted[track.id]) return false;
+  return true;
+}
+
+function pickAutoTrack(state, era, settings) {
   const unlocked = state.persistent?.unlockedMusic || {};
+  const muted = settings?.mutedMusicIds || currentSettings?.mutedMusicIds || {};
+  // First walk down from current era to find the era-tagged track.
   for (let e = era; e >= 0; e--) {
     const track = getMusicForEra(e);
-    if (track && unlocked[track.id]) return track;
+    if (isTrackEligible(track, unlocked, muted)) return track;
   }
+  // Fall back to any unlocked, non-muted track.
   for (const t of getAllMusic()) {
-    if (unlocked[t.id]) return t;
+    if (isTrackEligible(t, unlocked, muted)) return t;
   }
   return null;
+}
+
+// Skip to the next eligible track in the rotation (#87).
+// Cycles through unlocked + non-muted tracks. If currently playing track
+// is the only eligible one, picks itself (essentially a restart).
+export function skipToNextEligibleTrack(state, settings) {
+  const unlocked = state.persistent?.unlockedMusic || {};
+  const muted = settings?.mutedMusicIds || {};
+  const all = getAllMusic().filter((t) => isTrackEligible(t, unlocked, muted));
+  if (all.length === 0) {
+    fadeOutMusic(1500);
+    return null;
+  }
+  const curIdx = all.findIndex((t) => t.id === currentMusic?.id);
+  const next = all[(curIdx + 1) % all.length];
+  if (next) crossfadeToMusic(next.id, 1500);
+  return next?.id || null;
+}
+
+// Mirror of skipToNextEligibleTrack — steps backward through the same
+// eligibility list. Used by the mini-player's ◀◀ button.
+export function skipToPreviousEligibleTrack(state, settings) {
+  const unlocked = state.persistent?.unlockedMusic || {};
+  const muted = settings?.mutedMusicIds || {};
+  const all = getAllMusic().filter((t) => isTrackEligible(t, unlocked, muted));
+  if (all.length === 0) {
+    fadeOutMusic(1500);
+    return null;
+  }
+  const curIdx = all.findIndex((t) => t.id === currentMusic?.id);
+  const prevIdx = (curIdx - 1 + all.length) % all.length;
+  const prev = all[prevIdx];
+  if (prev) crossfadeToMusic(prev.id, 1500);
+  return prev?.id || null;
+}
+
+// Pause/resume — pauses the underlying <audio>, leaves currentMusic
+// intact so resume picks up where it left off. The mini-player toggles
+// these via its ⏸/▶ button.
+let isPausedFlag = false;
+export function pauseMusic() {
+  if (!currentMusic?.audio) return;
+  try { currentMusic.audio.pause(); } catch { /* ignore */ }
+  isPausedFlag = true;
+}
+export function resumeMusic() {
+  if (!currentMusic?.audio) {
+    isPausedFlag = false;
+    return;
+  }
+  try { currentMusic.audio.play().catch(() => {}); } catch { /* ignore */ }
+  isPausedFlag = false;
+}
+export function getIsPaused() {
+  return isPausedFlag;
+}
+export function togglePause() {
+  if (isPausedFlag) resumeMusic();
+  else pauseMusic();
 }
 
 export function syncMusicToState(state, settings, era) {
   let targetId = null;
   const unlocked = state.persistent?.unlockedMusic || {};
-
+  // Pinning beats mute — if you explicitly pin a track, it plays even
+  // if you'd also marked it muted in the past. Mute only governs the
+  // auto-rotation.
   if (settings.pinnedMusicId && unlocked[settings.pinnedMusicId]) {
     targetId = settings.pinnedMusicId;
   } else {
-    const track = pickAutoTrack(state, era);
+    const track = pickAutoTrack(state, era, settings);
     targetId = track?.id ?? null;
   }
 

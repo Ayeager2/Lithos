@@ -49,5 +49,8 @@ export const ACTIONS = {
   CLEAR_ACTIVE_LOOP: "CLEAR_ACTIVE_LOOP",
   TICK_LOOP: "TICK_LOOP",
 
+  // Combat style (#82) — melee / ranged / magic.
+  SET_COMBAT_STYLE: "SET_COMBAT_STYLE",
+
   DEV_PATCH: "DEV_PATCH",
 };
