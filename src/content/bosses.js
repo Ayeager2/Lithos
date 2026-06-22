@@ -14,6 +14,7 @@ export const BOSSES = {
     minGathersAfterGate: 0,
     combat: { hp: 30, acc: 0.72, eva: 0.05, damage: { min: 3, max: 5 }, damageType: "hp" },
     defeatReward: { inventory: { wood: 10, stone: 10, food: 5, fragments: 1 } },
+    runeDrops: [ { resource: "splinterRune", chance: 0.30, qty: 1 }, { resource: "pebbleWard", chance: 0.20, qty: 1 } ],
     firstDefeatLog: "🥇 The Dust-Crowned Scavenger falls. The band scatters with him. You stand a long time looking at the bone-crown before you set it down.",
     etching: "first_boss_era1",
     combatFlavor: {
@@ -50,6 +51,7 @@ export const BOSSES = {
     minGathersAfterGate: 0,
     combat: { hp: 50, acc: 0.78, eva: 0.12, damage: { min: 4, max: 7 }, damageType: "hp", defenseHalf: false },
     defeatReward: { inventory: { food: 15, feathers: 10, fragments: 2 } },
+    runeDrops: [ { resource: "huntermarkRune", chance: 0.25, qty: 1 }, { resource: "emberRune", chance: 0.35, qty: 1 } ],
     firstDefeatLog: "🥇 The Long-Toothed One falls. You drag it back to the fire and learn what its teeth were really for.",
     etching: "first_boss_era1_main",
     combatFlavor: {
@@ -86,6 +88,7 @@ export const BOSSES = {
     minGathersAfterGate: 0,
     combat: { hp: 65, acc: 0.82, eva: 0.15, damage: { min: 5, max: 9 }, damageType: "hp" },
     defeatReward: { inventory: { wood: 20, stone: 20, fragments: 3, feathers: 5 } },
+    runeDrops: [ { resource: "inscribedSigil", chance: 0.25, qty: 1 }, { resource: "bedrockRune", chance: 0.20, qty: 1 } ],
     firstDefeatLog: "🥇 The Raider Captain falls. The ridge empties. The band will think long before coming at all.",
     etching: "first_boss_era2",
     combatFlavor: {
@@ -122,6 +125,7 @@ export const BOSSES = {
     minGathersAfterGate: 0,
     combat: { hp: 110, acc: 0.75, eva: 0.05, damage: { min: 7, max: 12 }, damageType: "hp", defenseHalf: true },
     defeatReward: { inventory: { stone: 30, wood: 15, fragments: 5, feathers: 10 } },
+    runeDrops: [ { resource: "huntermarkRune", chance: 0.30, qty: 1 }, { resource: "horizonRune", chance: 0.25, qty: 1 }, { resource: "frostveinRune", chance: 0.15, qty: 1 } ],
     firstDefeatLog: "🥇 The Iron-Hand kneels and does not get up. The iron in his arm is still warm when you pry it free.",
     etching: "first_boss_era2_main",
     combatFlavor: {
@@ -159,6 +163,7 @@ export const BOSSES = {
     minGathersAfterGate: 0,
     combat: { hp: 80, acc: 0.88, eva: 0.20, damage: { min: 4, max: 8 }, damageType: "sanity", defenseHalf: true },
     defeatReward: { inventory: { fragments: 8 } },
+    runeDrops: [ { resource: "malignVoidRune", chance: 0.20, qty: 1 }, { resource: "temporalRune", chance: 0.15, qty: 1 }, { resource: "monolithRune", chance: 0.15, qty: 1 } ],
     firstDefeatLog: "🥇 The Stilled Choir falls silent. The silence afterward is yours now, not theirs.",
     etching: "first_boss_era3",
     combatFlavor: {
@@ -196,6 +201,7 @@ export const BOSSES = {
     minGathersAfterGate: 0,
     combat: { hp: 160, acc: 0.85, eva: 0.15, damage: { min: 6, max: 11 }, damageType: "hp", defenseHalf: true },
     defeatReward: { inventory: { fragments: 15, food: 20, water: 10, stone: 20 } },
+    runeDrops: [ { resource: "nullVoidRune", chance: 0.20, qty: 1 }, { resource: "archmageSigil", chance: 0.15, qty: 1 }, { resource: "starforgeRune", chance: 0.15, qty: 1 }, { resource: "annihilateRune", chance: 0.06, qty: 1 } ],
     firstDefeatLog: "🥇 The Last Forager falls. The stone in her hand goes quiet. The Awakened World is yours to walk.",
     etching: "first_boss_era3_main",
     combatFlavor: {

@@ -225,17 +225,23 @@ export const SKILLS = {
     firstUnlockMessage: "",
   },
 
+  // Smithing (#36 / #131) — sister skill to blacksmithing. Earns XP
+  // whenever the player smelts iron OR crafts an iron-tier item.
+  // Higher smithing levels reduce iron-tier weapon material cost
+  // beyond the blacksmithing discount.
   smithing: {
     id: "smithing",
     name: "Smithing",
     icon: "🔨",
     description: "Heat. Hammer. Quench. The shape that won't break.",
-    active: false,
+    active: true,
     category: "industry",
     xpCurve: STANDARD_CURVE,
     maxLevel: 20,
-    bonuses: [],
-    firstUnlockMessage: "",
+    bonuses: [
+      { stat: "ironCostReduction", perLevel: 0.01, max: 0.20 },
+    ],
+    firstUnlockMessage: "🔨 The first ingot rings true against the anvil.",
   },
 
   tracking: {
@@ -285,16 +291,14 @@ export const SKILLS = {
 
 // ─── Per-discipline crafting skills (#112) — each Crafting tab routes
 // XP into its matching skill. `smithing` activates as the Blacksmithing
-// skill (was already in this file dormant for #36).
+// ─── Per-discipline crafting skills (#112) — each Crafting tab routes
+// XP into its matching skill.
 SKILLS.blacksmithing = {
   id: "blacksmithing", name: "Blacksmithing", icon: "🔨",
   description: "Heat, hammer, quench. The shape the world will respect.",
   active: true, category: "craft",
   xpCurve: STANDARD_CURVE, maxLevel: 20,
-  bonuses: [
-    // Higher blacksmithing = better chance to succeed on a blacksmithing craft.
-    { stat: "blacksmithingSuccess", perLevel: 0.04, max: 0.80 },
-  ],
+  bonuses: [{ stat: "blacksmithingSuccess", perLevel: 0.04, max: 0.80 }],
   firstUnlockMessage: "🔨 Your first piece holds true.",
 };
 SKILLS.alchemy = {
@@ -302,19 +306,15 @@ SKILLS.alchemy = {
   description: "Steep, distil, reduce. What the green parts of the world know.",
   active: true, category: "craft",
   xpCurve: STANDARD_CURVE, maxLevel: 20,
-  bonuses: [
-    { stat: "alchemySuccess", perLevel: 0.04, max: 0.80 },
-  ],
+  bonuses: [{ stat: "alchemySuccess", perLevel: 0.04, max: 0.80 }],
   firstUnlockMessage: "🧪 The mixture takes. Steam, not smoke.",
 };
 SKILLS.fletching = {
   id: "fletching", name: "Fletching", icon: "🪶",
-  description: "Shaft true, fletching even, nock cut. The arrow flies how it was made.",
+  description: "Shaft true, fletching even, nock cut.",
   active: true, category: "craft",
   xpCurve: STANDARD_CURVE, maxLevel: 20,
-  bonuses: [
-    { stat: "fletchingSuccess", perLevel: 0.04, max: 0.80 },
-  ],
+  bonuses: [{ stat: "fletchingSuccess", perLevel: 0.04, max: 0.80 }],
   firstUnlockMessage: "🪶 The shaft draws straight. The feathers bind.",
 };
 SKILLS.woodworking = {
@@ -322,25 +322,39 @@ SKILLS.woodworking = {
   description: "Grain, glue, joint. Wood asked nicely will hold for a long time.",
   active: true, category: "craft",
   xpCurve: STANDARD_CURVE, maxLevel: 20,
-  bonuses: [
-    { stat: "woodworkingSuccess", perLevel: 0.04, max: 0.80 },
-  ],
+  bonuses: [{ stat: "woodworkingSuccess", perLevel: 0.04, max: 0.80 }],
   firstUnlockMessage: "🪵 The joint sits flush. No glue needed.",
 };
 SKILLS.tailoring = {
   id: "tailoring", name: "Tailoring", icon: "🧵",
-  description: "Cordage, hide, fabric. The hand that ties the world to the body.",
+  description: "Cordage, hide, fabric.",
   active: true, category: "craft",
   xpCurve: STANDARD_CURVE, maxLevel: 20,
-  bonuses: [
-    { stat: "tailoringSuccess", perLevel: 0.04, max: 0.80 },
-  ],
+  bonuses: [{ stat: "tailoringSuccess", perLevel: 0.04, max: 0.80 }],
   firstUnlockMessage: "🧵 The stitch is clean. Nothing pulls loose.",
 };
 
-/* Mark legacy mining + tracking active so they show in the Gather rail.
-   smithing is now the blacksmithing skill above; the legacy "smithing"
-   entry stays dormant for back-compat saves. */
+// Survival craft (#125) — wilderness gear: nets, snares, water skins,
+// digging sticks, talismans. The hands-and-cordage trade.
+SKILLS.survivalcraft = {
+  id: "survivalcraft", name: "Survival Craft", icon: "🪤",
+  description: "Cordage, traps, water-carrying. The craft of staying alive in the wasteland.",
+  active: true, category: "craft",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [{ stat: "survivalcraftSuccess", perLevel: 0.04, max: 0.80 }],
+  firstUnlockMessage: "🪤 The lashing holds. The snare snaps clean.",
+};
+
+// Runesmithing (#115) — Era 3 arcane craft skill.
+SKILLS.runesmithing = {
+  id: "runesmithing", name: "Runesmithing", icon: "🪬",
+  description: "The careful hand that binds intent into shard.",
+  active: true, category: "arcane",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [{ stat: "runesmithingSuccess", perLevel: 0.04, max: 0.80 }],
+  firstUnlockMessage: "🪬 The first rune sits right.",
+};
+
 if (SKILLS.mining) SKILLS.mining.active = true;
 
 export const getSkill = (id) => SKILLS[id] || null;

@@ -10,6 +10,24 @@ Add new bugs at the top. When fixing, leave the entry with status `fixed` and a 
 
 ---
 
+## #019 — OneDrive sync truncates files mid-edit
+
+**Status:** ⚠️ open (workaround documented)
+**Severity:** medium
+
+**Repro:** Lithos lives in `C:\Users\AnnaN\Documents\Lithos` which OneDrive syncs in real time. During rapid sequential Edits/Writes, OneDrive sometimes catches a file mid-flush and the tail truncates. The next Read shows a file that ends mid-statement (e.g. `events.push({ kind: "craftFail", message: \`🛠️ Que` with no closing). Build fails with "Unexpected end of file" or "Expected '}', got <eof>".
+
+**Workaround.** Before every multi-edit session:
+1. Run `tr -d '\0' < FILE > /tmp/x && cp /tmp/x FILE` to strip any embedded NUL bytes OneDrive inserts during a partial flush.
+2. If the build complains about EOF, `git show HEAD:FILE` to recover the original tail, append the missing portion with a bash heredoc, run the build again.
+3. Prefer ONE big Write call over many small Edits when adding/replacing a large block — fewer flush windows for OneDrive to catch.
+
+**Affected files seen during #109–#137:** `tools.js`, `resources.js`, `skills.js`, `crafting.js`, `combat.js`, `CraftingView.jsx`, `MagicView.jsx`, `reducer.js`, `run.js`, `store.js`, `BossFightModal.jsx`.
+
+**Fix.** The right long-term fix is moving the project off OneDrive (or excluding the repo from OneDrive). Until then, follow the workaround above.
+
+---
+
 ## #018 — Path Trees modal tabs render as default white buttons
 
 **Status:** ✅ fixed (#105 — 2026-06)
@@ -249,24 +267,4 @@ Alignment-gated teachings (Banish / Bend) stay fully hidden — those are design
 **Status:** ✅ fixed — 2026-05
 **Severity:** paper-cut
 
-**Fix:** Added `spoilStatusFromDef(resource, capStatus, accum)` to `src/systems/storage.js` that computes time-to-next-loss + percent toward the next loss. InventoryPanel renders a `<SpoilBar>` for each resource that has a `spoilage` def. Features:
-- Slim 3px dead-green bar (`#3a4a2a → #5a6a3a` gradient) under each spoiling food row
-- When at cap, color shifts to rot-red and the at-cap multiplier is reflected in the rate
-- Tooltip on hover: `"{name} is spoiling — about ~N min until next loss."` (with extra "(rotting fast — storage is full)" when at cap)
-- Re-renders every 5s so the bar visibly creeps
-- When future preservation tech reduces spoilage rate to 0, the bar will naturally disappear (no UI changes needed)
-
----
-
-## #001 — Gather button width changes mid-cooldown, shoves Hunt below
-
-**Status:** ✅ fixed (twice) — 2026-05 (initial), 2026-05 (redux)
-**Severity:** paper-cut
-
-**First fix (didn't stick):** `min-width` on `.btn-gather` / `.btn-hunt`. But the parent `.action-row` had `flex-wrap: wrap` set elsewhere, which still let Hunt wrap when Gather grew its label.
-
-**Redux fix:** Higher-specificity rule on `.action-panel .action-row`: `flex-wrap: nowrap !important`, plus `flex: 1 1 0` and `min-width: 0` on each child button so they share the row equally and shrink with ellipsis if they truly run out of room. Also shortened the labels: "Hunt birds" → "Hunt", "Hunting birds…" → "Hunting…" so the row breathes.
-
----
-
-*Last updated: 2026-05*
+**Fix:** Added `spoilStatusFromDef(resource, capStatus, accum)` to `src/systems/storage.js` that computes time-to-next-loss 

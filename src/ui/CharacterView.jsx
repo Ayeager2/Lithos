@@ -115,9 +115,8 @@ function SkillRow({ state, def }) {
   const dim = level === 0;
   return (
     <li
-      className={`skill-row ${dim ? "skill-row--dim" : ""} ${
-        prog.atMax ? "skill-row--max" : ""
-      }`}
+      className={`skill-row ${dim ? "skill-row--dim" : ""} ${prog.atMax ? "skill-row--max" : ""
+        }`}
       title={def.description || def.name}
     >
       <div className="skill-row-top">
@@ -191,10 +190,10 @@ function JumpNav({ items, active, onJump }) {
 // ─── Main component ─────────────────────────────────────────────────
 
 const JUMP_ITEMS = [
-  { id: "char-stats",     icon: "📊", label: "Stats" },
-  { id: "char-skills",    icon: "🎯", label: "Skills" },
+  { id: "char-stats", icon: "📊", label: "Stats" },
+  { id: "char-skills", icon: "🎯", label: "Skills" },
   { id: "char-equipment", icon: "🛡️", label: "Equipment" },
-  { id: "char-items",     icon: "🎒", label: "Items" },
+  { id: "char-items", icon: "🎒", label: "Items" },
 ];
 
 export default function CharacterView({ state, actions }) {
@@ -239,9 +238,9 @@ export default function CharacterView({ state, actions }) {
   // Craft / Industry / Arcane each get their own column when populated
   // — folding them into a single "Other" pile was confusing (#107).
   const secondaryCols = [
-    { id: "craft",    title: "Craft",    skills: craftSkills    },
+    { id: "craft", title: "Craft", skills: craftSkills },
     { id: "industry", title: "Industry", skills: industrySkills },
-    { id: "arcane",   title: "Arcane",   skills: arcaneSkills   },
+    { id: "arcane", title: "Arcane", skills: arcaneSkills },
   ].filter((c) => c.skills.length > 0);
 
   // Jump-nav target — anchor scrolling + visual highlight.
@@ -377,62 +376,41 @@ export default function CharacterView({ state, actions }) {
 
           {accessoriesOpen && (
             <div className="char-slots char-slots--accessories">
-            <Slot slot={SLOTS.BACK} equipped={equipped} label="Back" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.OVER_ARMOR} equipped={equipped} label="Over-armor" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.TALISMAN} equipped={equipped} label="Talisman" onUnequip={handleUnequip} />
-            {rings.map((r, i) => {
-              const clickable = !!r && !!handleUnequipRing;
-              if (!r) {
+              <Slot slot={SLOTS.BACK} equipped={equipped} label="Back" onUnequip={handleUnequip} />
+              <Slot slot={SLOTS.OVER_ARMOR} equipped={equipped} label="Over-armor" onUnequip={handleUnequip} />
+              <Slot slot={SLOTS.TALISMAN} equipped={equipped} label="Talisman" onUnequip={handleUnequip} />
+              {rings.map((r, i) => {
+                const clickable = !!r && !!handleUnequipRing;
+                if (!r) {
+                  return (
+                    <div
+                      key={`ring-${i}`}
+                      className="char-slot is-empty"
+                      title="Empty ring slot"
+                    >
+                      <span className="char-slot-label muted">Ring {i + 1}</span>
+                      <span className="char-slot-value muted">empty</span>
+                    </div>
+                  );
+                }
+                const def = getEquippable(r.id);
                 return (
-                  <div
+                  <button
                     key={`ring-${i}`}
-                    className="char-slot is-empty"
-                    title="Empty ring slot"
+                    type="button"
+                    className={`char-slot is-filled ${clickable ? "is-clickable" : ""}`}
+                    title={`${def?.description || def?.name || r.id}${clickable ? "\n\nClick to unequip." : ""}`}
+                    onClick={clickable ? () => handleUnequipRing(i) : undefined}
+                    disabled={!clickable}
                   >
                     <span className="char-slot-label muted">Ring {i + 1}</span>
-                    <span className="char-slot-value muted">empty</span>
-                  </div>
+                    <span className="char-slot-value">
+                      <span aria-hidden="true">{def?.icon || ""}</span>{" "}
+                      {def?.name || r.id}
+                    </span>
+                  </button>
                 );
-              }
-              const def = getEquippable(r.id);
-              return (
-                <button
-                  key={`ring-${i}`}
-                  type="button"
-                  className={`char-slot is-filled ${clickable ? "is-clickable" : ""}`}
-                  title={`${def?.description || def?.name || r.id}${clickable ? "\n\nClick to unequip." : ""}`}
-                  onClick={clickable ? () => handleUnequipRing(i) : undefined}
-                  disabled={!clickable}
-                >
-                  <span className="char-slot-label muted">Ring {i + 1}</span>
-                  <span className="char-slot-value">
-                    <span aria-hidden="true">{def?.icon || ""}</span>{" "}
-                    {def?.name || r.id}
-                  </span>
-                </button>
-              );
-            })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── 4. Items ─── */}
-      <div id="char-items" className="char-section">
-        <h3 className="char-section-title">Items</h3>
-        {actions && (
-          <EquipmentInventoryGrid state={state} actions={actions} />
-        )}
-      </div>
-    </section>
-  );
-}
-rue">{def?.icon || ""}</span>{" "}
-                    {def?.name || r.id}
-                  </span>
-                </button>
-              );
-            })}
+              })}
             </div>
           )}
         </div>

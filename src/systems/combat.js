@@ -7,6 +7,7 @@ import {
   getEquippedRangedDef,
   getEquippable,
 } from "./equipment.js";
+import { RESOURCES } from "../content/resources.js";
 
 // Re-export so UI views can read it via combat.js alongside other helpers.
 export { getEquippedRangedDef };
@@ -197,6 +198,90 @@ export function getUnarmoredPenalty(state) {
 }
 
 // ─── Single-turn rollers (boss modal #40) ─────────────────────────────
+// ─── Imbue effects (#132) — aggregate rune effects on the currently
+// equipped weapon. Combat math reads this to apply damage bonus,
+// on-hit returns, and sanity costs.
+// Per-tick passive trickle from rune imbues (#133). Today: Elemental
+// rune's hpRegenPerMinute. The 15s tick gives ~0.25 hp/min per rune;
+// we accumulate fractional regen on run.imbueRegenAccum so the trickle
+// is honest over time rather than rounding away.
+export function applyImbuePassives(run, tickSeconds = 15) {
+  const weapon = getEffectiveWeapon(run);
+  const map = run?.weaponImbues?.[weapon.id];
+  if (!map) return { run, events: [] };
+  let hpRegenPerMin = 0;
+  let spiritRegenPerMin = 0;
+  for (const runeId of Object.keys(map)) {
+    const imbue = RESOURCES[runeId]?.imbueEffect;
+    if (imbue?.hpRegenPerMinute) hpRegenPerMin += imbue.hpRegenPerMinute;
+    if (imbue?.spiritRegenPerMinute) spiritRegenPerMin += imbue.spiritRegenPerMinute;
+  }
+  if (hpRegenPerMin <= 0 && spiritRegenPerMin <= 0) return { run, events: [] };
+
+  const stats = run.stats || {};
+  let nextStats = { ...stats };
+  let hpAccum = (run.imbueRegenAccum || 0) + (hpRegenPerMin * tickSeconds) / 60;
+  let spAccum = (run.imbueSpiritAccum || 0) + (spiritRegenPerMin * tickSeconds) / 60;
+
+  const wholeHp = Math.floor(hpAccum);
+  if (wholeHp > 0) {
+    const curHp = nextStats.hp ?? 100;
+    nextStats.hp = Math.min(100, curHp + wholeHp);
+    hpAccum -= wholeHp;
+    if (nextStats.hp >= 100) hpAccum = 0;
+  }
+
+  const wholeSp = Math.floor(spAccum);
+  if (wholeSp > 0) {
+    const curSp = nextStats.spirit ?? 50;
+    nextStats.spirit = Math.min(100, curSp + wholeSp);
+    spAccum -= wholeSp;
+    if (nextStats.spirit >= 100) spAccum = 0;
+  }
+
+  const nextRun = {
+    ...run,
+    stats: nextStats,
+    imbueRegenAccum: hpAccum,
+    imbueSpiritAccum: spAccum,
+  };
+  return { run: nextRun, events: [] };
+}
+
+export function getEffectiveImbueEffects(state) {
+  const weapon = getEffectiveWeapon(state.run);
+  const map = state.run?.weaponImbues?.[weapon.id];
+  if (!map) return null;
+  // #136 — expanded effect roster. Each new field accumulates additively
+  // from all bound runes on the weapon. Caps applied at use-sites.
+  const eff = {
+    damageBonus: 0, hpReturnOnHit: 0, spiritReturnOnHit: 0,
+    echoChance: 0, sanityCostOnHit: 0, durabilitySaveChance: 0,
+    hpRegenPerMinute: 0,
+    accBonus: 0, critChanceBonus: 0, spiritRegenPerMinute: 0,
+    damageReduction: 0, evasionBonus: 0,
+  };
+  let any = false;
+  for (const runeId of Object.keys(map)) {
+    const imbue = RESOURCES[runeId]?.imbueEffect;
+    if (!imbue) continue;
+    any = true;
+    if (imbue.damageBonus) eff.damageBonus += imbue.damageBonus;
+    if (imbue.hpReturnOnHit) eff.hpReturnOnHit += imbue.hpReturnOnHit;
+    if (imbue.spiritReturnOnHit) eff.spiritReturnOnHit += imbue.spiritReturnOnHit;
+    if (imbue.echoChance) eff.echoChance = Math.min(1, eff.echoChance + imbue.echoChance);
+    if (imbue.sanityCostOnHit) eff.sanityCostOnHit += imbue.sanityCostOnHit;
+    if (imbue.durabilitySaveChance) eff.durabilitySaveChance = Math.min(0.95, eff.durabilitySaveChance + imbue.durabilitySaveChance);
+    if (imbue.hpRegenPerMinute) eff.hpRegenPerMinute += imbue.hpRegenPerMinute;
+    if (imbue.accBonus) eff.accBonus += imbue.accBonus;
+    if (imbue.critChanceBonus) eff.critChanceBonus += imbue.critChanceBonus;
+    if (imbue.spiritRegenPerMinute) eff.spiritRegenPerMinute += imbue.spiritRegenPerMinute;
+    if (imbue.damageReduction) eff.damageReduction = Math.min(0.90, eff.damageReduction + imbue.damageReduction);
+    if (imbue.evasionBonus) eff.evasionBonus += imbue.evasionBonus;
+  }
+  return any ? eff : null;
+}
+
 export function rollPlayerAttack(state, threatDef, rng = Math.random) {
   const weapon = getEffectiveWeapon(state.run);
   const wStats = weapon.weaponStats || FISTS.weaponStats;
@@ -207,9 +292,12 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
   const sb = getCombatSkillBonuses(state.run, skillId);
   const statBonuses = getStatCombatBonuses(state, weapon, style);
   const penalty = getUnarmoredPenalty(state);
+  // #136 — read imbue effects up front so accBonus + critChanceBonus
+  // can fold into the hit/crit rolls below (not just the damage step).
+  const imbues = getEffectiveImbueEffects(state);
   // STR/DEX/MAG (#47) mix in alongside the weapon-skill bonuses.
-  const effAcc = wStats.acc + sb.accBonus + statBonuses.accBonus - penalty.accPenalty;
-  const effCrit = (wStats.crit || 0) + sb.critBonus;
+  const effAcc = wStats.acc + sb.accBonus + statBonuses.accBonus - penalty.accPenalty + (imbues?.accBonus || 0);
+  const effCrit = (wStats.crit || 0) + sb.critBonus + (imbues?.critChanceBonus || 0);
   const flatDmg = Math.floor(sb.damageBonus + statBonuses.damageBonus);
   const dmgMult = statBonuses.damageMult || 1.0;
 
@@ -249,11 +337,17 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
     };
   }
   const [lo, hi] = wStats.damage;
-  let dmg = randInt(rng, lo, hi) + flatDmg;
+  let dmg = randInt(rng, lo, hi) + flatDmg + (imbues?.damageBonus || 0);
   // MAG damage multiplier applies to the rolled+flat sum, before crit.
   if (dmgMult !== 1.0) dmg = Math.max(0, Math.round(dmg * dmgMult));
   const isCrit = rng() < effCrit;
   if (isCrit) dmg *= 2;
+  // Memory rune echo strike (#132) — rolled here for boss-modal turns;
+  // the consumer (BossFightModal) applies echoDmg as a second damage tick.
+  let echoDmg = 0;
+  if (imbues?.echoChance > 0 && rng() < imbues.echoChance) {
+    echoDmg = Math.max(1, Math.floor(dmg * 0.6));
+  }
   const line = isCrit
     ? pickRandom(PLAYER_CRIT_LINES, rng)
     : pickRandom(PLAYER_HIT_LINES, rng);
@@ -264,6 +358,12 @@ export function rollPlayerAttack(state, threatDef, rng = Math.random) {
     spiritCost,
     weaponName: weapon.name,
     skillId,
+    imbues: imbues ? {
+      hpReturnOnHit: imbues.hpReturnOnHit || 0,
+      spiritReturnOnHit: imbues.spiritReturnOnHit || 0,
+      sanityCostOnHit: imbues.sanityCostOnHit || 0,
+      echoDmg,
+    } : null,
     message: substitute(line, {
       weapon: weapon.name,
       threat: threatDef.name,
@@ -343,16 +443,22 @@ export function resolveFight(state, threatDef, rng = Math.random) {
   const skillBonuses = getCombatSkillBonuses(state.run, combatSkillId);
   const statBonuses = getStatCombatBonuses(state, weapon, style);
   const penalty = getUnarmoredPenalty(state);
+  // #136 — pull rune imbues up front; accBonus, critChanceBonus,
+  // evasionBonus, and damageReduction layer onto the combat math
+  // alongside the existing skill + stat + armor bonuses.
+  const fightImbues = getEffectiveImbueEffects(state);
   // STR/DEX/MAG (#47) mix into the same combat math used by the boss-
   // modal turn rollers. Keeps the two paths in sync.
   const effAcc =
-    wStats.acc + skillBonuses.accBonus + statBonuses.accBonus - penalty.accPenalty;
-  const effCrit = (wStats.crit || 0) + skillBonuses.critBonus;
+    wStats.acc + skillBonuses.accBonus + statBonuses.accBonus - penalty.accPenalty
+    + (fightImbues?.accBonus || 0);
+  const effCrit = (wStats.crit || 0) + skillBonuses.critBonus + (fightImbues?.critChanceBonus || 0);
   const flatDamageBonus = Math.floor(
     skillBonuses.damageBonus + statBonuses.damageBonus
   );
   const dmgMult = statBonuses.damageMult || 1.0;
-  const playerEva = PLAYER_BASE_EVA + (statBonuses.evasionBonus || 0);
+  const playerEva = PLAYER_BASE_EVA + (statBonuses.evasionBonus || 0) + (fightImbues?.evasionBonus || 0);
+  const dmgReduction = fightImbues?.damageReduction || 0;
 
   const startStats = state.run.stats || {};
   let playerHp = startStats.hp ?? 100;
@@ -375,6 +481,9 @@ export function resolveFight(state, threatDef, rng = Math.random) {
   // playerSpirit on every attempt (hit or miss); fizzles + 0 dmg if the
   // player can't afford the cost this round.
   const magicSpiritCost = style === "magic" ? getMagicSpiritCost(weapon) : 0;
+
+  // Rune imbues (#132) — flat dmg bonus, on-hit returns, echo strikes.
+  const imbues = getEffectiveImbueEffects(state);
 
   let round = 0;
   let outcome = "stalemate";
@@ -400,7 +509,8 @@ export function resolveFight(state, threatDef, rng = Math.random) {
     const playerHits = !fizzled && playerHitRoll < (effAcc - threatEva);
     if (playerHits) {
       const [lo, hi] = wStats.damage;
-      let dmg = randInt(rng, lo, hi) + flatDamageBonus;
+      // Rune imbues (#132) add flat damage on top of skill + stat bonuses.
+      let dmg = randInt(rng, lo, hi) + flatDamageBonus + (imbues?.damageBonus || 0);
       // MAG damage multiplier (#47) applies to rolled+flat sum, pre-crit.
       if (dmgMult !== 1.0) dmg = Math.max(0, Math.round(dmg * dmgMult));
       const isCrit = rng() < effCrit;
@@ -408,6 +518,28 @@ export function resolveFight(state, threatDef, rng = Math.random) {
       foeHp = Math.max(0, foeHp - dmg);
       const line = isCrit ? pickRandom(PLAYER_CRIT_LINES, rng) : pickRandom(PLAYER_HIT_LINES, rng);
       events.push({ kind: "combat", message: substitute(line, { weapon: weapon.name, threat: threatDef.name, dmg }) });
+
+      // Imbue on-hit returns + sanity cost (#132). Light heals,
+      // Bend gives Spirit, Void demands Sanity. Cap stats at 100.
+      if (imbues) {
+        if (imbues.hpReturnOnHit) {
+          playerHp = Math.min(100, playerHp + imbues.hpReturnOnHit);
+        }
+        if (imbues.spiritReturnOnHit) {
+          playerSpirit = Math.min(100, playerSpirit + imbues.spiritReturnOnHit);
+        }
+        if (imbues.sanityCostOnHit) {
+          playerSanity = Math.max(0, playerSanity - imbues.sanityCostOnHit);
+        }
+        // Memory rune — chance to strike twice in the same round.
+            if (imbues.echoChance > 0 && foeHp > 0 && rng() < imbues.echoChance) {
+          const echoDmg = Math.max(1, Math.floor(dmg * 0.6));
+          foeHp = Math.max(0, foeHp - echoDmg);
+          events.push({ kind: "combat", message: `🔔 The strike echoes. ${echoDmg} more damage.` });
+          if (imbues.hpReturnOnHit) playerHp = Math.min(100, playerHp + imbues.hpReturnOnHit);
+          if (imbues.spiritReturnOnHit) playerSpirit = Math.min(100, playerSpirit + imbues.spiritReturnOnHit);
+        }
+      }
     } else if (!fizzled) {
       const line = pickRandom(PLAYER_MISS_LINES, rng);
       events.push({ kind: "combat", message: substitute(line, { weapon: weapon.name, threat: threatDef.name }) });
@@ -424,10 +556,10 @@ export function resolveFight(state, threatDef, rng = Math.random) {
       const raw = randInt(rng, threatDmg.min, threatDmg.max);
       let reduced = raw;
       if (damageType === "hp") reduced = Math.max(0, raw - playerArmor);
-      // Unarmored penalty (#72) — applied to all damage types after armor.
       reduced = Math.max(0, Math.ceil(reduced * penalty.dmgMult));
+      // #136 — Frostvein-class runes reduce all incoming damage post-armor.
+      if (dmgReduction > 0) reduced = Math.max(0, Math.ceil(reduced * (1 - dmgReduction)));
       if (damageType === "sanity") playerSanity = Math.max(0, playerSanity - reduced);
-      else if (damageType === "spirit") playerSpirit = Math.max(0, playerSpirit - reduced);
       else playerHp = Math.max(0, playerHp - reduced);
       const line = pickRandom(flavor.attack, rng) || pickRandom(THREAT_ATTACK_LINES, rng);
       events.push({ kind: "combat", message: substitute(line, { threat: threatDef.name, weapon: weapon.name, dmg: reduced }) });
@@ -476,7 +608,6 @@ export function resolveFight(state, threatDef, rng = Math.random) {
   const wear = applyToolWear(run, "combat");
   run = wear.run;
   events.push(...wear.events);
-
 
   return { run, events, outcome };
 }

@@ -87,65 +87,67 @@ export const MOBS = {
     },
   },
 
-  pitLizard: {
-    id: "pitLizard", name: "Pit Lizard", icon: "🦎",
-    era: 1, tier: "common", kind: "beast", encounterChance: 0.7,
-    description: "Long-bodied, scaled, smells of vinegar. The bite swells.",
-    combat: { hp: 10, acc: 0.65, eva: 0.18, damage: { min: 2, max: 3 }, damageType: "hp" },
+  shardChimera: {
+    id: "shardChimera", name: "Shard Chimera", icon: "🦬",
+    era: 1, tier: "rare", kind: "corrupted", encounterChance: 0.18,
+    description: "Whatever it was when it lived, you can't tell anymore. The fragments rooted into the hide and pulled the body into a new shape around them.",
+    combat: { hp: 22, acc: 0.70, eva: 0.10, damage: { min: 3, max: 5 }, damageType: "hp" },
     drops: [
-      { resource: "lizard_meat",  qty: 1, chance: 1.0 },
-      { resource: "scales",       qty: [1, 3], chance: 0.85 },
-      { resource: "venom_gland",  qty: 1, chance: 0.25 },
-    ],
-    xp: 3,
-    appliesStatus: { id: "venom", durationMs: 90_000, chance: 0.15 },
-    combatFlavor: {
-      opener: ["🦎 A pit lizard pours itself out of a hole, jaw already wide."],
-      attack: ["🦎 The bite holds. The venom finds its way in. {dmg} ❤️."],
-      miss: ["🦎 It snaps and tastes air."],
-      victory: ["🦎 You pin the head with your boot until it stops thrashing."],
-      defeat: ["🦎 The venom thickens your blood. The lizard waits."],
-    },
-  },
-
-  sandBeetle: {
-    id: "sandBeetle", name: "Sand Beetle", icon: "🪲",
-    era: 1, tier: "common", kind: "beast", encounterChance: 0.85,
-    description: "Plate-armored, the size of a fist. Pincers like rusted scissors.",
-    combat: { hp: 14, acc: 0.55, eva: 0.05, damage: { min: 1, max: 3 }, damageType: "hp" },
-    drops: [
-      { resource: "chitin", qty: [1, 3], chance: 1.0 },
-      { resource: "grubs",  qty: [1, 2], chance: 0.6 },
-    ],
-    xp: 2,
-    combatFlavor: {
-      opener: ["🪲 The beetle rears, pincers raised."],
-      attack: ["🪲 Pincers catch your boot. {dmg} ❤️."],
-      miss: ["🪲 The beetle skitters away from your strike."],
-      victory: ["🪲 The shell cracks. The grubs inside writhe briefly."],
-      defeat: ["🪲 The beetle has more friends than you thought."],
-    },
-  },
-
-  carrionHyena: {
-    id: "carrionHyena", name: "Carrion Hyena", icon: "🐺",
-    era: 1, tier: "uncommon", kind: "beast", encounterChance: 0.45,
-    description: "Laughing as it lopes. The laughter is the worst part.",
-    combat: { hp: 22, acc: 0.74, eva: 0.10, damage: { min: 3, max: 5 }, damageType: "hp" },
-    drops: [
-      { resource: "tough_meat", qty: [1, 2], chance: 1.0 },
-      { resource: "bone",       qty: [1, 3], chance: 0.85 },
-      { resource: "sinew",      qty: 1, chance: 0.6 },
-      { resource: "dog_fur",    qty: 1, chance: 0.4 },
+      { resource: "fragments",      qty: [1, 2], chance: 0.9 },
+      { resource: "hide",           qty: [1, 2], chance: 0.7 },
+      { resource: "bone",           qty: [1, 2], chance: 0.6 },
+      { resource: "shattered_glyph", qty: 1,     chance: 0.25 },
     ],
     xp: 5,
     combatFlavor: {
-      opener: ["🐺 The hyena laughs. The laughter is older than the wasteland.",
-               "🐺 Yellow eyes. Wide-shouldered. Patient."],
-      attack: ["🐺 The bite clamps down and locks. {dmg} ❤️.", "🐺 It worries the wound open. {dmg} ❤️."],
-      miss: ["🐺 It dodges low, laughing."],
-      victory: ["🐺 You stand over it. The laughter rolls away into the dust."],
-      defeat: ["🐺 You hear yourself laughing as it drags you off."],
+      opener: ["🦬 The shape lurches toward you. Shards bloom from where its eyes used to be."],
+      attack: ["🦬 A shard-tipped horn rakes you. {dmg} ❤️."],
+      miss: ["🦬 The lurch goes wide. The shards in its hide ring as it stumbles."],
+      victory: ["🦬 It collapses. The fragments fall loose from the skin like ticks finally letting go."],
+      defeat: ["🦬 The shape stands over you. The shards in its hide hum, satisfied."],
+    },
+  },
+
+  whisperingCairn: {
+    id: "whisperingCairn", name: "Whispering Cairn", icon: "🪨",
+    era: 1, tier: "uncommon", kind: "corrupted", encounterChance: 0.35,
+    description: "A pile of stones that wasn't there a moment ago. The stones move when you look at them. The whisper inside is a name — yours, but pronounced wrong.",
+    combat: { hp: 18, acc: 0.60, eva: 0.05, damage: { min: 2, max: 4 }, damageType: "sanity" },
+    drops: [
+      { resource: "stone",          qty: [3, 6], chance: 1.0 },
+      { resource: "fragments",      qty: 1,      chance: 0.40 },
+      { resource: "shattered_glyph", qty: 1,     chance: 0.20 },
+    ],
+    xp: 4,
+    combatFlavor: {
+      opener: ["🪨 The stones rearrange. The whisper finds the back of your head."],
+      attack: ["🪨 The cairn flexes — a stone strikes you from the inside out. {dmg} ◐."],
+      miss: ["🪨 The stones shift; the strike misses where you stood a moment ago."],
+      victory: ["🪨 The pile collapses into ordinary rocks. The whisper stops mid-word."],
+      defeat: ["🪨 The whisper finishes. You hear what your name is supposed to be."],
+    },
+  },
+
+  thirstWraith: {
+    id: "thirstWraith", name: "Thirst Wraith", icon: "👻",
+    era: 1, tier: "rare", kind: "corrupted", encounterChance: 0.15,
+    description: "A figure pulled gaunt by want. The wasteland makes them. They drink the water from your skin and the salt off your tongue.",
+    combat: { hp: 20, acc: 0.80, eva: 0.25, damage: { min: 3, max: 5 }, damageType: "hp" },
+    drops: [
+      { resource: "fragments",     qty: 1,      chance: 0.50 },
+      { resource: "bone",          qty: [1, 2], chance: 0.7 },
+      { resource: "ash",           qty: [1, 3], chance: 0.85 },
+      { resource: "spirit_essence", qty: 1,     chance: 0.20 },
+    ],
+    xp: 6,
+    combatFlavor: {
+      opener: ["👻 The figure resolves — translucent, hollow-cheeked, parched.",
+               "👻 You feel the salt go from your skin before you see what's taking it."],
+      attack: ["👻 The wraith brushes you. Your skin goes papery where it touched. {dmg} ❤️.",
+               "👻 It draws the water out of the meat under your eyes. {dmg} ❤️."],
+      miss: ["👻 It passes through your strike — the air thirsts a little, and nothing else."],
+      victory: ["👻 The wraith dries to nothing. The dust where it stood is sticky with salt."],
+      defeat: ["👻 You collapse. The wraith bends close and drinks the last of you."],
     },
   },
 
@@ -322,43 +324,47 @@ export const MOBS = {
   },
 
   wildBoar: {
-    id: "wildBoar", name: "Wild Boar", icon: "🐗",
-    era: 2, tier: "common", kind: "beast", encounterChance: 0.7,
-    description: "Tusks longer than your forearm. Bad temper, worse memory.",
-    combat: { hp: 38, acc: 0.62, eva: 0.05, damage: { min: 4, max: 7 }, damageType: "hp" },
+    id: "ironwombBrood", name: "Ironwomb Brood", icon: "🐜",
+    era: 2, tier: "common", kind: "corrupted", encounterChance: 0.7,
+    description: "A swarm of black insects that hatched out of a forge-iron carcass left in the sun. They move together. They share a single thought, and the thought is hungry.",
+    combat: { hp: 32, acc: 0.70, eva: 0.18, damage: { min: 3, max: 6 }, damageType: "hp" },
     drops: [
-      { resource: "boar_meat", qty: [2, 4], chance: 1.0 },
-      { resource: "tusks",     qty: [1, 2], chance: 0.85 },
-      { resource: "hide",      qty: [1, 2], chance: 0.9 },
-      { resource: "sinew",     qty: 1, chance: 0.6 },
+      { resource: "chitin",     qty: [2, 5], chance: 1.0 },
+      { resource: "iron",       qty: [1, 2], chance: 0.5 },
+      { resource: "fragments",  qty: 1,      chance: 0.25 },
+      { resource: "shadow_dust", qty: 1,     chance: 0.20 },
     ],
-    xp: 8,
+    xp: 7,
     combatFlavor: {
-      opener: ["🐗 The boar lowers its head and snorts.", "🐗 You hear the crashing before you see the tusks."],
-      attack: ["🐗 The tusk drives up. {dmg} ❤️.", "🐗 It barrels through. {dmg} ❤️."],
-      miss: ["🐗 The boar slams past, kicking up dust."],
-      victory: ["🐗 The boar drops. The meat will keep for days."],
-      defeat: ["🐗 The boar leaves you on your back, staring up at a sky that's too bright."],
+      opener: ["🐜 The black tide rolls across the path. Iron-shelled. Many-legged. Wrong.",
+               "🐜 The brood arrives as one body, then divides into a hundred."],
+      attack: ["🐜 They climb. They bite where the armor doesn't reach. {dmg} ❤️."],
+      miss: ["🐜 You stamp. A handful crunch. The rest reform around your boot."],
+      victory: ["🐜 The thought-thread breaks. The survivors scatter as individuals — and starve."],
+      defeat: ["🐜 They cover you. The thought finds you. You are part of it now."],
     },
   },
 
-  plagueRat: {
-    id: "plagueRat", name: "Plague Rat", icon: "🐀",
-    era: 2, tier: "common", kind: "beast", encounterChance: 0.8,
-    description: "Wet-furred, foam-jawed. They come in numbers. The numbers come with sickness.",
-    combat: { hp: 8, acc: 0.65, eva: 0.20, damage: { min: 1, max: 2 }, damageType: "hp" },
+  mirrorGhast: {
+    id: "mirrorGhast", name: "Mirror Ghast", icon: "🪞",
+    era: 2, tier: "uncommon", kind: "corrupted", encounterChance: 0.3,
+    description: "It is wearing your face. The face is wrong in small ways — the mouth opens a little too far, the eyes follow you a beat after you stop moving. It learns by watching.",
+    combat: { hp: 26, acc: 0.78, eva: 0.20, damage: { min: 3, max: 5 }, damageType: "sanity" },
     drops: [
-      { resource: "rat_tail",      qty: [1, 3], chance: 1.0 },
-      { resource: "dirty_water",   qty: 1, chance: 0.45 },
+      { resource: "fragments",       qty: 1,      chance: 0.45 },
+      { resource: "ink",             qty: 1,      chance: 0.3 },
+      { resource: "ash",             qty: [1, 2], chance: 0.6 },
+      { resource: "wax_mask",        qty: 1,      chance: 0.30 },
+      { resource: "shattered_glyph", qty: 1,      chance: 0.20 },
     ],
-    xp: 2,
-    appliesStatus: { id: "dysentery", durationMs: 5 * 60_000, chance: 0.30 },
+    xp: 6,
     combatFlavor: {
-      opener: ["🐀 The rat is at your ankle before you see it.", "🐀 A scuttling at the edge of the lamp-light. Then teeth."],
-      attack: ["🐀 The bite holds. The foam smears against your skin. {dmg} ❤️."],
-      miss: ["🐀 You stamp. The rat darts away, then back."],
-      victory: ["🐀 The rat stills. The others scatter."],
-      defeat: ["🐀 The rats are on top of you. There are more than you thought."],
+      opener: ["🪞 Something wearing your face steps out of the heat-shimmer.",
+               "🪞 You see yourself, walking toward you. Wrong. Wrong. Wrong."],
+      attack: ["🪞 It moves how you would move. The strike lands where you would have left an opening. {dmg} ◐."],
+      miss: ["🪞 It mirrors your dodge — the strikes pass through each other."],
+      victory: ["🪞 The face slips and the body collapses into nothing. You feel watched still, a beat after."],
+      defeat: ["🪞 It puts on the last of your expression. Then it walks away wearing it."],
     },
   },
 
@@ -995,22 +1001,79 @@ export const MOBS = {
       defeat: ["🍽️ It eats the last of your wards. Your home is open to the road now."],
     },
   },
-};
 
-// ─── Helpers ─────────────────────────────────────────────────────────
+  harvestingAngel: {
+    id: "harvestingAngel", name: "Harvesting Angel", icon: "🪽",
+    era: 3, tier: "apex", kind: "demon", encounterChance: 0.06,
+    description: "Tall, white-robed, and wrong about something. It says it is here to gather you. It is sincere. That is the worst part.",
+    combat: { hp: 70, acc: 0.86, eva: 0.10, damage: { min: 9, max: 14 }, damageType: "sanity" },
+    drops: [
+      { resource: "fragments",       qty: [3, 6], chance: 1.0 },
+      { resource: "ink",             qty: [2, 4], chance: 0.7 },
+      { resource: "obol",            qty: [1, 2], chance: 0.5 },
+      { resource: "cherub_feather",  qty: [1, 2], chance: 0.7 },
+      { resource: "starlit_fragment", qty: 1,     chance: 0.45 },
+    ],
+    xp: 22,
+    combatFlavor: {
+      opener: ["🪽 The robed shape settles to the ground. It tells you, in a kind voice, that the harvest is now."],
+      attack: ["🪽 It reads a verse you have never heard. The verse is about you. {dmg} ◐."],
+      miss: ["🪽 The verse falters; the page-turning sound stops just short of you."],
+      victory: ["🪽 The angel sets down its book and ceases. The book remains."],
+      defeat: ["🪽 The harvest concludes. The book closes. You were a footnote."],
+    },
+  },
+
+  echoFiend: {
+    id: "echoFiend", name: "Echo Fiend", icon: "♻️",
+    era: 3, tier: "uncommon", kind: "demon", encounterChance: 0.28,
+    description: "A long, listening thing in the shape of a person bent at the wrong angles. It learns your last strike and returns it to you, late.",
+    combat: { hp: 48, acc: 0.78, eva: 0.18, damage: { min: 6, max: 10 }, damageType: "hp" },
+    drops: [
+      { resource: "fragments",      qty: [1, 3], chance: 0.85 },
+      { resource: "ash",            qty: [2, 4], chance: 0.7 },
+      { resource: "spirit_essence", qty: [1, 2], chance: 0.55 },
+    ],
+    xp: 12,
+    combatFlavor: {
+      opener: ["♻️ The fiend folds its head sideways and listens. You hear yourself, a moment late, three meters behind."],
+      attack: ["♻️ It returns the strike you just made. The strike was yours; the bruise is yours. {dmg} ❤️."],
+      miss: ["♻️ The echo arrives, but where you were standing a second ago."],
+      victory: ["♻️ The body unfolds and goes quiet. Your last shout still hangs in the air."],
+      defeat: ["♻️ It speaks back your name in your voice. You don't answer. It does."],
+    },
+  },
+
+  duneLeviathan: {
+    id: "duneLeviathan", name: "Dune Leviathan", icon: "🌊",
+    era: 3, tier: "rare", kind: "corrupted", encounterChance: 0.10,
+    description: "Something the size of a building, moving under the sand. You see the dunes shift before you see anything. By then it is decided.",
+    combat: { hp: 95, acc: 0.72, eva: 0.04, damage: { min: 10, max: 16 }, damageType: "hp", defenseHalf: true },
+    drops: [
+      { resource: "bone",      qty: [3, 6], chance: 1.0 },
+      { resource: "hide",      qty: [2, 4], chance: 0.9 },
+      { resource: "fragments", qty: [2, 4], chance: 0.7 },
+      { resource: "scales",    qty: [3, 6], chance: 0.85 },
+      { resource: "void_bone", qty: [1, 2], chance: 0.6 },
+      { resource: "pale_tendon", qty: 1,    chance: 0.45 },
+    ],
+    xp: 18,
+    combatFlavor: {
+      opener: ["🌊 The sand bulges. Whatever is under it is enormous and unhurried.",
+               "🌊 The dune lifts. A flank of plated hide breaches like a coast no one mapped."],
+      attack: ["🌊 The leviathan turns under you. The earth strikes you from below. {dmg} ❤️.","🌊 A plate the size of a door scrapes across your back. {dmg} ❤️."],
+      miss: ["🌊 The dunes settle. Whatever is under there missed by inches."],
+      victory: ["🌊 The sand stills. The thing under it goes still. The wasteland is a little quieter."],
+      defeat: ["🌊 It surfaces, briefly. You only see part of it. The part is enough."],
+    },
+  },
+};
 
 export const getMob = (id) => MOBS[id] || null;
 export const getAllMobs = () => Object.values(MOBS);
 export const getMobsForEra = (era) =>
   getAllMobs().filter((m) => (m.era || 1) <= era);
 
-// ─── Currency ────────────────────────────────────────────────────────
-// Single tier ladder. Three coin types matching era progression:
-//   tarnished_coin — Era 1 ancient coinage; mostly worthless for now,
-//                    valuable once trade routes (#future) come online
-//   coin           — Era 2 settler economy; standard trade unit
-//   obol           — Era 3 black-iron currency; rare, mostly from
-//                    arcane/cult-touched sources
 export const COIN_VALUE = {
   tarnished_coin: 1,
   coin: 5,

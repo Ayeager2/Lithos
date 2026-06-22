@@ -859,22 +859,20 @@ Same NPCs are intended to return in later eras as proto-companion encounters onc
 
 ---
 
-## Living updates
+## Runesmithing (#115 / #132 / #133 / #134 / #135 / #136 / #137) — ✅ live
 
-When a system changes meaningfully:
-1. Update the relevant entry above (status, state, next steps).
-2. If it's a new system, add a new entry.
-3. If it's deprecated, mark it ⬜ → 🔮 → eventually delete.
-4. Commit `docs/systems.md` along with the code change so the doc and the code stay in sync.
+**Status.** Full vertical slice from rune resource → craft recipe → imbue UI → combat math → passive trickle.
 
-**Doc hierarchy.**
-- `docs/HANDOFF.md` — current state + next-moves briefing (read first when resuming)
-- `docs/AI_CONTEXT.md` — dense AI-first onboarding spine (rules + file map + state shape)
-- `docs/systems.md` (this file) — *current state of play* per system
-- `docs/ERA_PLAN.md` — planned content for next eras (design rationale)
-- `docs/BUGS.md` — open + fixed bug log
-- `docs/architecture.md` — *static structure* doc (audit + v2 addendum)
-- `docs/roadmap.md` — *long-arc vision* doc (8-era ladder, design decisions)
+**Resources.** 56 runes total across 7 rarity tiers in `content/resources.js`. Each rune carries an `imbueEffect` and a `rarity` field. Rarity ladder: `common (8) → uncommon (8: 6 original + 2 new) → rare (8) → epic (8) → legendary (8) → mythic (8) → god (8)`.
 
-Reading order for humans: HANDOFF → roadmap → architecture → systems → BUGS / ERA_PLAN.
-Reading order for AI: AI_CONTEXT → HANDOFF → systems (only the system you're touching).
+**Effect schema** (combat.js `getEffectiveImbueEffects`):
+- `damageBonus` (int, additive)
+- `hpReturnOnHit` (int, additive, caps player HP at 100)
+- `spiritReturnOnHit` (int, additive, caps Spirit at 100)
+- `echoChance` (0..1, additive but capped at 1.0)
+- `sanityCostOnHit` (int, drained on every successful hit)
+- `durabilitySaveChance` (0..1, additive but capped at 0.95 combined with study passives)
+- `hpRegenPerMinute` (int, applied per 15s TICK via fractional accumulator)
+- `accBonus` (0..1, folds into hit roll)
+- `critChanceBonus` (0..1, folds into crit roll)
+- `spir

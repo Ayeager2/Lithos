@@ -13,30 +13,45 @@
 // Hunting / Gather / Magic. Click a card → craft (or use, if a stackable
 // consumable is already owned).
 
-import { useState } from "react";
-import { TOOL_CATEGORIES, getToolDiscipline } from "../content/tools.js";
-import { canCraft, getVisibleTools, getCraftSuccessChance } from "../systems/crafting.js";
+import { useEffect, useState } from "react";
+import { TOOL_CATEGORIES, getToolDiscipline, getProducerForResource } from "../content/tools.js";
+import { canCraft, getVisibleTools, getCraftSuccessChance, getCraftDuration, getActiveCraft, getActiveCraftProgress } from "../systems/crafting.js";
 import { getResource } from "../content/resources.js";
 import { getResearch } from "../content/research.js";
 import { getSkillState } from "../systems/skills.js";
 import { getSkill } from "../content/skills.js";
 
+// Format ms → human-readable "1m 12s" / "12s".
+function fmtMs(ms) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
 const DISCIPLINES = [
+  { id: "survivalcraft", label: "Survival", icon: "🪤" },
   { id: "blacksmithing", label: "Blacksmithing", icon: "🔨" },
   { id: "alchemy", label: "Alchemy", icon: "🧪" },
   { id: "fletching", label: "Fletching", icon: "🪶" },
   { id: "farming", label: "Farming", icon: "🌾" },
   { id: "woodworking", label: "Woodworking", icon: "🪵" },
   { id: "tailoring", label: "Tailoring", icon: "🧵" },
+  { id: "runesmithing", label: "Runesmithing", icon: "🪬" },
 ];
 
-function ToolCard({ state, actions, tool }) {
+function ToolCard({ state, actions, tool, activeCraft, progress }) {
   const owned = state.run.inventory?.[tool.id] || 0;
   const isOwned = owned > 0;
   const check = canCraft(state, tool.id);
+  // #130 — is THIS card the active craft? Other cards get disabled.
+  const isThisCrafting = activeCraft?.toolId === tool.id;
+  const someoneElseCrafting = !!activeCraft && !isThisCrafting;
+  const durationMs = getCraftDuration(state, tool.id);
+  const remainingMs = isThisCrafting ? Math.max(0, activeCraft.durationMs - (Date.now() - activeCraft.startedAt)) : 0;
+  // #143 — qty selector retired. Crafts loop continuously now.
 
   const catMeta = TOOL_CATEGORIES[tool.category];
-  const cardCls = `patrol-card patrol-card--craft ${isOwned ? "is-owned" : ""}`;
+  const cardCls = `patrol-card patrol-card--craft ${isOwned ? "is-owned" : ""} ${isThisCrafting ? "is-active-loop" : ""}`;
 
   // Skill-based success chance (#113) — surfaces so the player can see
   // why their stone axes keep falling apart at lvl 0 blacksmithing.
@@ -61,10 +76,22 @@ function ToolCard({ state, actions, tool }) {
     ? getResearch(tool.requires.researched)
     : null;
 
-  let ctaLabel;
-  if (isOwned && !tool.isStackable) ctaLabel = "Crafted";
-  else if (tool.isStackable && isOwned) ctaLabel = `Brew (×${owned})`;
-  else ctaLabel = tool.isStackable ? "Brew" : "Craft";
+  // Verb routing (#121) — different disciplines get different action
+  // words: Alchemy brews, Runesmithing inscribes, Farming sows; everyone
+  // else crafts. Non-stackables (a unique tool/weapon) say "Craft".
+  // Multi-craft (#123) — players can stack non-stackables now too.
+  const verb = discipline === "alchemy" && tool.isStackable
+    ? "Brew"
+    : discipline === "runesmithing"
+      ? "Inscribe"
+      : discipline === "farming" && tool.isStackable
+        ? "Sow"
+        : discipline === "survivalcraft"
+          ? "Lash"
+          : "Craft";
+  // Drop the (×N) owned-suffix — owned-count lives in the card head/badge,
+  // not on the action button.
+  const ctaLabel = verb;
 
   const showUse = isOwned && tool.consumable;
 
@@ -122,7 +149,9 @@ function ToolCard({ state, actions, tool }) {
         </div>
       )}
 
-      {(!isOwned || tool.isStackable) && !tool.producesResource && (
+      {/* Success-chance chip always renders for craftable items (#123) —
+          players can craft more even when they already own one. */}
+      {!tool.producesResource && (
         <div className={`craft-card-success craft-card-success--${successTone}`}
           title={`Skill: ${discDef?.name || discipline} lvl ${discLevel}. Higher levels lift success — failed crafts waste ~half the materials.`}>
           <span aria-hidden="true">{discDef?.icon || "🛠️"}</span>
@@ -133,59 +162,116 @@ function ToolCard({ state, actions, tool }) {
         </div>
       )}
 
-      {(!isOwned || tool.isStackable) && (
-        <>
-          {costEntries.length > 0 && (
-            <div className="patrol-card-drops">
-              <div className="patrol-card-drops-label muted">Cost</div>
-              <ul className="patrol-card-drops-list">
-                {costEntries.map(([resId, qty]) => {
-                  const have = state.run.inventory?.[resId] || 0;
-                  const enough = have >= qty;
-                  const r = getResource(resId);
-                  return (
-                    <li
-                      key={resId}
-                      className={`patrol-card-drop ${enough ? "" : "patrol-card-drop--short"}`}
+      {/* Effects-active badge for owned non-stackables — informational, no
+          longer replaces the cost/Craft button. Player can still craft more. */}
+      {isOwned && !tool.isStackable && (
+        <div className="craft-card-owned-cta">Effects active.</div>
+      )}
+
+      {/* Cost + Craft button — ALWAYS shown so players can craft more (#123). */}
+      {costEntries.length > 0 && (
+        <div className="patrol-card-drops">
+          <div className="patrol-card-drops-label muted">Cost</div>
+          <ul className="patrol-card-drops-list">
+            {costEntries.map(([resId, qty]) => {
+              const have = state.run.inventory?.[resId] || 0;
+              const enough = have >= qty;
+              const r = getResource(resId);
+              // #128 — if short AND a recipe produces this resource AND
+              // the player isn't already crafting, show a small "+ craft 1"
+              // button that auto-fires that recipe.
+              const producer = !enough ? getProducerForResource(resId) : null;
+              const producerCheck = producer ? canCraft(state, producer.id) : null;
+              const canAutoCraft = !!producer && !!producerCheck?.ok && !someoneElseCrafting && !isThisCrafting;
+              return (
+                <li
+                  key={resId}
+                  className={`patrol-card-drop ${enough ? "" : "patrol-card-drop--short"}`}
+                >
+                  <span aria-hidden="true">{r?.icon || ""}</span>
+                  <span className="patrol-card-drop-name">{r?.name || resId}</span>
+                  <span className="muted">×{qty} ({have})</span>
+                  {canAutoCraft && (
+                    <button
+                      type="button"
+                      className="craft-card-plus"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        actions.craft?.(producer.id, 1);
+                      }}
+                      title={`Craft 1 ${r?.name || resId} here (${producer.name}).`}
+                      aria-label={`Craft 1 ${r?.name || resId}`}
                     >
-                      <span aria-hidden="true">{r?.icon || ""}</span>
-                      <span className="patrol-card-drop-name">{r?.name || resId}</span>
-                      <span className="muted">×{qty} ({have})</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-          <div className="craft-card-actions">
+                      +
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {/* #130 — duration line so the player knows the time cost up-front. */}
+      {!isThisCrafting && (
+        <p className="muted patrol-card-flavor">
+          ⏱ Takes ~{fmtMs(durationMs)} to craft.
+        </p>
+      )}
+
+      {/* #143/#144 — single CTA: idle "Craft", active "Crafting…", swap
+          "Swap to Craft". Progress bar lives as a loopbar at the bottom
+          of the card itself, mirroring the gather/patrol pattern. */}
+      <div className="craft-card-actions">
+        {isThisCrafting ? (
+          <button
+            type="button"
+            className="patrol-card-cta patrol-card-cta--action"
+            onClick={() => actions.cancelCraft?.()}
+            title={`Click to stop the loop. ${fmtMs(remainingMs)} until next craft.`}
+          >
+            Crafting…
+          </button>
+        ) : (
+          <>
             <button
               type="button"
-              className="btn btn-primary btn-sm patrol-card-cta-btn"
+              className="patrol-card-cta patrol-card-cta--action"
               onClick={() => actions.craft?.(tool.id)}
               disabled={!check.ok}
-              title={check.ok ? "" : (check.reason || "Not ready")}
+              title={
+                someoneElseCrafting
+                  ? "Starting this will stop the other craft (materials in progress are lost)."
+                  : check.ok
+                    ? "Craft continuously until materials run out or you stop."
+                    : (check.reason || "Not ready")
+              }
             >
-              {ctaLabel}
+              {someoneElseCrafting ? `Swap to ${ctaLabel}` : ctaLabel}
             </button>
             {showUse && (
               <button
                 type="button"
-                className="btn btn-ghost btn-sm patrol-card-cta-btn"
+                className="patrol-card-cta patrol-card-cta--action patrol-card-cta--ghost"
                 onClick={() => actions.useTool?.(tool.id)}
                 disabled={owned <= 0}
               >
                 Use
               </button>
             )}
-          </div>
-          {!check.ok && (
-            <p className="muted patrol-card-reveal-hint">{check.reason}</p>
-          )}
-        </>
+          </>
+        )}
+      </div>
+      {!check.ok && !isThisCrafting && (
+        <p className="muted patrol-card-reveal-hint">{check.reason}</p>
       )}
-
-      {isOwned && !tool.isStackable && (
-        <div className="craft-card-owned-cta">Effects active.</div>
+      {/* #144 — loopbar mirrors gather/patrol cards. Sits at the bottom
+          edge of the card and scales horizontally with craft progress. */}
+      {isThisCrafting && (
+        <span
+          className="patrol-card-loopbar"
+          style={{ transform: `scaleX(${progress})` }}
+          aria-hidden="true"
+        />
       )}
     </div>
   );
@@ -193,6 +279,16 @@ function ToolCard({ state, actions, tool }) {
 
 export default function CraftingView({ state, actions }) {
   const [tab, setTab] = useState("blacksmithing");
+  // #130 — re-render every 250ms while a craft is active so the
+  // progress bar animates smoothly. Cheap when nothing's crafting.
+  const [, force] = useState(0);
+  const activeCraft = getActiveCraft(state.run);
+  useEffect(() => {
+    if (!activeCraft) return;
+    const id = setInterval(() => force((n) => n + 1), 250);
+    return () => clearInterval(id);
+  }, [activeCraft?.toolId]);
+  const progress = getActiveCraftProgress(state.run);
 
   const visible = getVisibleTools(state);
 
@@ -227,7 +323,7 @@ export default function CraftingView({ state, actions }) {
         </p>
       </div>
 
-      <nav className="magic-tabs" role="tablist" aria-label="Craft discipline">
+        <nav className="magic-tabs" role="tablist" aria-label="Craft discipline">
         {visibleTabs.map((t) => {
           const isActive = t.id === activeTab;
           return (
@@ -262,13 +358,15 @@ export default function CraftingView({ state, actions }) {
               state={state}
               actions={actions}
               tool={t}
+              activeCraft={activeCraft}
+              progress={progress}
             />
           ))}
           {tools.length === 0 && (
             <p className="muted magic-empty">
               No recipes on this discipline yet.
             </p>
-          )}
+                  )}
         </div>
       )}
     </section>

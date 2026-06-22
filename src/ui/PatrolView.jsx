@@ -531,15 +531,3 @@ export default function PatrolView({ state, actions }) {
     </section>
   );
 }
-t={locked ? describeLock(b, state) : null}
-                    onClick={() => handleBoss(b.id)}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </section>
-  );
-}

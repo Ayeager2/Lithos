@@ -83,6 +83,18 @@ export const RUN_DEFAULTS = {
   // See systems/studies.js for the full state shape + lifecycle.
   studyProgress: {},      // { [nodeId]: { startedAt, accumulatedMs } }
   activeStudyId: null,    // single active study (nullable)
+
+  // ─── Timed crafting (#130) — idle-RPG core. Single active job that
+  // ticks in the background. Materials are committed when the job
+  // starts; the success/fail roll fires on completion. See
+  // systems/crafting.js startCraft + tickActiveCraft.
+  activeCraft: null,      // { toolId, startedAt, durationMs } | null
+
+  // ─── Rune imbues (#132) — per-weapon-type rune effects. Keyed by
+  // weapon id (e.g. ironGreatsword), then set of applied rune ids.
+  // Combat math reads this for on-hit effects (Light = heal, Bend =
+  // spirit return, etc). See systems/runesmithing.js.
+  weaponImbues: {},       // { [weaponId]: { [runeId]: { appliedAt } } }
   studiesCompleted: {},   // { [nodeId]: { completedAt } } — permanent
   lastStudyTickAt: 0,     // for offline-catchup elapsed math
   // Cached stat bumps from study `addsStat` effects (e.g. Wardweave +2 armor).

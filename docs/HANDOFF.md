@@ -28,6 +28,23 @@ Read in order:
 
 ## State (current commit)
 
+### Recent progress (#109–#137)
+
+- **#109 Crafting page rebuild** — sub-tabbed CraftingView with 8 disciplines (Survival / Blacksmithing / Alchemy / Fletching / Woodworking / Tailoring / Farming / Runesmithing). Patrol-card visual language. Per-card cost row + Craft button always visible (no "Effects active" hide).
+- **#110–#111 Durability rebalance** — Era 0/1 net 12→6, snare 20→10, etc. Cards show `cur/max hunts` cleanly.
+- **#112–#113 Per-discipline skills + skill-based success** — blacksmithing/alchemy/fletching/woodworking/tailoring/survivalcraft/runesmithing/smithing. Each level adds 4% success above the tier base (T1 25% / T2 20% / T3 12% / T4 8%); ceiling per tier (95/90/80/70).
+- **#114–#117 Era 2 + Era 3 weapon rosters** — 14 Era 2/iron-tier natural weapons + 24 Era 3 arcane weapons (Fragment Blade, Sigil Staff, Echo Bow, Voidcaller Wand, Stonespeak Hammer, Censer Dagger, …).
+- **#119–#120 Mythical mob roster + drops → recipes** — replaced 5 mundane mobs with mythical (shardChimera, whisperingCairn, thirstWraith, ironwombBrood, mirrorGhast) plus 3 new Era 3 mobs (harvestingAngel, echoFiend, duneLeviathan). Era 3 weapon recipes now require mythical mob drops (shattered_glyph, spirit_essence, void_bone, cherub_feather, etc.). Hunt-craft loop closed.
+- **#122–#127 Crafting QoL** — skill-based cost discount (1%/lvl, cap 30%), allow crafting non-stackables repeatedly, fletching arrow recipes (wood/iron/shard tiers), Survival tab + reclassification, ×1/×5/×10/Max quantity selector, lower 25% base success, `+` button to auto-craft missing materials.
+- **#130 Timed crafting** — every craft is now a progress-bar with per-tier base durations (T1 5s / T2 15s / T3 60s / T4 180s) modulated by discipline-skill level. `activeCraft` lives on `run`; `tickActiveCraft` resolves on TICK_LOOP. Multi-craft queue auto-restarts the next one when materials remain. The idle-RPG loop the user asked for: queue a Voidstaff, walk away, come back to find it done.
+- **#36 / #131 Iron tier + Smithing skill** — `iron` resource (hidden until smithing research), `smeltIron` recipe (`bog_iron×2 + wood×1 → iron×1`), iron-tier crafts grant Smithing XP. Existing iron-tier weapons (#117) now have a real resource chain.
+- **#115 / #132 Runesmithing + imbue actions** — `weaponImbues: { [weaponId]: { [runeId]: { appliedAt } } }` field on run. Per-weapon-type imbues. `IMBUE_WEAPON` / `REMOVE_IMBUE` reducer actions. `canImbueWeapon` / `getWeaponImbues` / `performImbueWeapon` / `performRemoveImbue` in `systems/runesmithing.js`. Imbuing grants 8 Runesmithing XP.
+- **#133 Combat math wired** — `getEffectiveImbueEffects(state)` aggregates `damageBonus / hpReturnOnHit / spiritReturnOnHit / echoChance / sanityCostOnHit / durabilitySaveChance / hpRegenPerMinute` plus #136's new `accBonus / critChanceBonus / spiritRegenPerMinute / damageReduction / evasionBonus`. Applied in both `resolveFight` (auto-patrol) and `rollPlayerAttack` (boss modal). BossFightModal applies on-hit returns + echo strike to the damage tracker live.
+- **#134 Elemental rune passive regen** — `applyImbuePassives(run, tickSeconds)` honest fractional accumulator on `imbueRegenAccum` / `imbueSpiritAccum`. Hooked into `ACTIONS.TICK` (15s). Caps stats at 100 and zeros the accumulator at cap.
+- **#135 Runesmithing UI on Magic page** — new 🪬 Runesmithing tab in MagicView (visible when player has runesmithing skill level OR owns any rune). One patrol-style card per owned weapon with weaponStats. Shows currently-bound imbues with × remove buttons + an Apply-rune list of every rune type with Bind buttons and disabled-with-reason tooltips.
+- **#136 50 new runes across 7 rarity tiers** — `rarity: common | uncommon | rare | epic | legendary | mythic | god`. Common → small bonuses (e.g. Mending Chip +1 HP/hit). God → world-bending (Godrune of Oblivion: +50 dmg, −10 Sanity/hit, 60% echo, +20% crit, +20% acc). All sort by rarity in the UI; rarity-colored chips on each row (gray → green → blue → purple → gold → orange → rainbow GOD). Combined imbue caps: `damageReduction ≤ 0.90`, `echoChance ≤ 1.0`, `durabilitySaveChance ≤ 0.95`.
+- **#137 50 rune craft recipes** — full coverage. Cost ladder scales by rarity: Common (1f/1ink) → Uncommon (2f/1ink + 1 themed) → Rare (3f/2ink/1obol + 1 themed) → Epic (5f/3ink/2obol + mythical) → Legendary (8f/5ink/3obol + 2 mythical + sometimes 1 starlit) → Mythic (15f/8ink/5obol + 3 mythical + starlit) → God (30f/15ink/10obol + multiple mythical + 2–5 starlit). God-tier Void runes additionally gate on `voidcall` research + `alignment.evil ≥ 6–12`.
+
 ### Playable end-to-end
 - **Era 0** (once per save; skipped after first ascension) — gather → find rock → 10 fragments → awakening
 - **Era 1** — hut → research tree (16+ nodes) → Fire Pit · Water Hole · Garden · Cairn → primitive tools + pure weapons (Wooden Club / Stone Spear / Stone Mace) → water tier system (Stagnant 🩸 / Muddy 💧 / Boiled 🫖 + dysentery + Drink dropdown + Boil action) → multi-round combat (Wild Dog) → hunting → six survival stats (HP/hunger/thirst/energy/Resolve/Sanity/Spirit)
@@ -118,46 +135,4 @@ Test recipes:
 - **Patrol view (#66/#67/#68/#69/#70)**: Left rail 🗡️ Patrol → mob cards grouped by era. **Click a card = auto-engage loop:** fight fires every `cycleMs`, card lights up with accent border + filling progress bar at the bottom, drops accrue into the per-target **Pile of Goods** above the era grid (chips with hover-tooltip resource cards). Click a different card → swaps target + resets pile. Click Stop → halts. **Hidden info reveal (#70):** mob HP/damage/accuracy/type AND drop names/qty/% are masked as ??? until `state.run.mobsDefeated[mobId]` hits per-field thresholds (HP: 1 kill, dropNames: 1, damage: 3, dropQty: 5, accuracy: 5, damageType: 10, dropChance: 10). Card shows next-reveal hint ("Beat 2 more to reveal damage"). **Butchering skill (#70):** new survival skill, earns XP per mob kill via `gainXp(run, "butchering", ⌊hp/6⌋)`; level scales drop chance (+1%/lvl, cap +0.20) and drop quantity (+5%/lvl additive multiplier, cap 2.0x at lvl 20) — read by `getButcheringBonuses(run)` inside `systems/patrol.js rollDrops`.
 - **Auto-loop core (#68)**: `state.run.activeLoop = { kind, target, startedAt, cycleMs }` (single active loop). `systems/loop.js` exposes `setActiveLoop` / `clearActiveLoop` / `tickActiveLoop` / `getActiveLoop` / `getLoopProgress` / `computeCycleMs`. Reducer wires `SET_ACTIVE_LOOP` / `CLEAR_ACTIVE_LOOP` / `TICK_LOOP`. Store runs a 250ms `TICK_LOOP` interval (cheap when no loop active — reducer short-circuits). Phase 1 wires Patrol only; Phase 2 extends to Gather + Hunt + Ritual + crafting.
 - **Character hub (#44 + #45 + #54)**: 👤 → jump-nav strip (📊/🎯/🛡️/🎒) on left edge. Stats: Survival (incl. STR at bottom) + Combat columns. Dev → State → Apply Death Debuff → STR drops in Survival. Skills section below stats — fight a foe → combat skill XP shows up in Combat-skills column. Encounters → give weapon → click → swap to Character page → Items tab (or scroll) → card shows weapon stats inline → "→ L" / "→ R" equips → slot fills above → click filled slot → returns to pack.
-- **Right off-canvas**: click › inside right column → collapses to ‹ edge tab. Click tab → slides back as overlay over center (center stays wide). Persists via `lithos.rightPanelMode`.
-- **Boss defeat cascade**: lose a boss → death-debuff applies + wake with reduced HP — no run reset (verify in State tab).
-- **Death cascade**: State → Apply Death Debuff → eat repeatedly to tick magnitude to 0
-- **Arcane Studies**: Arcane → Build Stone Altar → +5 Scrolls/Inks → Studies tab → start study → Arcane → Complete active study → check Spells modal
-- **World Score thresholds**: Arcane → WS → 30 → gather → watch water-promotion log. WS → 100 fires apex reveal once.
-- **Dysentery**: State → Apply Dysentery → watch doubled hunger/thirst drain + per-tick HP/sanity bleed
-- **Ascension QoL**: Quick → 🚀 Unlock all Era 3 → State → max stats → Channel the Rock → new run starts hut-raised, fragments still readable as "Arcane Shards"
-- **Echo Shop**: Channel the Rock → click header Echoes badge OR Echo Shop button on prestige modal → buy upgrades → new run seeds with their effects (verify via Inventory + stat bars)
-- **Sanity-damage threat**: equip any weapon → Encounters → Force Soulless Stalker → sanity drains per round, armor doesn't help
-- **Gather page (#97 / #104)**: Left rail 🌿 Gather → tab strip (Forage / Mining / Wood / Fishing / Farming / Husbandry / Hunting). Click a Dust Patch in Forage → auto-loop starts; loop banner appears **above** the Pile of Goods showing 🌫️ Dust Patch · Common with a progress bar + Stop button. Drops accrue in the Pile. Click a different node → swaps target. Switch to Hunting tab → click a prey card → loop continues against the prey.
-- **Magic page (#106)**: Dev → State → set studies (Light: greaterMending; Bend: greaterBend) → State → grant Spirit + fragments → Left rail Magic → tab strip mirrors the Path Trees modal order (Foundation / ✨Light / 🌑Bend / 🌿Elemental / ...). Each known spell renders as a patrol-card tile with path-colored chip + Cast CTA. Locked spells dim with 🔒. Empty paths hide their tab.
-- **Path Trees colors (#105)**: Arcane → Studies → tabs render as dark pills with accent border on active (no more white browser-default buttons). Studies + Magic share the same tab visual language.
-- **Skills under Character (#107)**: Character → 🎯 Skills section. Survival + Combat columns side-by-side on sm+ viewports. Once Building skill earns XP (build any structure) it shows in a separate Craft column instead of being mashed into "Other".
-
-## Onboarding prompt for a fresh agent
-
-Paste this when starting a new conversation:
-
-> Working on **Lithos** — React 19 + Vite incremental game, cosmic horror, browser-only.
->
-> **State:** Era 3 feature-complete. Era 0→3 gameplay loop runs end-to-end with real RPG combat, Arcane Studies, World Score, ascension QoL, Echo Shop.
->
-> **Active arcs** (cross-era, not era content):
-> - Combat Phase 3+ (tasks #35–#37, #34 + #40 + #41 shipped): specialized gather actions, iron tier, weapon enchants
-> - Character / Crafting page (#46–#49, #43 + #44 + #45 + #54 shipped): Character is now a single-page hub (stats / skills / equipment / items with sticky jump-nav). Remaining: tooltip-compare (#46), stat modulation (#47), fill in CraftingView stub (#48), polish (#49).
->
-> **Read first:** `docs/AI_CONTEXT.md` (file map + state shape + rules), then `docs/HANDOFF.md`. Open `docs/systems.md` only when working on a specific system.
->
-> **Code conventions:** content-as-data in `src/content/*.js` (no functions). Thin reducer in `src/state/reducer.js` → pure systems in `src/systems/*`. Persistent vs run state split (`persistent.permanentlyKnown` auto-handles revealed resources). Hidden alignment never shown as a number. Accessibility-first.
->
-> Ask what to work on rather than assuming.
-
-## Update protocol
-
-When ending a session with meaningful changes, update this doc:
-
-1. **Move shipped items** from "Next moves" → "State (current commit)" in the right group (Foundation / Combat / Meta / UI) or under the relevant era in "Playable end-to-end".
-2. **Add new tasks** to "Next moves" with **one line each** — task number, system area, what it adds. No prose paragraphs.
-3. **Update locked decisions** if a new design call was made.
-4. **Add a dev-panel test recipe** if a new system shipped — one line, format: "Name: tab → action → action → expected result".
-5. **Adjust the onboarding prompt** if the active arcs changed (the bullet list, not the prose around it).
-6. **Keep prose-free.** Bullets, not paragraphs. If you find yourself writing a paragraph, split it into bullets or move it to systems.md / ERA_PLAN.md.
-7. **Target ≤200 lines.** This doc's job is 30-second reorientation, not exhaustive listing.
+- **Right off-canvas**: click › inside right column → collapses to ‹ edge tab. Click tab → slides back as overlay over center (center stays wide). Persists via `lithos.rightPanelM

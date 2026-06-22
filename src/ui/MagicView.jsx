@@ -1,20 +1,6 @@
 // Magic view (#106) — tabbed page that mirrors the Path Tree order
 // from the Studies modal, with the same patrol-card visual language
-// used by Patrol / Hunting / Gather.
-//
-// Tabs (one per Study path + Foundation + Conversions):
-//   ✨ Foundation   — Era 3 awakening spells (mendingWord, soothe…)
-//   ✨ Light        — Studies-of-the-Light Path
-//   🌑 Bend         — Studies-of-the-Bend Path
-//   🌿 Elemental    — Studies-of-the-Elemental Path
-//   ✒️ Sigilcraft   — Studies-of-Sigilcraft
-//   🔔 Memory       — The Path of Memory
-//   👂 Stoneword    — Stoneword
-//   ⚫ Voidcall     — Apex
-//   🪔 Conversions  — Ritual + Spirit trades
-//
-// Each spell renders as a patrol-card-shaped tile (same as Gather/Hunt
-// node cards) so the magic page reads like the rest of the game.
+// used by Patrol / Hunting / Gather. Adds Runesmithing tab (#135).
 
 import { useEffect, useState } from "react";
 import { getAllSpells } from "../content/spells.js";
@@ -25,6 +11,15 @@ import {
 import { canPerformSurvivalAction } from "../systems/survival.js";
 import { SURVIVAL } from "../content/survival.js";
 import { STUDY_PATHS } from "../content/studies.js";
+import { getAllResources } from "../content/resources.js";
+import { getAllWeapons } from "../content/weapons.js";
+import { getAllTools } from "../content/tools.js";
+import {
+  getWeaponImbues,
+  canImbueWeapon,
+  getMaxEnchantSlots,
+  getEnchantSlotUsage,
+} from "../systems/runesmithing.js";
 
 function fmtSec(sec) {
   if (sec <= 0) return "ready";
@@ -32,54 +27,41 @@ function fmtSec(sec) {
   return `${Math.ceil(sec / 60)}m`;
 }
 
-// ─── Spell → path map.
-// Derived from content/studies.js (effect.unlocksSpell). Spells not in
-// this map are Foundation (granted by Era-3 research, not a path tree).
-// Conversions live in their own bucket because Ritual is synthetic.
 const SPELL_PATH = {
   greaterMending: "light",
-  cleansingWord:  "light",
-  blessing:       "light",
-
-  greaterBend:    "bend",
-  curse:          "bend",
-  soulflame:      "bend",
-  dominate:       "bend",
-
-  echo:           "memory",
-  ghostcall:      "memory",
-
-  voidcall:       "voidcall",
+  cleansingWord: "light",
+  blessing: "light",
+  greaterBend: "bend",
+  curse: "bend",
+  soulflame: "bend",
+  dominate: "bend",
+  echo: "memory",
+  ghostcall: "memory",
+  voidcall: "voidcall",
 };
 
-// Convert any spell into a tab bucket id.
 function tabOf(spell) {
   if (spell._ritual) return "conversion";
-  // Bend (Era 3 awakening) and bend path's greaterBend share the name.
-  // mendingWord/soothe/innerHearth/banish all come from research nodes
-  // outside the study trees → Foundation.
   if (spell.id === "bend" || spell.id === "mendingWord" || spell.id === "soothe"
-      || spell.id === "innerHearth" || spell.id === "banish") {
+    || spell.id === "innerHearth" || spell.id === "banish") {
     return "foundation";
   }
   return SPELL_PATH[spell.id] || "foundation";
 }
 
-// Tab meta — order matches the path tree modal so the player can read
-// across both screens.
 const TABS = [
-  { id: "foundation",  label: "Foundation",  icon: "✨" },
-  { id: "light",       label: STUDY_PATHS.light.name,       icon: STUDY_PATHS.light.icon },
-  { id: "bend",        label: STUDY_PATHS.bend.name,        icon: STUDY_PATHS.bend.icon },
-  { id: "elemental",   label: STUDY_PATHS.elemental.name,   icon: STUDY_PATHS.elemental.icon },
-  { id: "sigilcraft",  label: STUDY_PATHS.sigilcraft.name,  icon: STUDY_PATHS.sigilcraft.icon },
-  { id: "memory",      label: STUDY_PATHS.memory.name,      icon: STUDY_PATHS.memory.icon },
-  { id: "stoneword",   label: STUDY_PATHS.stoneword.name,   icon: STUDY_PATHS.stoneword.icon },
-  { id: "voidcall",    label: STUDY_PATHS.voidcall.name,    icon: STUDY_PATHS.voidcall.icon },
-  { id: "conversion",  label: "Conversions",  icon: "🪔" },
+  { id: "foundation", label: "Foundation", icon: "✨" },
+  { id: "light", label: STUDY_PATHS.light.name, icon: STUDY_PATHS.light.icon },
+  { id: "bend", label: STUDY_PATHS.bend.name, icon: STUDY_PATHS.bend.icon },
+  { id: "elemental", label: STUDY_PATHS.elemental.name, icon: STUDY_PATHS.elemental.icon },
+  { id: "sigilcraft", label: STUDY_PATHS.sigilcraft.name, icon: STUDY_PATHS.sigilcraft.icon },
+  { id: "memory", label: STUDY_PATHS.memory.name, icon: STUDY_PATHS.memory.icon },
+  { id: "stoneword", label: STUDY_PATHS.stoneword.name, icon: STUDY_PATHS.stoneword.icon },
+  { id: "voidcall", label: STUDY_PATHS.voidcall.name, icon: STUDY_PATHS.voidcall.icon },
+  { id: "runesmithing", label: "Runesmithing", icon: "🪬" },
+  { id: "conversion", label: "Conversions", icon: "🪔" },
 ];
 
-// Synthetic spell-shaped object for Ritual.
 function buildRitualSpell(state) {
   const def = SURVIVAL?.actions?.ritual || {};
   const known = !!state.run.researched?.arcaneAwakening;
@@ -98,6 +80,197 @@ function buildRitualSpell(state) {
     _ritual: true,
     _known: known,
   };
+}
+
+// ─── Runesmithing UI (#135) ──────────────────────────────────────────
+function getAllRunes() {
+  const runes = getAllResources().filter((r) => !!r.imbueEffect);
+  // Sort by rarity ladder (#136) so the Apply list reads common → god.
+  return runes.sort((a, b) => {
+    const ai = RARITY_ORDER.indexOf(a.rarity || "uncommon");
+    const bi = RARITY_ORDER.indexOf(b.rarity || "uncommon");
+    if (ai !== bi) return ai - bi;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function getOwnedWeapons(state) {
+  const inv = state.run.inventory || {};
+  const out = [];
+  const seen = new Set();
+  for (const w of getAllWeapons()) {
+    if (!w.weaponStats) continue;
+    if (!(inv[w.id] > 0)) continue;
+    if (seen.has(w.id)) continue;
+    seen.add(w.id);
+    out.push(w);
+  }
+  for (const t of getAllTools()) {
+    if (!t.weaponStats) continue;
+    if (!(inv[t.id] > 0)) continue;
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    out.push(t);
+  }
+  return out;
+}
+
+// Rarity ladder used for sort + label coloring (#136).
+const RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic", "god"];
+const RARITY_LABEL = {
+  common: "Common", uncommon: "Uncommon", rare: "Rare",
+  epic: "Epic", legendary: "Legendary", mythic: "Mythic", god: "GOD",
+};
+
+function ImbuedRow({ weapon, rune, effect, onRemove }) {
+  const rarity = rune.rarity || "uncommon";
+  return (
+    <li className="patrol-card-drop" title={effect.label || rune.name}>
+      <span aria-hidden="true">{rune.icon}</span>
+      <span className="patrol-card-drop-name">{rune.name.replace(" Rune", "")}</span>
+      <span className={`patrol-card-tier patrol-card-tier--${rarity}`} style={{ marginRight: 4 }}>
+        {RARITY_LABEL[rarity]}
+      </span>
+      <span className="muted" style={{ fontSize: 11 }}>{effect.label}</span>
+      <button
+        type="button"
+        className="btn btn-ghost btn-sm"
+        style={{ marginLeft: "auto", padding: "2px 6px" }}
+        onClick={onRemove}
+        title="Remove imbue"
+        aria-label={`Remove ${rune.name} from ${weapon.name}`}
+      >
+        ×
+      </button>
+    </li>
+  );
+}
+
+function WeaponImbueCard({ state, actions, weapon, runes }) {
+  const inv = state.run.inventory || {};
+  const imbues = getWeaponImbues(state, weapon.id);
+  const ownedQty = inv[weapon.id] || 0;
+  const maxSlots = getMaxEnchantSlots(weapon);
+  const usedSlots = getEnchantSlotUsage(state, weapon.id);
+  // Render `●` for filled slots, `○` for empty (#138).
+  const slotPips = "●".repeat(usedSlots) + "○".repeat(Math.max(0, maxSlots - usedSlots));
+
+  return (
+    <div className="patrol-card patrol-card--magic">
+      <div className="patrol-card-head">
+        <span className="patrol-card-icon" aria-hidden="true">{weapon.icon || "⚔️"}</span>
+        <div className="patrol-card-title">
+          <div className="patrol-card-name">{weapon.name}</div>
+          <div className="patrol-card-sub">
+            <span className="patrol-card-tier patrol-card-tier--common">
+              × {ownedQty} owned
+            </span>
+            <span
+              className="patrol-card-tier patrol-card-tier--common"
+              title={`Enchant slots: ${usedSlots} bound of ${maxSlots} (weapon category: ${weapon.category || "?"})`}
+              style={{ marginLeft: 4 }}
+            >
+              🪬 {usedSlots}/{maxSlots} {slotPips}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="patrol-card-drops">
+        <div className="patrol-card-drops-label muted">Imbues</div>
+        {imbues.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12, margin: "4px 0" }}>
+            No runes bound. The metal sleeps.
+          </p>
+        ) : (
+          <ul className="patrol-card-drops-list">
+            {imbues.map(({ runeId, rune, effect }) => (
+              <ImbuedRow
+                key={runeId}
+                weapon={weapon}
+                rune={rune}
+                effect={effect}
+                onRemove={() => actions.removeImbue(weapon.id, runeId)}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="patrol-card-drops">
+        <div className="patrol-card-drops-label muted">Apply rune</div>
+        <ul className="patrol-card-drops-list">
+          {runes.map((rune) => {
+            const owned = inv[rune.id] || 0;
+            const check = canImbueWeapon(state, weapon.id, rune.id);
+            const rarity = rune.rarity || "uncommon";
+            return (
+              <li key={rune.id} className="patrol-card-drop">
+                <span aria-hidden="true">{rune.icon}</span>
+                <span className="patrol-card-drop-name">
+                  {rune.name.replace(" Rune", "")}
+                  <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>× {owned}</span>
+                </span>
+                <span
+                  className={`patrol-card-tier patrol-card-tier--${rarity}`}
+                  style={{ marginLeft: 4 }}
+                  title={rune.imbueEffect?.label || ""}
+                >
+                  {RARITY_LABEL[rarity]}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  style={{ marginLeft: "auto", padding: "2px 8px" }}
+                  disabled={!check.ok || owned <= 0}
+                  title={check.ok ? rune.imbueEffect?.label || "Bind" : check.reason}
+                  onClick={() => actions.imbueWeapon(weapon.id, rune.id)}
+                >
+                  Bind
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function RunesmithingPanel({ state, actions }) {
+  const weapons = getOwnedWeapons(state);
+  const runes = getAllRunes();
+  const ownedRunes = runes.filter((r) => (state.run.inventory?.[r.id] || 0) > 0);
+
+  if (ownedRunes.length === 0 && weapons.length === 0) {
+    return (
+      <p className="muted magic-empty">
+        Craft a rune in the Runesmithing forge first, then bring something
+        sharp here.
+      </p>
+    );
+  }
+  if (weapons.length === 0) {
+    return (
+      <p className="muted magic-empty">
+        You hold runes but no weapon to bind them to. Forge a blade first.
+      </p>
+    );
+  }
+
+  return (
+    <div className="patrol-card-grid">
+      {weapons.map((w) => (
+        <WeaponImbueCard
+          key={w.id}
+          state={state}
+          actions={actions}
+          weapon={w}
+          runes={runes}
+        />
+      ))}
+    </div>
+  );
 }
 
 // ─── Spell card — patrol-card-shaped tile for visual parity with
@@ -128,8 +301,8 @@ function SpellCard({ state, actions, spell, known, pathId }) {
 
   const costParts = [];
   if (spell.cost?.fragments) costParts.push({ label: `×${spell.cost.fragments}`, icon: "✨" });
-  if (spell.cost?.spirit)    costParts.push({ label: `${spell.cost.spirit}`,     icon: "🌀", suffix: "spirit" });
-  if (spell.waterCost)       costParts.push({ label: `×${spell.waterCost}`,      icon: "💧" });
+  if (spell.cost?.spirit) costParts.push({ label: `${spell.cost.spirit}`, icon: "🌀", suffix: "spirit" });
+  if (spell.waterCost) costParts.push({ label: `×${spell.waterCost}`, icon: "💧" });
 
   const pathMeta = pathId && STUDY_PATHS[pathId];
   const cardCls = `patrol-card patrol-card--magic ${known ? "" : "is-locked"} ${cooling ? "is-cooling" : ""}`;
@@ -200,7 +373,6 @@ export default function MagicView({ state, actions }) {
   const ritual = buildRitualSpell(state);
   if (ritual._known) knownIds.add("ritual");
 
-  // Bucket spells per tab (real spells + synthetic ritual).
   const buckets = {};
   for (const t of TABS) buckets[t.id] = [];
   for (const s of allSpells) {
@@ -209,13 +381,26 @@ export default function MagicView({ state, actions }) {
   }
   buckets.conversion.unshift(ritual);
 
-  // Hide tabs with no content — keeps the strip clean as content grows.
-  const visibleTabs = TABS.filter((t) => buckets[t.id].length > 0);
-  const activeBucket = buckets[tab] && buckets[tab].length > 0 ? tab : visibleTabs[0]?.id;
-  const spells = buckets[activeBucket] || [];
+  const runesmithingActive =
+    (state.run.skills?.runesmithing?.level || 0) > 0 ||
+    getAllRunes().some((r) => (state.run.inventory?.[r.id] || 0) > 0);
+
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "runesmithing") return runesmithingActive;
+    return (buckets[t.id] || []).length > 0;
+  });
+  let activeBucket;
+  if (tab === "runesmithing" && runesmithingActive) {
+    activeBucket = "runesmithing";
+  } else if (buckets[tab] && buckets[tab].length > 0) {
+    activeBucket = tab;
+  } else {
+    activeBucket = visibleTabs[0]?.id;
+  }
+  const spells = activeBucket === "runesmithing" ? [] : (buckets[activeBucket] || []);
 
   const totalKnown = allSpells.filter((s) => knownIds.has(s.id)).length
-                   + (ritual._known ? 1 : 0);
+    + (ritual._known ? 1 : 0);
   const totalSpells = allSpells.length + 1;
 
   return (
@@ -229,7 +414,8 @@ export default function MagicView({ state, actions }) {
 
       <nav className="magic-tabs" role="tablist" aria-label="Spell path">
         {visibleTabs.map((t) => {
-          const known = buckets[t.id].filter((s) =>
+          const bucket = buckets[t.id] || [];
+          const known = bucket.filter((s) =>
             s.id === "ritual" ? ritual._known : knownIds.has(s.id)
           ).length;
           const isActive = t.id === activeBucket;
@@ -240,124 +426,40 @@ export default function MagicView({ state, actions }) {
               role="tab"
               aria-selected={isActive}
               className={`magic-tab ${isActive ? "is-active" : ""}`}
-              onClick={() => setTab(t.id)}
+                        onClick={() => setTab(t.id)}
               title={t.label}
             >
               <span aria-hidden="true" style={{ marginRight: 4 }}>{t.icon}</span>
               {t.label.replace(/^The /, "")}
-              <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
-                {known}/{buckets[t.id].length}
-              </span>
+              {t.id !== "runesmithing" && (
+                <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
+                  {known}/{bucket.length}
+                </span>
+              )}
             </button>
           );
         })}
       </nav>
 
-      <div className="patrol-card-grid">
-        {spells.map((s) => (
-          <SpellCard
-            key={s.id}
-            state={state}
-            actions={actions}
-            spell={s}
-            known={s.id === "ritual" ? ritual._known : knownIds.has(s.id)}
-            pathId={s._ritual ? null : SPELL_PATH[s.id] || null}
-          />
-        ))}
-        {spells.length === 0 && (
-          <p className="muted magic-empty">No spells on this path yet.</p>
-        )}
-      </div>
-    </section>
-  );
-}
-tn btn-primary btn-sm patrol-card-cta-btn"
-        onClick={onCast}
-        disabled={!ready}
-        title={!known ? "Locked" : ready ? "Cast" : (check.reason || "Not ready")}
-      >
-        {ctaLabel}
-      </button>
-    </div>
-  );
-}
-
-export default function MagicView({ state, actions }) {
-  const [tab, setTab] = useState("foundation");
-
-  const knownIds = new Set(getKnownSpells(state).map((s) => s.id));
-  const allSpells = getAllSpells();
-  const ritual = buildRitualSpell(state);
-  if (ritual._known) knownIds.add("ritual");
-
-  // Bucket spells per tab (real spells + synthetic ritual).
-  const buckets = {};
-  for (const t of TABS) buckets[t.id] = [];
-  for (const s of allSpells) {
-    const b = tabOf(s);
-    buckets[b].push(s);
-  }
-  buckets.conversion.unshift(ritual);
-
-  // Hide tabs with no content — keeps the strip clean as content grows.
-  const visibleTabs = TABS.filter((t) => buckets[t.id].length > 0);
-  const activeBucket = buckets[tab] && buckets[tab].length > 0 ? tab : visibleTabs[0]?.id;
-  const spells = buckets[activeBucket] || [];
-
-  const totalKnown = allSpells.filter((s) => knownIds.has(s.id)).length
-                   + (ritual._known ? 1 : 0);
-  const totalSpells = allSpells.length + 1;
-
-  return (
-    <section className="action-panel action-panel--magic">
-      <div className="panel-header">
-        <h2>Magic</h2>
-        <p className="muted">
-          Cast what the Stone taught you. {totalKnown} of {totalSpells} known.
-        </p>
-      </div>
-
-      <nav className="magic-tabs" role="tablist" aria-label="Spell path">
-        {visibleTabs.map((t) => {
-          const known = buckets[t.id].filter((s) =>
-            s.id === "ritual" ? ritual._known : knownIds.has(s.id)
-          ).length;
-          const isActive = t.id === activeBucket;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`magic-tab ${isActive ? "is-active" : ""}`}
-              onClick={() => setTab(t.id)}
-              title={t.label}
-            >
-              <span aria-hidden="true" style={{ marginRight: 4 }}>{t.icon}</span>
-              {t.label.replace(/^The /, "")}
-              <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
-                {known}/{buckets[t.id].length}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
-
-      <div className="patrol-card-grid">
-        {spells.map((s) => (
-          <SpellCard
-            key={s.id}
-            state={state}
-            actions={actions}
-            spell={s}
-            known={s.id === "ritual" ? ritual._known : knownIds.has(s.id)}
-            pathId={s._ritual ? null : SPELL_PATH[s.id] || null}
-          />
-        ))}
-        {spells.length === 0 && (
-          <p className="muted magic-empty">No spells on this path yet.</p>
-        )}
-      </div>
+      {activeBucket === "runesmithing" ? (
+        <RunesmithingPanel state={state} actions={actions} />
+      ) : (
+        <div className="patrol-card-grid">
+          {spells.map((s) => (
+            <SpellCard
+              key={s.id}
+              state={state}
+              actions={actions}
+              spell={s}
+              known={s.id === "ritual" ? ritual._known : knownIds.has(s.id)}
+              pathId={s._ritual ? null : SPELL_PATH[s.id] || null}
+            />
+          ))}
+          {spells.length === 0 && (
+            <p className="muted magic-empty">No spells on this path yet.</p>
+          )}
+        </div>
+      )}
     </section>
   );
 }

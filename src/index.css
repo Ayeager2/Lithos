@@ -882,8 +882,12 @@ button {
   text-transform: uppercase;
 }
 .patrol-card-tier--common   { background: rgba(170, 170, 170, 0.2); color: #ccc; }
-.patrol-card-tier--uncommon { background: rgba(140, 170, 220, 0.2); color: #aac4e8; }
-.patrol-card-tier--rare     { background: rgba(200, 140, 220, 0.2); color: #d4a8e0; }
+.patrol-card-tier--uncommon { background: rgba(140, 200, 140, 0.22); color: #b6e0b1; }
+.patrol-card-tier--rare     { background: rgba(140, 170, 220, 0.25); color: #aac4e8; }
+.patrol-card-tier--epic     { background: rgba(200, 140, 220, 0.25); color: #d4a8e0; }
+.patrol-card-tier--legendary{ background: rgba(220, 180, 80, 0.28);  color: #f0c870; }
+.patrol-card-tier--mythic   { background: rgba(255, 120, 90, 0.28);  color: #ff9876; }
+.patrol-card-tier--god      { background: linear-gradient(90deg, rgba(255,80,80,0.25), rgba(255,200,80,0.25), rgba(120,200,255,0.25)); color: #ffe49a; border: 1px solid rgba(255, 200, 80, 0.45); }
 .patrol-card-tier--apex     { background: rgba(220, 154, 74, 0.2); color: #e0b070; }
 .patrol-card-kills {
   font-size: 11px;
@@ -947,6 +951,34 @@ button {
 .patrol-card.is-disabled .patrol-card-cta {
   background: rgba(255, 255, 255, 0.1);
   color: var(--text-muted);
+}
+/* #145 — interactive <button> variant of .patrol-card-cta. Same size/
+   look as the gather card CTA; clears native button defaults. */
+button.patrol-card-cta--action {
+  display: block;
+  width: 100%;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  text-transform: uppercase;
+  transition: filter 0.12s ease, background 0.12s ease;
+}
+button.patrol-card-cta--action:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+button.patrol-card-cta--action:disabled {
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+button.patrol-card-cta--ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+button.patrol-card-cta--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
 }
 .patrol-card-drops-locked {
   font-size: 12px;
@@ -2327,6 +2359,30 @@ button {
    Subtle gold border to invite the click. */
 .tree-node--available .tree-node-bg {
   stroke: var(--accent-dim);
+}
+
+/* #129 — Study-tree node views. The studies modal's getNodeView returns
+   "complete" / "affordable" / "in-progress" / "available" / "locked".
+   The old CSS only covered "learned" (buildings tree) — so study nodes
+   on those views rendered with no fill/stroke distinction, looking
+   "text-only" for Sanctuary, Path of Memory, etc. Reuse the learned/
+   built styling for studies. */
+.tree-node--complete .tree-node-bg {
+  fill: rgba(178, 158, 197, 0.18);
+  stroke: rgba(178, 158, 197, 0.8);
+}
+.tree-node--complete.is-selected .tree-node-bg {
+  stroke: #b29ec5;
+  filter: drop-shadow(0 0 8px rgba(178, 158, 197, 0.5));
+}
+.tree-node--affordable .tree-node-bg {
+  fill: rgba(212, 164, 92, 0.14);
+  stroke: var(--accent);
+  filter: drop-shadow(0 0 6px rgba(212, 164, 92, 0.25));
+}
+.tree-node--in-progress .tree-node-bg {
+  fill: rgba(140, 200, 230, 0.15);
+  stroke: #9ec9e6;
 }
 
 /* Built = constructed (buildings tree). Gold-tinted, glowing. */
@@ -5095,30 +5151,40 @@ body.motion-reduced .tool-durability-fill {
 }
 .magic-tabs::-webkit-scrollbar { height: 3px; }
 .magic-tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+/* Pill-style tabs — matches .study-tab so every tab strip in the app
+   reads the same. Dark theme, transparent base, accent border + tint
+   on the active tab. (#105 / refined.) */
 .magic-tab {
-  padding: 8px 10px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 999px;
   color: var(--text-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: color 0.12s, border-color 0.12s;
+  letter-spacing: 0.02em;
+  transition: color 0.12s, border-color 0.12s, background 0.12s;
 }
 @media (min-width: 576px) {
   .magic-tab {
-    padding: 8px 14px;
+    padding: 6px 12px;
+    font-size: 13px;
   }
 }
 .magic-tab:hover {
   color: var(--text);
+  border-color: var(--accent);
 }
 .magic-tab.is-active {
+  background: rgba(220, 154, 74, 0.14);
   color: var(--accent);
-  border-bottom-color: var(--accent);
+  border-color: var(--accent);
   font-weight: 600;
 }
 .magic-tab-body {
@@ -5738,6 +5804,280 @@ body.motion-reduced .tool-durability-fill {
 }
 .patrol-card--magic.is-cooling {
   outline: 1px dashed var(--accent);
+}
+/* #139 — boss-picker patrol-card "already beaten" dim. */
+.patrol-card.is-beaten {
+  opacity: 0.72;
+}
+.boss-picker-lead {
+  margin: 0 0 12px 0;
+}
+
+/* #147 — modal head used by the boss modal (and any future modal that
+   wants a centered title + right-aligned close). Distinct from the older
+   .modal-header layout (left-aligned title + close on the right). */
+.modal-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.modal-head h2 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 22px;
+  color: var(--accent);
+  text-align: center;
+  justify-self: center;
+}
+.modal-head .btn {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* #147 / #148 — lock the boss modal to a fixed footprint so the body
+   doesn't wiggle as combat-log messages stream in. Width/height bounded
+   at ~70vh; sides share equal height; log scrolls internally. */
+.modal--boss {
+  width: min(960px, 96vw);
+  height: 70vh;
+  min-height: 480px;
+  max-width: none;
+  max-height: none;
+}
+.modal--boss .modal-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  /* #148 — body itself scrolls when the boss picker overflows (lots of
+     bosses across multiple rows). The fight layout uses height:100% +
+     min-height:0 internally so its log keeps its own scroll track. */
+  overflow-y: auto;
+  /* Themed thin scrollbar — Firefox + WebKit. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.modal--boss .modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+.modal--boss .modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal--boss .modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.modal--boss .modal-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: content-box;
+}
+
+/* #140 — active boss-fight two-column arena. */
+.boss-fight {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+.boss-fight-arena {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+@media (min-width: 640px) {
+  .boss-fight-arena {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.boss-fight-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  min-width: 0;
+  /* #147 — equal-height columns so the outro ("You fell." / "Return") on
+     the player side doesn't shrink the foe side. */
+  min-height: 380px;
+  overflow: hidden;
+}
+.boss-fight-side--player {
+  border-color: rgba(150, 200, 140, 0.35);
+}
+.boss-fight-side--foe {
+  border-color: rgba(200, 120, 110, 0.35);
+}
+.boss-fight-portrait {
+  font-size: 64px;
+  line-height: 1;
+  text-align: center;
+  padding: 8px 0;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+}
+.boss-fight-portrait--foe {
+  font-size: 72px;
+}
+.boss-fight-side-name {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.boss-fight-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.boss-fight-weapon {
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+}
+.boss-fight-action-slot {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.boss-fight-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.boss-fight-actions--stack {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+.boss-fight-actions--stack .btn {
+  width: 100%;
+  justify-content: flex-start;
+}
+.boss-fight-log {
+  /* #147 — fixed height so the modal body doesn't grow/shrink as combat
+     log lines accumulate. Internal scroll handles overflow. */
+  height: 160px;
+  flex: 0 0 160px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.boss-fight-line {
+  margin: 0 0 4px 0;
+}
+.boss-fight-line--player-hit,
+.boss-fight-line--player-crit {
+  color: #c5e88a;
+}
+.boss-fight-line--foe-hit {
+  color: #e0a070;
+}
+.boss-fight-line--player-miss,
+.boss-fight-line--defend {
+  color: #aaa;
+}
+.boss-fight-end {
+  text-align: center;
+  padding: 8px 0;
+}
+.boss-fight-end-label {
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+/* #141 — spell/item sub-picker rows. Each row is one clickable button. */
+.boss-subpicker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.boss-subpicker-lead {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+}
+.boss-sub-row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.boss-sub-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.boss-sub-row:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--accent);
+}
+.boss-sub-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.boss-sub-row-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+.boss-sub-row-name {
+  flex: 1 1 auto;
+  font-weight: 600;
+  min-width: 0;
+}
+.boss-sub-row-qty {
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.boss-sub-row-effects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+}
+.boss-sub-row-chip {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.boss-sub-row-chip--eff {
+  background: rgba(150, 200, 140, 0.18);
+  color: #c5e88a;
+}
+.boss-sub-row-chip--cost {
+  background: rgba(255, 255, 255, 0.04);
 }
 .patrol-card-cta-btn {
   margin-top: 8px;

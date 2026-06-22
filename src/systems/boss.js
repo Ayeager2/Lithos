@@ -94,6 +94,28 @@ export function performBossFightEnd(state, payload) {
     run = reward.run;
     events.push(...reward.events);
 
+    // #138 — rolled rune drops on victory. Each entry is
+    // { resource, chance (0..1), qty } — chance independent per entry.
+    if (Array.isArray(boss.runeDrops)) {
+      const inventory = { ...(run.inventory || {}) };
+      let droppedAny = false;
+      const dropMsgs = [];
+      for (const drop of boss.runeDrops) {
+        if (Math.random() < drop.chance) {
+          const qty = Array.isArray(drop.qty)
+            ? drop.qty[0] + Math.floor(Math.random() * (drop.qty[1] - drop.qty[0] + 1))
+            : (drop.qty || 1);
+          inventory[drop.resource] = (inventory[drop.resource] || 0) + qty;
+          droppedAny = true;
+          dropMsgs.push(`${drop.resource} ×${qty}`);
+        }
+      }
+      if (droppedAny) {
+        run = { ...run, inventory };
+        events.push({ kind: "drop", message: `🪬 The body bleeds runes: ${dropMsgs.join(", ")}.` });
+      }
+    }
+
     // Combat-skill XP (mirrors resolveFight()).
     const weapon = getEffectiveWeapon(run);
     const skillId = getCombatSkillForWeapon(weapon);
@@ -123,7 +145,7 @@ export function performBossFightEnd(state, payload) {
         kind: "boss_victory",
         message: `🥇 ${boss.name} falls again. Same path, different day.`,
       });
-    }
+      }
 
     // Boss combat counts as combat wear on the weapon.
     const wear = applyToolWear(run, "combat");

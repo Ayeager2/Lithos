@@ -61,6 +61,17 @@ export function devResetSkills(state) {
   return { run: { ...state.run, skills: {} }, msg: `🛠️ Skills wiped.` };
 }
 
+// Single-skill level setter (#118) — lets the dev panel give granular
+// control over per-discipline skills (blacksmithing/alchemy/etc.) so
+// dev-testers can verify the failure-chance curve at specific levels.
+export function devLevelSkill(state, skillId, level = 10) {
+  const skills = { ...(state.run.skills || {}) };
+  const xpForLevel = (lvl) => Math.floor(5 * (Math.pow(1.8, lvl) - 1) / 0.8);
+  const xp = xpForLevel(level);
+  skills[skillId] = { xp, level };
+  return { run: { ...state.run, skills }, msg: `🛠️ ${skillId} → lvl ${level}.` };
+}
+
 export function devMaxStats(state) {
   return {
     run: {
@@ -673,17 +684,13 @@ export function devSetTownWorkers(state, count = 0) {
   };
 }
 
-// Give a stack of one or all coin tiers. Trade routes (future) will spend
-// these — until then they're just persistent loot.
-export function devGiveCoins(state, tier = null, qty = 100) {
+// Give a stack of one or all coin tiers. Trade routes (future) w
+// Coins grant (referenced by DevPanel coin section). The coin resources
+// are 'tarnished_coin', 'coin', 'obol'. If `tier` is null grant all three.
+export function devGiveCoins(state, tier = null, qty = 25) {
   const inv = { ...(state.run.inventory || {}) };
-  if (tier && Object.prototype.hasOwnProperty.call(COIN_VALUE, tier)) {
-    inv[tier] = (inv[tier] || 0) + qty;
-    return { run: { ...state.run, inventory: inv }, msg: `🛠️ +${qty} ${tier}.` };
-  }
-  for (const t of Object.keys(COIN_VALUE)) inv[t] = (inv[t] || 0) + qty;
-  return {
-    run: { ...state.run, inventory: inv },
-    msg: `🛠️ +${qty} of every coin tier.`,
-  };
+  const tiers = tier ? [tier] : ["tarnished_coin", "coin", "obol"];
+  for (const t of tiers) inv[t] = (inv[t] || 0) + qty;
+  return { run: { ...state.run, inventory: inv }, msg: `🛠️ +${qty} coins.` };
 }
+

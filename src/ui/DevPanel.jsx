@@ -272,6 +272,26 @@ function StateTab({ state, apply, stats, alignment, statuses }) {
           {getActiveSkills().map((s) => `${s.icon}${state.run.skills?.[s.id]?.level || 0}`).join(" · ")}
         </div>
       </Section>
+      <Section title="Craft disciplines (#118) — per-skill level">
+        {["survivalcraft", "blacksmithing", "alchemy", "fletching", "woodworking", "tailoring", "farming", "runesmithing"].map((id) => {
+          const def = getActiveSkills().find((s) => s.id === id);
+          const cur = state.run.skills?.[id]?.level || 0;
+          return (
+            <div key={id} style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ minWidth: 130, fontSize: 12 }}>
+                {def?.icon} {def?.name || id} <span className="muted">lvl {cur}</span>
+              </span>
+              <Btn small label="lvl 1"  onClick={() => apply(dev.devLevelSkill(state, id, 1))} />
+              <Btn small label="lvl 5"  onClick={() => apply(dev.devLevelSkill(state, id, 5))} />
+              <Btn small label="lvl 10" onClick={() => apply(dev.devLevelSkill(state, id, 10))} />
+              <Btn small label="lvl 20" onClick={() => apply(dev.devLevelSkill(state, id, 20))} />
+            </div>
+          );
+        })}
+        <div className="dev-row-stats muted">
+          Drives craft success chance (#113) — lvl 0 + tier-3 (arcane) = 25%, lvl 20 = 80%.
+        </div>
+      </Section>
       <Section title="Alignment">
         <Btn label="Good 5" onClick={() => apply(dev.devSetAlignment(state, "good", 5))} />
         <Btn label="Good 10" onClick={() => apply(dev.devSetAlignment(state, "good", 10))} />
@@ -503,6 +523,42 @@ function EncountersTab({ state, apply }) {
           );
         })}
       </Section>
+
+      <Section title="Era 3 arcane weapons (#116) — give + equip">
+        <div className="dev-row-stats muted" style={{ marginBottom: 6 }}>
+          24 arcane weapons live in tools.js (blacksmithing/woodworking/fletching disciplines). Click to grant one and inspect on Character → Items.
+        </div>
+        {[
+          "fragmentBlade", "shardtoothSabre", "halflightFalchion", "lacunaRapier",
+          "echocutShortsword", "soulrendGreatsword",
+          "voidsplinterKnife", "mournwhisperDagger", "boneSigilDagger", "censerDagger",
+          "echoBow", "spiritsongLongbow", "lightweaveBow", "sigilShortbow", "bonelimbBow",
+          "sigilStaff", "memorywoodStaff", "stonewordCrozier", "elementalBranch",
+          "lightbearerStaff", "voidstaff",
+          "voidcallerWand", "mendweaveWand", "bendwand", "soulflameWand",
+          "sigilcasterWand", "echoWand",
+          "stonespeakHammer",
+        ].map((id) => {
+          const def = getEquippable(id);
+          if (!def) return null;
+          const own = inv[id] || 0;
+          const type = def.weaponStats?.type;
+          const targetSlot = type === "ranged" ? SLOTS.RANGED
+            : type === "two-handed" ? SLOTS.HAND_RIGHT
+            : SLOTS.HAND_RIGHT;
+          return (
+            <div key={id} style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+              <Btn small
+                label={`${def.icon} ${def.name}${own > 0 ? ` ✓×${own}` : ""}`}
+                onClick={() => apply(dev.devGiveItem(state, id, 1))}
+              />
+              <Btn small label={`→ ${targetSlot}`}
+                onClick={() => apply(dev.devEquip(state, id, targetSlot))}
+              />
+            </div>
+          );
+        })}
+      </Section>
       <Section title="Pests">
         <Btn label="Trigger bird flock (5 min)" onClick={() => apply(dev.devTriggerPest(state, "birdFlock", 5))} />
         <Btn label="Clear all pests" onClick={() => apply(dev.devClearPests(state))} />
@@ -687,49 +743,7 @@ function PatrolTab({ state, apply }) {
           <Btn key={m.id} small label={`▶ Loop ${m.icon} ${m.name}`}
             onClick={() => apply(dev.devSetActiveLoop(state, "patrol", { mobId: m.id }))} />
         ))}
-        <Btn label="⏹ Clear active loop" danger
-          onClick={() => apply(dev.devClearActiveLoop(state))} />
-      </Section>
-
-      <Section title="Pile of goods (#69)">
-        <div className="dev-row-stats muted">
-          {pile.targetKey ? `target: ${pile.targetKey}` : "no active loop pile"}
-          {" · "}
-          {pileEntries.length === 0
-            ? "empty"
-            : pileEntries.map(([id, q]) => `${id}:${q}`).join(" · ")}
-        </div>
-        <Btn label="Empty pile" onClick={() => apply(dev.devClearPile(state))} />
-      </Section>
-
-      <Section title="Town workers (#71)">
-        <div className="dev-row-stats muted">
-          Current: {workerCount} (max 5 from echoes upgrade) ·{" "}
-          last tick:{" "}
-          {state.run.workersLastTickAt
-            ? `${Math.round((Date.now() - state.run.workersLastTickAt) / 1000)}s ago`
-            : "never"}
-        </div>
-        {[0, 1, 2, 3, 5, 10].map((n) => (
-          <Btn key={n} small label={`Set → ${n}`}
-            onClick={() => apply(dev.devSetTownWorkers(state, n))} />
-        ))}
-      </Section>
-
-      <Section title="Unarmored penalty (#72)">
-        <div className="dev-row-stats muted">
-          Armor slots filled: {armored}/5{" "}
-          {penalty.armored >= 5
-            ? "— no penalty"
-            : `— −${Math.round(penalty.accPenalty * 100)}% acc, +${Math.round(
-                (penalty.dmgMult - 1) * 100
-              )}% dmg taken`}
-        </div>
-        <Btn label="🛡️ +1 of every weapon" onClick={() => apply(dev.devGiveAllWeapons(state))} />
-        <Btn label="🔄 Unequip all" danger onClick={() => apply(dev.devUnequipAll(state))} />
-        <div className="dev-row-stats muted">
-          (Equipment + armor crafting still lives in the Encounters tab.)
-        </div>
+        <Btn label="⏹ Clear loop" danger onClick={() => apply(dev.devClearActiveLoop(state))} />
       </Section>
 
       <Section title="Coins / currency">

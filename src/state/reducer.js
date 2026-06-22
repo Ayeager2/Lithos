@@ -5,7 +5,8 @@ import { freshRun } from "./run.js";
 import { performGather } from "../systems/gathering.js";
 import { performBuild } from "../systems/building.js";
 import { performListen } from "../systems/research.js";
-import { performCraft } from "../systems/crafting.js";
+import { performCraft, startCraft, tickActiveCraft, cancelActiveCraft } from "../systems/crafting.js";
+import { performImbueWeapon, performRemoveImbue } from "../systems/runesmithing.js";
 import { performHunt } from "../systems/hunting.js";
 import { performPatrol } from "../systems/patrol.js";
 import {
@@ -14,6 +15,7 @@ import {
   performBoilWater,
 } from "../systems/survival.js";
 import { tickDiseases } from "../systems/disease.js";
+import { applyImbuePassives } from "../systems/combat.js";
 import {
   performStartStudy,
   performSetActiveStudy,
@@ -213,6 +215,12 @@ export function reducer(state, action) {
       if (workersResult.run !== run) run = workersResult.run;
       events.push(...(workersResult.events || []));
 
+      // Active craft (#130) — resolves when the timer completes.
+      const craftState = { ...state, run, persistent };
+      const craftResult = tickActiveCraft(craftState);
+      if (craftResult.run !== run) run = craftResult.run;
+      events.push(...(craftResult.events || []));
+
       if (!events.length && run === state.run && persistent === state.persistent) return state;
       return { persistent, run: appendLog(run, events) };
     }
@@ -243,7 +251,25 @@ export function reducer(state, action) {
     }
 
     case ACTIONS.CRAFT_TOOL: {
-      const { run, persistent, events } = performCraft(state, action.toolId);
+      // #130 — timed crafts. #126 — qty queues up multiple in a row.
+      const { run, persistent, events } = startCraft(state, action.toolId, undefined, action.qty || 1);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case "CANCEL_CRAFT": {
+      // #130 — cancel the active job. Materials NOT refunded.
+      const { run, persistent, events } = cancelActiveCraft(state);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case "IMBUE_WEAPON": {
+      // #132 — bind a rune to a weapon-type.
+      const { run, persistent, events } = performImbueWeapon(state, action.weaponId, action.runeId);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case "REMOVE_IMBUE": {
+      const { run, persistent, events } = performRemoveImbue(state, action.weaponId, action.runeId);
       return { persistent, run: appendLogAndStamp(run, events) };
     }
 
@@ -445,6 +471,13 @@ export function reducer(state, action) {
       run = diseaseResult.run;
       allEvents.push(...diseaseResult.events);
 
+      // Rune imbue passives (#133) — Elemental rune hp regen-per-minute.
+      // 15s tick; the helper accumulates the fractional remainder so the
+      // trickle is honest over time. See systems/combat.js applyImbuePassives.
+      const imbuePassiveResult = applyImbuePassives(run, 15);
+      run = imbuePassiveResult.run;
+      allEvents.push(...imbuePassiveResult.events);
+
       // Tick the active arcane study, if any. Clock only advances when the
       // player has been idle for >= IDLE_THRESHOLD_MS. Completion fires a
       // log event + applies per-path deltas + writes altar etchings (which
@@ -483,18 +516,19 @@ export function reducer(state, action) {
     }
 
     case ACTIONS.RESPOND_TO_EVENT: {
-      // Responding to an event is a player-initiated action — pause studies.
-      const result = respondToActiveEvent(state, action.choiceId);
+      // Responding to an event is a player-initiated action — stamp lastActionAt.
+      const eventResult = respondToActiveEvent(state, action.choiceId);
+      if (!eventResult) return state;
       return {
-        persistent: result.persistent,
-        run: appendLogAndStamp(result.run, result.events),
+        persistent: eventResult.persistent,
+        run: appendLogAndStamp(eventResult.run, eventResult.events),
       };
     }
 
     case ACTIONS.CLEAR_LOG:
       return { ...state, run: { ...state.run, log: [] } };
 
-    case ACTIONS.DEV_PATCH: {
+        case ACTIONS.DEV_PATCH: {
       const patch = action.patch || {};
       const run = patch.run || state.run;
       const persistent = patch.persistent || state.persistent;
