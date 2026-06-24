@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DevPanel, { useDevPanelToggle, isDevAvailable } from "./DevPanel.jsx";
 import Scene from "./Scene.jsx";
 import ActionPanel from "./ActionPanel.jsx";
@@ -80,12 +80,21 @@ export default function Shell({ state, actions, settingsHook }) {
   // gated boss, performPatrol stamps run.patrolBossEncounter with the
   // boss id. We auto-open the BossFightModal here and clear the stamp via
   // devPatch so it doesn't re-fire on every render.
+  // #155 — patrol-encounter sentinel. Captured ONCE here so the devPatch
+  // we use to clear it doesn't have to spread (and potentially clobber)
+  // the live run. Without the ref we'd re-read a stale `state.run` from
+  // closure and overwrite anything that ticked between effect-schedule
+  // and dispatch (catastrophic for the auto-loop).
   const patrolBossId = state.run.patrolBossEncounter;
+  const stateRef = useRef(state);
+  stateRef.current = state;
   useEffect(() => {
     if (!patrolBossId) return;
     setBossFight({ initialBossId: patrolBossId });
+    // Clear the sentinel using a fresh state snapshot, not the captured
+    // one. Only the patrolBossEncounter field is modified.
     actions.devPatch({
-      run: { ...state.run, patrolBossEncounter: null },
+      run: { ...stateRef.current.run, patrolBossEncounter: null },
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patrolBossId]);
@@ -102,6 +111,13 @@ export default function Shell({ state, actions, settingsHook }) {
     if (eligibleForPrestige) actions.prestige();
     else actions.resetRun();
   };
+
+  // #150 — per-era ambient tint. Body class lets CSS shift the page
+  // background color subtly so the world feels different per era.
+  useEffect(() => {
+    document.body.setAttribute("data-era", String(era));
+    return () => document.body.removeAttribute("data-era");
+  }, [era]);
 
   return (
     <div className="shell">

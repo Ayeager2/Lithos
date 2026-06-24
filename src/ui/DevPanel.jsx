@@ -413,6 +413,30 @@ function ArcaneTab({ state, apply }) {
         </div>
       </Section>
 
+      <Section title="Runes / Imbues / Blessings (#136 / #138 / #151)">
+        <div className="dev-row-stats muted" style={{ marginBottom: 4 }}>
+          Grant runes by rarity (5 of each type).
+        </div>
+        <Btn label="🩹 +5 each Common" onClick={() => apply(dev.devGiveRunesByRarity(state, "common", 5))} />
+        <Btn label="🪶 +5 each Uncommon" onClick={() => apply(dev.devGiveRunesByRarity(state, "uncommon", 5))} />
+        <Btn label="🔮 +5 each Rare" onClick={() => apply(dev.devGiveRunesByRarity(state, "rare", 5))} />
+        <Btn label="✨ +5 each Epic" onClick={() => apply(dev.devGiveRunesByRarity(state, "epic", 5))} />
+        <Btn label="🌟 +5 each Legendary" onClick={() => apply(dev.devGiveRunesByRarity(state, "legendary", 5))} />
+        <Btn label="🔥 +5 each Mythic" onClick={() => apply(dev.devGiveRunesByRarity(state, "mythic", 5))} />
+        <Btn label="🩸 +1 each GOD" onClick={() => apply(dev.devGiveRunesByRarity(state, "god", 1))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Imbue + bless management.
+        </div>
+        <Btn label="🪬 Clear all weapon imbues" danger onClick={() => apply(dev.devClearImbues(state))} />
+        <Btn label="🕯️ Clear all blessings" danger onClick={() => apply(dev.devClearBlessings(state))} />
+        <Btn label="🕯️ Force bless: lightRune (5 min)" onClick={() => apply(dev.devForceBless(state, "lightRune"))} />
+        <Btn label="🕯️ Force bless: voidRune (5 min)" onClick={() => apply(dev.devForceBless(state, "voidRune"))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Active blessings: {Object.keys(state.run.blessings || {}).length} ·
+          Imbued weapons: {Object.keys(state.run.weaponImbues || {}).length}
+        </div>
+      </Section>
+
       <Section title="Altar etchings (persistent)">
         <div className="dev-row-stats muted">
           {Object.keys(state.persistent.altarEtchings || {}).length} etching(s)

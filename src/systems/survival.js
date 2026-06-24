@@ -226,9 +226,16 @@ export function performSurvivalAction(state, actionId, opts = {}) {
     }
   }
   if (actionId === "rest") {
+    // #153 — shelter-tier rest scaling. Resting with no shelter at all
+    // (no hut, no home, no anything that contributes restBonus) is
+    // worse than nothing: the player gets ~half the energy and loses a
+    // tick of Sanity to the cold. Resting under a hut is baseline. The
+    // restBonus loop below stacks anything better on top.
+    let anyShelter = false;
     for (const bid of Object.keys(state.run.built || {})) {
       const b = getBuildingDef(bid);
       if (b?.effect?.restBonus) {
+        anyShelter = true;
         for (const k of Object.keys(b.effect.restBonus)) {
           effect[k] = (effect[k] || 0) + b.effect.restBonus[k];
         }
@@ -236,6 +243,14 @@ export function performSurvivalAction(state, actionId, opts = {}) {
           message = def.messageWithHome;
         }
       }
+    }
+    // Hut alone counts as shelter even if it doesn't carry a restBonus.
+    if (!anyShelter && state.run.built?.hut) anyShelter = true;
+    if (!anyShelter) {
+      // Halve the energy gain, take a small Sanity hit.
+      if (effect.energy && effect.energy > 0) effect.energy = Math.floor(effect.energy / 2);
+      effect.sanity = (effect.sanity || 0) - 2;
+      message = "You curl up against the dust. Cold finds you in your sleep. The rest is shallow.";
     }
   }
   if (effect.hp && effect.hp > 0) {
@@ -413,7 +428,6 @@ export function performBoilWater(state) {
   };
 
   let run = { ...state.run, inventory };
-  // Boiling counts as a light action — apply Craft-tier decay.
   run = { ...run, stats: decayForAction(run.stats || {}, "Craft", run) };
 
   return {

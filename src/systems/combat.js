@@ -251,9 +251,13 @@ export function applyImbuePassives(run, tickSeconds = 15) {
 export function getEffectiveImbueEffects(state) {
   const weapon = getEffectiveWeapon(state.run);
   const map = state.run?.weaponImbues?.[weapon.id];
-  if (!map) return null;
+  const blessings = state.run?.blessings || {};
+  const now = Date.now();
+  const blessingIds = Object.keys(blessings).filter((k) => blessings[k].expiresAt > now);
+  if (!map && blessingIds.length === 0) return null;
   // #136 — expanded effect roster. Each new field accumulates additively
   // from all bound runes on the weapon. Caps applied at use-sites.
+  // #151 — also folds in any active blessings (temp rune-burn buffs).
   const eff = {
     damageBonus: 0, hpReturnOnHit: 0, spiritReturnOnHit: 0,
     echoChance: 0, sanityCostOnHit: 0, durabilitySaveChance: 0,
@@ -261,11 +265,8 @@ export function getEffectiveImbueEffects(state) {
     accBonus: 0, critChanceBonus: 0, spiritRegenPerMinute: 0,
     damageReduction: 0, evasionBonus: 0,
   };
-  let any = false;
-  for (const runeId of Object.keys(map)) {
-    const imbue = RESOURCES[runeId]?.imbueEffect;
-    if (!imbue) continue;
-    any = true;
+  function addImbue(imbue) {
+    if (!imbue) return;
     if (imbue.damageBonus) eff.damageBonus += imbue.damageBonus;
     if (imbue.hpReturnOnHit) eff.hpReturnOnHit += imbue.hpReturnOnHit;
     if (imbue.spiritReturnOnHit) eff.spiritReturnOnHit += imbue.spiritReturnOnHit;
@@ -279,7 +280,11 @@ export function getEffectiveImbueEffects(state) {
     if (imbue.damageReduction) eff.damageReduction = Math.min(0.90, eff.damageReduction + imbue.damageReduction);
     if (imbue.evasionBonus) eff.evasionBonus += imbue.evasionBonus;
   }
-  return any ? eff : null;
+  if (map) {
+    for (const runeId of Object.keys(map)) addImbue(RESOURCES[runeId]?.imbueEffect);
+  }
+  for (const runeId of blessingIds) addImbue(RESOURCES[runeId]?.imbueEffect);
+  return eff;
 }
 
 export function rollPlayerAttack(state, threatDef, rng = Math.random) {

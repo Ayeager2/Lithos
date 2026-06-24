@@ -5850,6 +5850,84 @@ body.motion-reduced .tool-durability-fill {
   max-width: none;
   max-height: none;
 }
+/* #165 — draggable + resizable boss modal. Resize grip lives at the
+   bottom-right corner via the native `resize: both` CSS handle; drag
+   happens via the title-bar pointer-down handler in React. */
+/* #166 — same draggable/resizable affordance for tree modals
+   (StudyTree / BuildingsTree / TeachingsTree). The boss modal selector
+   below picks them up via the shared .modal--draggable hook. */
+.modal--tree.modal--draggable {
+  resize: both;
+  overflow: hidden;
+  min-width: 560px;
+  max-width: 95vw;
+  max-height: 95vh;
+  background-image:
+    linear-gradient(135deg, transparent 50%, var(--accent-dim) 50% 60%, transparent 60% 70%, var(--accent-dim) 70% 80%, transparent 80%);
+  background-position: bottom right;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+}
+/* #168 — when the tree modal is resized, the SVG should fill the new
+   space instead of leaving dead area below. Body becomes a flex cell
+   that grows to fill, the grid inside stretches, and the SVG inside
+   the canvas drops its max-height cap. */
+.modal--tree.modal--draggable .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.modal--tree.modal--draggable .modal-body--tree {
+  height: 100%;
+  min-height: 0;
+}
+.modal--tree.modal--draggable .tree-canvas {
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.modal--tree.modal--draggable .panzoom-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.modal--tree.modal--draggable .panzoom-svg,
+.modal--tree.modal--draggable .tree-svg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+.modal--boss.modal--draggable {
+  resize: both;
+  overflow: hidden;
+  min-width: 560px;
+  max-width: 95vw;
+  max-height: 95vh;
+  /* CSS resize draws a small triangle in the bottom-right; give it a
+     visible texture so the player notices the grip. */
+  background-image:
+    linear-gradient(135deg, transparent 50%, var(--accent-dim) 50% 60%, transparent 60% 70%, var(--accent-dim) 70% 80%, transparent 80%);
+  background-position: bottom right;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+}
+.modal-overlay--draggable {
+  /* Re-anchor: while dragging, the modal moves via translate; keep the
+     overlay click-through for the surrounding dim and place-items centered
+     so the initial mount lands in the middle. */
+}
+.modal-head--drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+.modal-head--drag-handle:active {
+  cursor: grabbing;
+}
+/* The Close button inside the drag handle should restore default cursor
+   so the user knows it's a real click target. */
+.modal-head--drag-handle .btn {
+  cursor: pointer;
+}
 .modal--boss .modal-body {
   height: 100%;
   display: flex;
@@ -5931,6 +6009,35 @@ body.motion-reduced .tool-durability-fill {
 }
 .boss-fight-portrait--foe {
   font-size: 72px;
+}
+/* #157 — auto-attack countdown overlay. Sits in the portrait's empty
+   negative space; pulses + grows in the last five seconds. */
+.boss-fight-countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8), 0 0 16px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+  transition: font-size 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+}
+.boss-fight-countdown.is-final {
+  font-size: 52px;
+  color: #ff8a55;
+  opacity: 1;
+  animation: bossCountdownPulse 1s ease-in-out infinite;
+}
+@keyframes bossCountdownPulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50%      { transform: translate(-50%, -50%) scale(1.18); }
+}
+.boss-fight-portrait {
+  position: relative;
 }
 .boss-fight-side-name {
   text-align: center;
@@ -6079,103 +6186,222 @@ body.motion-reduced .tool-durability-fill {
 .boss-sub-row-chip--cost {
   background: rgba(255, 255, 255, 0.04);
 }
-.patrol-card-cta-btn {
-  margin-top: 8px;
-  width: 100%;
-  letter-spacing: 0.04em;
-}
 
-.magic-empty {
-  grid-column: 1 / -1;
-  padding: 24px 12px;
-  text-align: center;
-}
-/* ─── Crafting page (#48) — uses the shared patrol-card grid + magic-tab
-   strip. These rules just add the discipline-specific bits. */
-.patrol-card--craft {
-  position: relative;
-}
-.patrol-card--craft.is-owned {
-  border-color: var(--accent-dim);
-  background: rgba(220, 154, 74, 0.04);
-}
-.patrol-card-desc--effect {
-  font-style: italic;
-  color: var(--text);
-  opacity: 0.85;
-}
-.craft-card-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-.craft-card-actions .patrol-card-cta-btn {
-  margin-top: 0;
-  flex: 1;
-}
-.craft-card-owned-cta {
-  margin-top: 8px;
-  padding: 6px 10px;
-  text-align: center;
+/* #160 — proper HP/Sanity/Spirit/Foe bars. The Bar component already
+   wraps in .boss-bar / .boss-bar-track / .boss-bar-fill — these rules
+   give them their look. Each accent gets its own gradient fill. */
+.boss-bar {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
+}
+.boss-bar-label {
+  color: var(--text-muted);
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--accent-dim);
-  border: 1px dashed var(--accent-dim);
-  border-radius: 4px;
-}
-.patrol-card-reqs {
   font-size: 11px;
-  margin: 4px 0 6px;
+}
+.boss-bar-track {
+  position: relative;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.boss-bar-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border-radius: inherit;
+  transform-origin: left;
+  transition: width 0.35s ease;
+}
+.boss-bar-num {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 60px;
+  text-align: right;
+}
+.boss-bar--hp .boss-bar-fill {
+  background: linear-gradient(90deg, #c33d3d 0%, #e26a4f 80%, #ffb88a 100%);
+  box-shadow: 0 0 8px rgba(195, 61, 61, 0.35) inset;
+}
+.boss-bar--sanity .boss-bar-fill {
+  background: linear-gradient(90deg, #5a8ed4 0%, #7da6e0 60%, #b0c8eb 100%);
+  box-shadow: 0 0 8px rgba(90, 142, 212, 0.35) inset;
+}
+.boss-bar--spirit .boss-bar-fill {
+  background: linear-gradient(90deg, #8a5cc4 0%, #a878d2 60%, #d2b0eb 100%);
+  box-shadow: 0 0 8px rgba(138, 92, 196, 0.35) inset;
+}
+.boss-bar--foe .boss-bar-fill {
+  background: linear-gradient(90deg, #5a1818 0%, #8c2d2d 50%, #c34141 100%);
+  box-shadow: 0 0 8px rgba(140, 45, 45, 0.5) inset;
+}
+
+/* #159 — quick-eat / quick-drink rows in the player column. */
+.boss-fight-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.boss-fight-quick-section {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.patrol-card-req--short {
-  color: #c34141;
+.boss-fight-quick-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 2px;
 }
-.patrol-card-drop--short {
-  color: #c34141;
-  opacity: 0.85;
-}
-
-/* Tier chip colors for crafting category labels — pulls from existing
-   palette. Falls back to common if not matched. */
-.patrol-card-tier--primitive  { background: rgba(170, 170, 170, 0.18); color: #ccc; }
-.patrol-card-tier--bronze     { background: rgba(205, 127, 50, 0.18);  color: #e6a766; }
-.patrol-card-tier--iron       { background: rgba(180, 190, 200, 0.18); color: #cdd4dc; }
-.patrol-card-tier--arcane     { background: rgba(180, 110, 255, 0.18); color: #b48cff; }
-.patrol-card-tier--alchemy    { background: rgba(140, 220, 140, 0.18); color: #98d39b; }
-.patrol-card-tier--consumable { background: rgba(240, 200, 140, 0.18); color: #e9c187; }
-.patrol-card-flavor {
-  font-size: 11px;
-  font-style: italic;
-  margin: 4px 0 0;
-  opacity: 0.75;
-}
-
-/* ─── Crafting success chip (#113) — shows discipline + level + success %.
-   Tone shifts with chance so the player can see at a glance which crafts
-   are safe vs. likely to waste materials. */
-.craft-card-success {
+.boss-fight-quick-chips {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.boss-fight-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+}
+.boss-fight-quick-chip:hover:not(:disabled) {
+  background: rgba(150, 200, 140, 0.10);
+  border-color: rgba(150, 200, 140, 0.45);
+}
+.boss-fight-quick-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.boss-fight-quick-chip-qty {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+/* #161 — Eat / Item split-button row. */
+.boss-fight-quick-row-split {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.boss-fight-split {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.boss-fight-split-main {
+  flex: 1 1 auto;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 6px 0;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.02);
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
-.craft-card-success-skill {
-  flex: 1;
-  letter-spacing: 0.02em;
+.boss-fight-split-main:hover:not(:disabled) {
+  background: rgba(150, 200, 140, 0.12);
+  border-color: rgba(150, 200, 140, 0.45);
 }
-.craft-card-success-pct {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.boss-fight-split-main:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
-.craft-card-success--ok     { border-color: rgba(140, 220, 140, 0.5); color: #b8e0b8; }
-.craft-card-success--warn   { border-color: rgba(220, 180, 100, 0.5); color: #e0c890; }
-.craft-card-success--danger { border-color: rgba(220, 120, 100, 0.5); color: #e0a090; }
+.boss-fight-split-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.boss-fight-split-key {
+  margin-left: auto;
+  padding: 1px 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: ui-monospace, "JetBrains Mono", Menlo, monospace;
+  color: var(--text-muted);
+}
+.boss-fight-split-arrow {
+  flex: 0 0 24px;
+  width: 24px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.boss-fight-split-arrow:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+.boss-fight-split-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--bg-elev2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.boss-fight-split-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.boss-fight-split-menu-item:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.boss-fight-split-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.boss-fight-split-menu-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}

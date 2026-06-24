@@ -19,6 +19,8 @@ import {
   canImbueWeapon,
   getMaxEnchantSlots,
   getEnchantSlotUsage,
+  canBless,
+  getActiveBlessings,
 } from "../systems/runesmithing.js";
 
 function fmtSec(sec) {
@@ -228,11 +230,74 @@ function WeaponImbueCard({ state, actions, weapon, runes }) {
                 >
                   Bind
                 </button>
+                <BlessButton state={state} actions={actions} rune={rune} />
               </li>
             );
           })}
         </ul>
       </div>
+    </div>
+  );
+}
+
+// #151 — small button in the Apply-rune list that fires the Bless action.
+function BlessButton({ state, actions, rune }) {
+  const check = canBless(state, rune.id);
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost btn-sm"
+      style={{ marginLeft: 4, padding: "2px 6px" }}
+      disabled={!check.ok}
+      title={check.ok
+        ? `Burn 1 ${rune.name} + 10 Spirit for a 5-minute blessing. ${rune.imbueEffect?.label || ""}`
+        : check.reason}
+      onClick={() => actions.blessRune?.(rune.id)}
+    >
+      🕯️ Bless
+    </button>
+  );
+}
+
+// Active blessings strip — shows what's currently burning and how long left.
+function BlessingsList({ state }) {
+  const live = getActiveBlessings(state);
+  const ids = Object.keys(live);
+  if (ids.length === 0) return null;
+  const now = Date.now();
+  return (
+    <div className="patrol-card patrol-card--magic" style={{ marginTop: 12 }}>
+      <div className="patrol-card-head">
+        <span className="patrol-card-icon" aria-hidden="true">🕯️</span>
+        <div className="patrol-card-title">
+          <div className="patrol-card-name">Active Blessings</div>
+          <div className="patrol-card-sub muted">
+            Burn-rune buffs · {ids.length} active
+          </div>
+        </div>
+      </div>
+      <ul className="patrol-card-drops-list">
+        {ids.map((runeId) => {
+          const r = getResource(runeId);
+          const remainMs = Math.max(0, live[runeId].expiresAt - now);
+          const mm = Math.floor(remainMs / 60000);
+          const ss = Math.floor((remainMs % 60000) / 1000);
+          return (
+            <li key={runeId} className="patrol-card-drop">
+              <span aria-hidden="true">{r?.icon || "🪬"}</span>
+              <span className="patrol-card-drop-name">
+                {(r?.name || runeId).replace(" Rune", "")}
+                <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>
+                  {r?.imbueEffect?.label || ""}
+                </span>
+              </span>
+              <span className="muted" style={{ marginLeft: "auto" }}>
+                {mm}m {ss.toString().padStart(2, "0")}s
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -259,17 +324,20 @@ function RunesmithingPanel({ state, actions }) {
   }
 
   return (
-    <div className="patrol-card-grid">
-      {weapons.map((w) => (
-        <WeaponImbueCard
-          key={w.id}
-          state={state}
-          actions={actions}
-          weapon={w}
-          runes={runes}
-        />
-      ))}
-    </div>
+    <>
+      <BlessingsList state={state} actions={actions} />
+      <div className="patrol-card-grid">
+        {weapons.map((w) => (
+          <WeaponImbueCard
+            key={w.id}
+            state={state}
+            actions={actions}
+            weapon={w}
+            runes={runes}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -426,7 +494,7 @@ export default function MagicView({ state, actions }) {
               role="tab"
               aria-selected={isActive}
               className={`magic-tab ${isActive ? "is-active" : ""}`}
-                        onClick={() => setTab(t.id)}
+              onClick={() => setTab(t.id)}
               title={t.label}
             >
               <span aria-hidden="true" style={{ marginRight: 4 }}>{t.icon}</span>

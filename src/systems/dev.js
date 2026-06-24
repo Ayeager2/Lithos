@@ -449,6 +449,38 @@ export function devGiveItem(state, id, qty = 1) {
   return { run: { ...state.run, inventory }, msg: `🛠️ +${qty} ${id}.` };
 }
 
+// #136/#137 — grant runes by rarity tier.
+export function devGiveRunesByRarity(state, rarity, qty = 5) {
+  const runes = getAllResources().filter(
+    (r) => r.imbueEffect && (r.rarity || "uncommon") === rarity
+  );
+  const inventory = { ...state.run.inventory };
+  for (const r of runes) inventory[r.id] = (inventory[r.id] || 0) + qty;
+  return {
+    run: { ...state.run, inventory },
+    msg: `🛠️ +${qty} of each ${rarity} rune (${runes.length} types).`,
+  };
+}
+
+// #151 — apply a Bless directly. Skips Spirit cost so devs can test
+// the combat-math wiring without farming Spirit.
+export function devForceBless(state, runeId, durationMs = 5 * 60 * 1000) {
+  const blessings = { ...(state.run.blessings || {}) };
+  blessings[runeId] = { expiresAt: Date.now() + durationMs };
+  return {
+    run: { ...state.run, blessings },
+    msg: `🛠️ Forced blessing: ${runeId} for ${Math.round(durationMs / 1000)}s.`,
+  };
+}
+export function devClearBlessings(state) {
+  return { run: { ...state.run, blessings: {} }, msg: "🛠️ Blessings cleared." };
+}
+
+// #138 — wipe weapon imbues for the run (useful when testing slot caps).
+export function devClearImbues(state) {
+  return { run: { ...state.run, weaponImbues: {} }, msg: "🛠️ Weapon imbues cleared." };
+}
+
 // Equip an item to a specific slot (or auto-pick slot). Wraps the
 // system function so we get a clean { run, msg } shape for devPatch.
 export function devEquip(state, id, slot) {

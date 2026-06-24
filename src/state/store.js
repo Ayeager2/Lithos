@@ -44,6 +44,7 @@ export function useGameStore() {
     cancelCraft: () => dispatch({ type: "CANCEL_CRAFT" }),
     imbueWeapon: (weaponId, runeId) => dispatch({ type: "IMBUE_WEAPON", weaponId, runeId }),
     removeImbue: (weaponId, runeId) => dispatch({ type: "REMOVE_IMBUE", weaponId, runeId }),
+    blessRune: (runeId) => dispatch({ type: "BLESS_RUNE", runeId }),
     hunt: () => dispatch({ type: ACTIONS.HUNT }),
     patrol: (target) => dispatch({ type: ACTIONS.PATROL, target }),
     eat: (preferredFoodId) => dispatch({ type: ACTIONS.EAT, preferredFoodId }),

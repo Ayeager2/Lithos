@@ -72,11 +72,14 @@ export function setActiveLoop(state, kind, target = {}, now = Date.now()) {
   }
   const cycleMs = computeCycleMs(state, kind, target);
   const newKey = targetKey(kind, target);
-  // Fire the first cycle immediately on activation — bias startedAt back
-  // by one cycle so the next TICK_LOOP (250ms later) triggers the first
-  // attack. Without this the player has to wait the full cooldown (12s
-  // for patrol) before anything visibly happens, which reads as broken.
-  const startedAt = now - cycleMs;
+  // #156 — start the timer fresh. The full cycleMs must elapse before
+  // the first cycle fires. Previously we biased startedAt back by one
+  // cycle so a click triggered instantly, but that meant cancelling
+  // before the visible progress bar finished still granted the kill +
+  // drops — the player could "accidentally" complete actions just by
+  // clicking and immediately clicking away. With a fair timer, the kill
+  // counts only when the bar fills, and cancelling truly cancels.
+  const startedAt = now;
   return {
     run: {
       ...state.run,
@@ -182,4 +185,4 @@ export function tickActiveLoop(state, now = Date.now()) {
     persistent: curState.persistent,
     events: allEvents,
   };
-} 
+}

@@ -6,7 +6,7 @@ import { performGather } from "../systems/gathering.js";
 import { performBuild } from "../systems/building.js";
 import { performListen } from "../systems/research.js";
 import { performCraft, startCraft, tickActiveCraft, cancelActiveCraft } from "../systems/crafting.js";
-import { performImbueWeapon, performRemoveImbue } from "../systems/runesmithing.js";
+import { performImbueWeapon, performRemoveImbue, performBless, tickBlessings } from "../systems/runesmithing.js";
 import { performHunt } from "../systems/hunting.js";
 import { performPatrol } from "../systems/patrol.js";
 import {
@@ -273,6 +273,12 @@ export function reducer(state, action) {
       return { persistent, run: appendLogAndStamp(run, events) };
     }
 
+    case "BLESS_RUNE": {
+      // #151 — burn a rune for a temporary buff. See systems/runesmithing.js.
+      const { run, persistent, events } = performBless(state, action.runeId);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
     case ACTIONS.HUNT: {
       const { run, persistent, events } = performHunt(state);
       return { persistent, run: appendLogAndStamp(run, events) };
@@ -478,6 +484,11 @@ export function reducer(state, action) {
       run = imbuePassiveResult.run;
       allEvents.push(...imbuePassiveResult.events);
 
+      // #151 — clear any expired blessings + log the fade.
+      const blessTick = tickBlessings(run);
+      run = blessTick.run;
+      allEvents.push(...blessTick.events);
+
       // Tick the active arcane study, if any. Clock only advances when the
       // player has been idle for >= IDLE_THRESHOLD_MS. Completion fires a
       // log event + applies per-path deltas + writes altar etchings (which
@@ -528,7 +539,7 @@ export function reducer(state, action) {
     case ACTIONS.CLEAR_LOG:
       return { ...state, run: { ...state.run, log: [] } };
 
-        case ACTIONS.DEV_PATCH: {
+    case ACTIONS.DEV_PATCH: {
       const patch = action.patch || {};
       const run = patch.run || state.run;
       const persistent = patch.persistent || state.persistent;

@@ -32,11 +32,15 @@ function CombatStylePicker({ state, actions }) {
   const hasRanged = !!getEquippedRangedDef(state.run);
   const hasMagic = !!getEquippedMagicDef(state.run);
   const spirit = state.run?.stats?.spirit ?? 0;
-  const styles = [
+  const allStyles = [
     { id: "melee", icon: "⚔️", label: "Melee", available: true, tip: "STR-driven attacks. No resource cost." },
     { id: "ranged", icon: "🏹", label: "Ranged", available: hasRanged, tip: hasRanged ? "DEX-driven bow/throwing attacks." : "Equip a ranged weapon." },
     { id: "magic", icon: "✨", label: "Magic", available: hasMagic, tip: hasMagic ? `MAG-driven attacks. Costs Spirit per swing (have ${Math.round(spirit)}).` : "Equip an arcane weapon (e.g. Fragment Knife) in either hand." },
   ];
+  // #165 — only show styles the player can actually use right now (the
+  // currently-selected one always stays visible so they can see what they
+  // picked). Magic without an arcane weapon equipped is hidden.
+  const styles = allStyles.filter((s) => s.available || s.id === style);
   return (
     <div className="combat-style-picker" role="radiogroup" aria-label="Combat style">
       {styles.map((s) => (
@@ -443,12 +447,16 @@ export default function PatrolView({ state, actions }) {
     actions.setActiveLoop("patrol", { mobId });
   };
   const handleBoss = (bossId) => {
-    if (activeBossId === bossId) {
-      actions.clearActiveLoop?.();
-      return;
-    }
     if (!check.ok) return;
-    actions.setActiveLoop("patrol", { bossId });
+    // #158 — bosses are explicit turn-based encounters, not idle-loop
+    // grinds. Skip the patrol loop entirely and stamp patrolBossEncounter
+    // directly so Shell opens the BossFightModal immediately. Without
+    // this the player had to wait the full ~12s patrol cooldown before
+    // the modal appeared, which read as "the click did nothing".
+    actions.devPatch({
+      run: { ...state.run, patrolBossEncounter: bossId },
+      msg: "",
+    });
   };
   const handleStop = () => actions.clearActiveLoop();
 

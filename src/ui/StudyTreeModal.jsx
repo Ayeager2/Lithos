@@ -26,6 +26,7 @@ import {
 } from "../systems/studies.js";
 import PanZoomSvg from "./PanZoomSvg.jsx";
 
+import { useDraggableModal } from "./useDraggableModal.js";
 // Tree canvas dimensions — viewBox coords; CSS scales the SVG.
 const W = 600;
 const H = 460;
@@ -186,15 +187,18 @@ export default function StudyTreeModal({ state, actions, onClose }) {
   const selectedView = selected ? getNodeView(state, selected) : null;
   const selectedCheck = selected ? canStartStudy(state, selected.id) : null;
 
+  const { transformStyle, dragHandleProps } = useDraggableModal();
+
   return (
-    <div className="modal-overlay" onClick={onClose} role="presentation">
+    <div className="modal-overlay" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }} role="presentation">
       <div
-        className="modal modal--tree"
+        className="modal modal--tree modal--draggable"
+        style={transformStyle}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Arcane Studies — Path Trees"
       >
-        <header className="modal-header">
+        <header className="modal-header modal-head--drag-handle" onPointerDown={dragHandleProps.onPointerDown} title={dragHandleProps.title}>
           <div>
             <h2>The Path Trees</h2>
             <p className="muted modal-subtitle">

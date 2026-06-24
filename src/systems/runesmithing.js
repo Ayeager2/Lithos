@@ -121,8 +121,77 @@ export function performImbueWeapon(state, weaponId, runeId) {
   return { run, persistent: state.persistent, events };
 }
 
-// Remove a rune from a weapon. Refunds nothing (the rune is consumed
-// when imbued) — but lets the player swap setups for different fights.
+// #151 — Bless. Burn 1 rune + spend BLESS_SPIRIT_COST Spirit to apply
+// its imbueEffect as a temporary buff for BLESS_DURATION_MS. Different
+// from imbues (per-weapon permanent until removed) — blessings are
+// time-limited and active no matter which weapon you're swinging.
+const BLESS_SPIRIT_COST = 10;
+const BLESS_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
+export function getActiveBlessings(state) {
+  const now = Date.now();
+  const out = {};
+  for (const [runeId, b] of Object.entries(state.run?.blessings || {})) {
+    if (b.expiresAt > now) out[runeId] = b;
+  }
+  return out;
+}
+
+export function canBless(state, runeId) {
+  const rune = getResource(runeId);
+  if (!rune?.imbueEffect) return { ok: false, reason: "That's not a rune." };
+  if ((state.run.inventory?.[runeId] || 0) <= 0) return { ok: false, reason: "You don't have that rune." };
+  if ((state.run.stats?.spirit || 0) < BLESS_SPIRIT_COST) {
+    return { ok: false, reason: `Need ${BLESS_SPIRIT_COST} Spirit (have ${Math.floor(state.run.stats?.spirit || 0)}).` };
+  }
+  if (state.run.blessings?.[runeId]?.expiresAt > Date.now()) {
+    return { ok: false, reason: "Already blessed with that rune." };
+  }
+  return { ok: true };
+}
+
+export function performBless(state, runeId) {
+  const check = canBless(state, runeId);
+  if (!check.ok) {
+    return { run: state.run, persistent: state.persistent,
+      events: [{ kind: "craftFail", message: check.reason }] };
+  }
+  const rune = getResource(runeId);
+  const inventory = { ...state.run.inventory };
+  inventory[runeId] = (inventory[runeId] || 0) - 1;
+  if (inventory[runeId] <= 0) delete inventory[runeId];
+  const stats = { ...(state.run.stats || {}) };
+  stats.spirit = Math.max(0, (stats.spirit || 0) - BLESS_SPIRIT_COST);
+  const blessings = { ...(state.run.blessings || {}) };
+  blessings[runeId] = { expiresAt: Date.now() + BLESS_DURATION_MS };
+  let run = { ...state.run, inventory, stats, blessings };
+  const xp = gainXp(run, "runesmithing", 4);
+  run = { ...run, skills: xp.skills };
+  return { run, persistent: state.persistent,
+    events: [{ kind: "craft",
+      message: `🕯️ The ${rune.name} burns. The blessing settles on you for 5 minutes. ${rune.imbueEffect.label}.` },
+      ...xp.events] };
+}
+
+export function tickBlessings(run) {
+  const now = Date.now();
+  const blessings = run?.blessings || {};
+  const keys = Object.keys(blessings);
+  const live = {};
+  let changed = false;
+  const expired = [];
+  for (const k of keys) {
+    if (blessings[k].expiresAt > now) live[k] = blessings[k];
+    else { changed = true; expired.push(k); }
+  }
+  if (!changed) return { run, events: [] };
+  const events = expired.map((k) => {
+    const r = getResource(k);
+    return { kind: "info", message: `🕯️ The ${r?.name || k} blessing fades.` };
+  });
+  return { run: { ...run, blessings: live }, events };
+}
+
 export function performRemoveImbue(state, weaponId, runeId) {
   const map = state.run.weaponImbues?.[weaponId];
   if (!map || !map[runeId]) {

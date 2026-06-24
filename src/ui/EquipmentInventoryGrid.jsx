@@ -294,6 +294,66 @@ function prettySlot(s) {
   }
 }
 
+// #152 — build a multi-line compare summary vs whatever's currently
+// equipped in this item's natural slot. Used as the card's title=
+// attribute so hover tells the player "this is +2 dmg, -5% acc" at a
+// glance without needing a custom tooltip overlay.
+function buildEquipCompareTip(def, equipped) {
+  if (!def) return "";
+  const lines = [];
+  if (def.weaponStats) {
+    // Slot match: melee → handLeft/Right melee, ranged → ranged, magic → either hand if arcane.
+    const slots = ["handLeft", "handRight", "ranged"];
+    let bestEq = null;
+    for (const s of slots) {
+      const inst = equipped[s];
+      if (!inst) continue;
+      // We don't reach for the full lookup here — equipped instances
+      // carry name/weaponStats inline via the equipment system OR we
+      // can read the def by id. Comparing the loose shape is enough.
+      const cand = inst?.weaponStats ? inst : (inst?.def?.weaponStats ? inst.def : null);
+      if (cand) { bestEq = cand; break; }
+    }
+    if (bestEq?.weaponStats) {
+      const a = def.weaponStats, b = bestEq.weaponStats;
+      lines.push(`vs equipped:`);
+      if (a.damage && b.damage) {
+        const da = (a.damage[0] + a.damage[1]) / 2;
+        const db = (b.damage[0] + b.damage[1]) / 2;
+        const d = da - db;
+        lines.push(`  ⚔️ dmg ${a.damage[0]}–${a.damage[1]} (was ${b.damage[0]}–${b.damage[1]}) ${d > 0 ? "+" : ""}${d.toFixed(1)} avg`);
+      }
+      if (a.acc != null && b.acc != null) {
+        const d = (a.acc - b.acc) * 100;
+        lines.push(`  🎯 acc ${Math.round(a.acc * 100)}% (was ${Math.round(b.acc * 100)}%) ${d > 0 ? "+" : ""}${d.toFixed(0)}%`);
+      }
+      if ((a.crit || 0) !== (b.crit || 0)) {
+        const d = ((a.crit || 0) - (b.crit || 0)) * 100;
+        lines.push(`  ✨ crit ${Math.round((a.crit || 0) * 100)}% (was ${Math.round((b.crit || 0) * 100)}%) ${d > 0 ? "+" : ""}${d.toFixed(0)}%`);
+      }
+    } else {
+      lines.push("Nothing equipped in this slot.");
+    }
+  } else if (def.armorStats) {
+    const slot = def.armorStats.slot;
+    const inst = equipped[slot];
+    const cand = inst?.armorStats ? inst : (inst?.def?.armorStats ? inst.def : null);
+    if (cand?.armorStats) {
+      const a = def.armorStats, b = cand.armorStats;
+      lines.push(`vs ${slot}:`);
+      if (a.armor != null && b.armor != null) {
+        const d = a.armor - b.armor;
+        lines.push(`  🛡️ armor ${a.armor} (was ${b.armor}) ${d > 0 ? "+" : ""}${d}`);
+      }
+    } else {
+      lines.push(`Nothing equipped in ${slot}.`);
+    }
+  } else if (def.equipAsRing) {
+    lines.push("Ring — slots into any of 10 ring positions.");
+  }
+  return lines.length > 0 ? lines.join("\n") : "";
+}
+
 function ItemCard({ state, actions, entry }) {
   const { id, qty, displayed, real, kind, cap, durability } = entry;
   // For a hidden resource the displayed name/icon is "???". canEquip etc.
@@ -301,6 +361,8 @@ function ItemCard({ state, actions, entry }) {
   // (the player doesn't know what it is yet, can't act on it).
   const equipped = state.run.equipped || {};
   const hidden = entry.hidden;
+  // Pre-build the compare tip (#152) — empty string when nothing to compare.
+  const compareTip = !hidden && real ? buildEquipCompareTip(real, equipped) : "";
 
   // Cap status label — same color convention as InventoryPanel.
   const capChip =
@@ -330,7 +392,10 @@ function ItemCard({ state, actions, entry }) {
     (def.weaponStats || def.armorStats || def.consumable || def.equipAsRing);
 
   return (
-    <div className={`ei-card ${hidden ? "ei-card--hidden" : ""}`}>
+    <div
+      className={`ei-card ${hidden ? "ei-card--hidden" : ""}`}
+      title={compareTip || displayed.description || displayed.name}
+    >
       <div className="ei-card-header">
         <span className="ei-card-icon" aria-hidden="true">
           {displayed.icon}
@@ -501,7 +566,7 @@ export default function EquipmentInventoryGrid({ state, actions }) {
           {visible.map((e) => (
             <ItemCard key={e.id} state={state} actions={actions} entry={e} />
           ))}
-        </div>
+                </div>
       )}
     </div>
   );

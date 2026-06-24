@@ -30,7 +30,7 @@ import {
 import { getKnownSpells, canCastSpell } from "../systems/spells.js";
 import { getAllTools } from "../content/tools.js";
 import { canUseTool } from "../systems/consumables.js";
-import { getResource } from "../content/resources.js";
+import { getResource, getResourcesByCategory } from "../content/resources.js";
 
 // Era-One/Two/Three label helper (#105 carry-over).
 const ERA_LABEL = { 1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five" };
@@ -225,8 +225,183 @@ function SubPickerRow({ icon, name, qty, effects, costs, tooltip, disabled, disa
   );
 }
 
+// #159 — categorize spells by inferred role so the SpellPicker can tab
+// them as Heal / Buff / Attack. Heuristic: positive hp/sanity/spirit
+// effects = heal; weapon/buff effects = buff; everything else = attack.
+function spellCategory(spell) {
+  const e = spell?.effect || {};
+  const target = spell?.targetsFoe || spell?.damage;
+  if (target) return "attack";
+  if (e.hp > 0 || e.sanity > 0 || e.spirit > 0 || e.hunger < 0 || e.thirst < 0) return "heal";
+  if (e.acc != null || e.crit != null || e.damage != null) return "buff";
+  if (e.spirit > 0) return "heal";
+  // Bend / Greater Bend / Dominate / Curse / Soulflame / Echo / Voidcall:
+  // names imply offense even when stats aren't surfaced — fallback by id.
+  const id = spell?.id || "";
+  if (/bend|curse|soulflame|dominate|echo|ghostcall|voidcall|banish|soothe/i.test(id)) {
+    if (/soothe|bend/i.test(id)) return "heal";
+    return "attack";
+  }
+  return "buff";
+}
+
+// #159 — quick-eat row. Auto-picks the best-nutrition food the player
+// holds and exposes a one-click Eat button. Same idea for potions
+// (consumable tools that restore HP/Sanity/Spirit). Lives on the
+// player column above the action stack so the player doesn't have to
+// open the Item sub-picker mid-fight to use a single dose.
+// #161 — split-button row: a main "Eat" button that uses the best
+// available food, and a dropdown arrow that opens a popover listing
+// every owned food. Same pattern for the "Items" button (combat
+// consumables — potions, salves, vials). Keyboard shortcuts E/I.
+function QuickConsumables({ state, actions }) {
+  const inv = state.run.inventory || {};
+  const foods = getResourcesByCategory("food")
+    .filter((f) => (inv[f.id] || 0) > 0 && (f.nutrition || 0) > 0)
+    .sort((a, b) => (b.nutrition || 0) - (a.nutrition || 0));
+  const items = getAllTools()
+    .filter((t) => t.consumable && (inv[t.id] || 0) > 0)
+    .sort((a, b) => (b.useEffect?.hp || 0) - (a.useEffect?.hp || 0));
+  const [openMenu, setOpenMenu] = useState(null); // null | "food" | "item"
+
+  // Keyboard: E = eat best food, I = use best item.
+  useEffect(() => {
+    function onKey(e) {
+      if (e.target?.tagName === "INPUT" || e.target?.tagName === "TEXTAREA") return;
+      if (e.key === "e" || e.key === "E") {
+        if (foods[0]) actions.eat?.(foods[0].id);
+      } else if (e.key === "i" || e.key === "I") {
+        if (items[0]) actions.useTool?.(items[0].id);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [foods, items, actions]);
+
+  // Click-away to close menus.
+  useEffect(() => {
+    if (!openMenu) return;
+    function onAway(e) {
+      if (!e.target.closest(".boss-fight-split")) setOpenMenu(null);
+    }
+    window.addEventListener("mousedown", onAway);
+    return () => window.removeEventListener("mousedown", onAway);
+  }, [openMenu]);
+
+  if (foods.length === 0 && items.length === 0) return null;
+  return (
+    <div className="boss-fight-quick">
+      <div className="boss-fight-quick-row-split">
+        {/* EAT split-button */}
+        {foods.length > 0 && (
+          <div className="boss-fight-split">
+            <button
+              type="button"
+              className="boss-fight-split-main"
+              title={`Eat ${foods[0].name} — restores ${foods[0].nutrition} hunger (press E)`}
+              onClick={() => actions.eat?.(foods[0].id)}
+            >
+              <span className="boss-fight-split-icon" aria-hidden="true">{foods[0].icon}</span>
+              <span>Eat</span>
+              <span className="boss-fight-split-key" aria-label="Shortcut">E</span>
+            </button>
+            <button
+              type="button"
+              className="boss-fight-split-arrow"
+              title="Pick another food"
+              aria-expanded={openMenu === "food"}
+              onClick={() => setOpenMenu(openMenu === "food" ? null : "food")}
+            >
+              ▾
+            </button>
+            {openMenu === "food" && (
+              <div className="boss-fight-split-menu" role="menu">
+                {foods.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="menuitem"
+                    className="boss-fight-split-menu-item"
+                    title={`${f.name} — restores ${f.nutrition} hunger`}
+                    onClick={() => { actions.eat?.(f.id); setOpenMenu(null); }}
+                  >
+                    <span aria-hidden="true">{f.icon}</span>
+                    <span className="boss-fight-split-menu-name">{f.name}</span>
+                    <span className="muted">× {inv[f.id] || 0}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* ITEMS split-button */}
+        {items.length > 0 && (
+          <div className="boss-fight-split">
+            <button
+              type="button"
+              className="boss-fight-split-main"
+              title={`Use ${items[0].name} — ${items[0].effectSummary || ""} (press I)`}
+              disabled={!canUseTool(state, items[0].id).ok}
+              onClick={() => actions.useTool?.(items[0].id)}
+            >
+              <span className="boss-fight-split-icon" aria-hidden="true">{items[0].icon}</span>
+              <span>Item</span>
+              <span className="boss-fight-split-key" aria-label="Shortcut">I</span>
+            </button>
+            <button
+              type="button"
+              className="boss-fight-split-arrow"
+              title="Pick another item"
+              aria-expanded={openMenu === "item"}
+              onClick={() => setOpenMenu(openMenu === "item" ? null : "item")}
+            >
+              ▾
+            </button>
+            {openMenu === "item" && (
+              <div className="boss-fight-split-menu" role="menu">
+                {items.map((p) => {
+                  const check = canUseTool(state, p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      role="menuitem"
+                      className="boss-fight-split-menu-item"
+                      title={`${p.name} — ${p.effectSummary || p.description || ""}`}
+                      disabled={!check.ok}
+                      onClick={() => { actions.useTool?.(p.id); setOpenMenu(null); }}
+                    >
+                      <span aria-hidden="true">{p.icon}</span>
+                      <span className="boss-fight-split-menu-name">{p.name}</span>
+                      <span className="muted">× {inv[p.id] || 0}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SpellPicker({ state, actions, onPick, onCancel }) {
   const known = getKnownSpells(state);
+  // #159 — bucket spells by inferred role. Tab defaults to "attack" since
+  // that's the most-common boss-fight pick; falls back to whichever bucket
+  // has spells if attack is empty.
+  const TABS = [
+    { id: "attack", label: "⚔️ Attack" },
+    { id: "buff", label: "✨ Buff" },
+    { id: "heal", label: "💗 Heal" },
+  ];
+  const buckets = { attack: [], buff: [], heal: [] };
+  for (const s of known) (buckets[spellCategory(s)] || buckets.attack).push(s);
+  const visibleTabs = TABS.filter((t) => buckets[t.id].length > 0);
+  const [tab, setTab] = useState(() => visibleTabs[0]?.id || "attack");
+  const activeId = buckets[tab]?.length > 0 ? tab : (visibleTabs[0]?.id || "attack");
+  const list = buckets[activeId] || [];
   if (known.length === 0) {
     return (
       <div className="boss-subpicker">
@@ -240,8 +415,25 @@ function SpellPicker({ state, actions, onPick, onCancel }) {
   return (
     <div className="boss-subpicker">
       <p className="muted boss-subpicker-lead">Pick a spell. Tap to cast.</p>
+      <div className="boss-subpicker-tabs" role="tablist">
+        {visibleTabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={t.id === activeId}
+            className={`boss-subpicker-tab ${t.id === activeId ? "is-active" : ""}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+            <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
+              {buckets[t.id].length}
+            </span>
+          </button>
+        ))}
+      </div>
       <div className="boss-sub-row-list">
-        {known.map((s) => {
+        {list.map((s) => {
           const check = canCastSpell(state, s.id);
           return (
             <SubPickerRow
@@ -332,8 +524,23 @@ function BossFight({ state, actions, boss, onExit }) {
   const [outcome, setOutcome] = useState(null); // victory | defeat | flee
   const [defendQueued, setDefendQueued] = useState(false);
   const [subPicker, setSubPicker] = useState(null); // null | "spell" | "item"
+  // #157 — auto-attack mode. Click Attack once → auto-attack continues
+  // every TURN_CYCLE_MS until win/defeat/flee or user clicks Stop. The
+  // count-down on the player portrait reads "next attack in Ns".
+  const TURN_CYCLE_MS = 6000;
+  const [autoAttack, setAutoAttack] = useState(false);
+  const [nextAttackAt, setNextAttackAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
   const committed = useRef(false);
   const logBottomRef = useRef(null);
+
+  // #157 — 250ms ticker while auto-attack is active so the countdown
+  // re-renders smoothly. No-op otherwise.
+  useEffect(() => {
+    if (!autoAttack || phase === "done") return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [autoAttack, phase]);
 
   useEffect(() => {
     if (logBottomRef.current) {
@@ -423,7 +630,10 @@ function BossFight({ state, actions, boss, onExit }) {
     setPhase("player");
   }
 
-  function onAttack() {
+  // #157 — single attack swing. The auto-attack scheduler calls this
+  // on each tick. The button handler below sets autoAttack=true and
+  // also calls this for the first swing.
+  function performAttackSwing() {
     if (phase !== "player") return;
     const hit = rollPlayerAttack(state, boss);
     pushLog({
@@ -479,8 +689,39 @@ function BossFight({ state, actions, boss, onExit }) {
     setTimeout(() => runFoeTurn(nextDamage), 600);
   }
 
+  // #157 — Attack button click. If auto-attack is already on, this acts
+  // as a stop button. Otherwise it turns on auto-attack and fires the
+  // first swing immediately; the scheduler useEffect below paces the rest.
+  function onAttack() {
+    if (autoAttack) {
+      setAutoAttack(false);
+      setNextAttackAt(0);
+      pushLog({ kind: "defend", text: "🛑 You pull your swings. Auto-attack off." });
+      return;
+    }
+    setAutoAttack(true);
+    setNextAttackAt(Date.now() + TURN_CYCLE_MS);
+    performAttackSwing();
+  }
+
+  // #157 — auto-attack scheduler. While autoAttack is true and we're back
+  // in the player phase, schedule the next swing for nextAttackAt. Cleared
+  // when the player or foe drops, when the user cancels, or when a sub-
+  // picker opens (spell/item). Defend/Flee turn auto-attack off.
+  useEffect(() => {
+    if (!autoAttack || phase !== "player" || subPicker !== null) return;
+    const remain = Math.max(0, nextAttackAt - Date.now());
+    const id = setTimeout(() => {
+      performAttackSwing();
+      setNextAttackAt(Date.now() + TURN_CYCLE_MS);
+    }, remain);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAttack, phase, subPicker, nextAttackAt]);
+
   function onDefend() {
     if (phase !== "player") return;
+    setAutoAttack(false);
     setDefendQueued(true);
     pushLog({ kind: "defend", text: `🛡️ You set your stance. Their next blow lands soft.` });
     setPhase("foe");
@@ -488,6 +729,7 @@ function BossFight({ state, actions, boss, onExit }) {
   }
 
   function onSpellCast() {
+    setAutoAttack(false);
     setSubPicker(null);
     pushLog({ kind: "spell", text: `✨ The word leaves your mouth.` });
     setPhase("foe");
@@ -495,6 +737,7 @@ function BossFight({ state, actions, boss, onExit }) {
   }
 
   function onItemUse() {
+    setAutoAttack(false);
     setSubPicker(null);
     pushLog({ kind: "item", text: `🧪 You take the dose.` });
     setPhase("foe");
@@ -503,6 +746,7 @@ function BossFight({ state, actions, boss, onExit }) {
 
   function onFlee() {
     if (phase !== "player") return;
+    setAutoAttack(false);
     const success = Math.random() < FLEE_SUCCESS_CHANCE;
     if (success) {
       finishWithFlee(damage);
@@ -552,9 +796,9 @@ function BossFight({ state, actions, boss, onExit }) {
         type="button"
         className="btn btn-primary"
         onClick={onAttack}
-        disabled={playerLocked}
+        disabled={playerLocked && !autoAttack}
       >
-        ⚔️ Attack
+        {autoAttack ? "⏹ Stop Attacking" : "⚔️ Attack"}
       </button>
       <button
         type="button"
@@ -564,14 +808,9 @@ function BossFight({ state, actions, boss, onExit }) {
       >
         ✨ Spell
       </button>
-      <button
-        type="button"
-        className="btn"
-        onClick={() => setSubPicker("item")}
-        disabled={playerLocked}
-      >
-        🧪 Item
-      </button>
+      {/* #162 — Item button retired. Quick-Item split-button above the
+          action stack covers this faster (best-pick + dropdown with every
+          consumable + I keyboard shortcut). */}
       <button
         type="button"
         className="btn"
@@ -596,22 +835,35 @@ function BossFight({ state, actions, boss, onExit }) {
       <div className="boss-fight-arena">
         {/* LEFT: player portrait + stats + action stack. */}
         <div className="boss-fight-side boss-fight-side--player">
-          <div className="boss-fight-portrait" aria-hidden="true">👤</div>
+          <div className="boss-fight-portrait" aria-hidden="true">
+            👤
+            {autoAttack && phase === "player" && (() => {
+              const remainMs = Math.max(0, nextAttackAt - now);
+              const remainS = Math.ceil(remainMs / 1000);
+              const isFinal = remainS <= 5 && remainS > 0;
+              if (remainS <= 0) return null;
+              return (
+                <div className={`boss-fight-countdown ${isFinal ? "is-final" : ""}`}>
+                  {remainS}
+                </div>
+              );
+            })()}
+          </div>
           <div className="boss-fight-side-name">You</div>
           <div className="boss-fight-bars">
             <Bar label="HP" current={liveHp} max={100} accent="hp" />
             <Bar label="Sanity" current={liveSanity} max={100} accent="sanity" />
             <Bar label="Spirit" current={liveSpirit} max={100} accent="spirit" />
-                   </div>
+          </div>
           <p className="muted boss-fight-weapon">
             Wielding: {weapon.icon || ""} {weapon.name}
           </p>
+          <QuickConsumables state={state} actions={actions} />
           <div className="boss-fight-action-slot">
             {leftPanel}
           </div>
         </div>
 
-        {/* RIGHT: foe portrait + name + foe HP bar. */}
         <div className="boss-fight-side boss-fight-side--foe">
           <div className="boss-fight-portrait boss-fight-portrait--foe" aria-hidden="true">
             {boss.icon}
@@ -623,10 +875,69 @@ function BossFight({ state, actions, boss, onExit }) {
           <p className="muted boss-fight-weapon">
             {boss.tier === "main" ? "Main · Era " : "Mini · Era "}{eraLabel(boss.era)}
           </p>
+          {/* #163 — full foe stats panel mirroring the boss-picker card so
+              the player can size up what they're hitting mid-fight. */}
+          <div className="patrol-card-drops">
+            <div className="patrol-card-drops-label muted">Stats</div>
+            <ul className="patrol-card-drops-list">
+              <li className="patrol-card-drop">
+                <span aria-hidden="true">❤️</span>
+                <span className="patrol-card-drop-name">HP</span>
+                <span className="muted">{Math.round(foeHp)} / {boss.combat.hp}</span>
+              </li>
+              <li className="patrol-card-drop">
+                <span aria-hidden="true">🎯</span>
+                <span className="patrol-card-drop-name">Accuracy</span>
+                <span className="muted">{Math.round((boss.combat.acc || 0) * 100)}%</span>
+              </li>
+              <li className="patrol-card-drop">
+                <span aria-hidden="true">⚔️</span>
+                <span className="patrol-card-drop-name">
+                  Damage{boss.combat.damageType && boss.combat.damageType !== "hp"
+                    ? ` (${boss.combat.damageType})` : ""}
+                </span>
+                <span className="muted">
+                  {boss.combat.damage?.min}–{boss.combat.damage?.max}
+                </span>
+              </li>
+              {boss.combat.eva != null && (
+                <li className="patrol-card-drop">
+                  <span aria-hidden="true">💨</span>
+                  <span className="patrol-card-drop-name">Evasion</span>
+                  <span className="muted">{Math.round((boss.combat.eva || 0) * 100)}%</span>
+                </li>
+              )}
+            </ul>
+          </div>
+          {Array.isArray(boss.runeDrops) && boss.runeDrops.length > 0 && (
+            <div className="patrol-card-drops">
+              <div className="patrol-card-drops-label muted">Possible rune drops</div>
+              <ul className="patrol-card-drops-list">
+                {boss.runeDrops.map((drop, i) => {
+                  const r = getResource(drop.resource);
+                  const rarity = r?.rarity || "uncommon";
+                  return (
+                    <li key={i} className="patrol-card-drop" title={r?.imbueEffect?.label || ""}>
+                      <span aria-hidden="true">{r?.icon || "🪬"}</span>
+                      <span className="patrol-card-drop-name">
+                        {(r?.name || drop.resource).replace(" Rune", "")}
+                      </span>
+                      <span
+                        className={`patrol-card-tier patrol-card-tier--${rarity}`}
+                        style={{ marginRight: 4 }}
+                      >
+                        {rarity}
+                      </span>
+                      <span className="muted">{Math.round(drop.chance * 100)}%</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Combat log below both columns. */}
       <div className="boss-fight-log" role="log" aria-live="polite">
         {log.map((entry, i) => (
           <p key={i} className={`boss-fight-line boss-fight-line--${entry.kind}`}>
@@ -640,26 +951,57 @@ function BossFight({ state, actions, boss, onExit }) {
 }
 
 export default function BossFightModal({ state, actions, initialBossId = null, onClose }) {
-  // #142 — initialBossId is set by Shell when a patrol encounter spawns a
-  // boss; the modal jumps straight to the fight in that case. When opened
-  // from the rail (no initialBossId), we land on the picker.
   const [chosenId, setChosenId] = useState(initialBossId);
-  // If the parent stamps a NEW initialBossId while the modal is open
-  // (e.g. consecutive patrol encounters), re-sync.
+  const lastSyncedInitialId = useRef(initialBossId);
   useEffect(() => {
-    if (initialBossId) setChosenId(initialBossId);
+    if (initialBossId && initialBossId !== lastSyncedInitialId.current) {
+      lastSyncedInitialId.current = initialBossId;
+      setChosenId(initialBossId);
+    }
   }, [initialBossId]);
 
   const available = useMemo(() => getBossesAvailable(state), [state]);
   const boss = chosenId ? getBoss(chosenId) : null;
 
-  // BossFight passes a unique key per chosenId so its internal state
-  // (foeHp, damage, phase, log) resets cleanly when the player returns
-  // and picks a new boss (#142).
+  // #165 — draggable modal. Grab the title bar to move it around the
+  // viewport. Resize lives on the modal itself via CSS `resize: both`.
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const dragState = useRef({ active: false, startX: 0, startY: 0, baseX: 0, baseY: 0 });
+  function onDragStart(e) {
+    // Skip when the user is interacting with a button inside the head
+    // (don't hijack Close clicks).
+    if (e.target.closest("button")) return;
+    dragState.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: pos.x,
+      baseY: pos.y,
+    };
+    window.addEventListener("pointermove", onDragMove);
+    window.addEventListener("pointerup", onDragEnd, { once: true });
+  }
+  function onDragMove(e) {
+    if (!dragState.current.active) return;
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    setPos({ x: dragState.current.baseX + dx, y: dragState.current.baseY + dy });
+  }  function onDragEnd() {
+    dragState.current.active = false;
+    window.removeEventListener("pointermove", onDragMove);
+  }
+
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="modal modal--boss">
-        <div className="modal-head">
+    <div className="modal-overlay modal-overlay--draggable" role="dialog" aria-modal="true">
+      <div
+        className="modal modal--boss modal--draggable"
+        style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
+      >
+        <div
+          className="modal-head modal-head--drag-handle"
+          onPointerDown={onDragStart}
+          title="Drag to reposition · Drag the bottom-right corner to resize"
+        >
           <h2>{boss ? `⚔️ ${boss.name}` : "Boss Challenges"}</h2>
           <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
             Close
@@ -673,10 +1015,9 @@ export default function BossFightModal({ state, actions, initialBossId = null, o
               actions={actions}
               boss={boss}
               onExit={() => {
-                // #142 — return to the picker so the player can choose
-                // another fight without re-opening the modal. Close is
-                // its own button at the top of the modal head.
                 setChosenId(null);
+                lastSyncedInitialId.current = null;
+                onClose?.();
               }}
             />
           ) : (

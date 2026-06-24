@@ -15,6 +15,7 @@ import { getResource } from "../content/resources.js";
 import { canBuild, getKnownBuildings } from "../systems/building.js";
 import PanZoomSvg from "./PanZoomSvg.jsx";
 
+import { useDraggableModal } from "./useDraggableModal.js";
 // Tree canvas dimensions (viewBox coords; CSS scales the SVG).
 const W = 820;
 const H = 460;
@@ -127,15 +128,18 @@ export default function BuildingsTreeModal({ state, actions, onClose }) {
     return out;
   }, [all, positions, state.run.built]);
 
+  const { transformStyle, dragHandleProps } = useDraggableModal();
+
   return (
-    <div className="modal-overlay" onClick={onClose} role="presentation">
+    <div className="modal-overlay" onPointerDown={(e) => { if (e.target === e.currentTarget) onClose(); }} role="presentation">
       <div
-        className="modal modal--tree"
+        className="modal modal--tree modal--draggable"
+        style={transformStyle}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Buildings"
       >
-        <header className="modal-header">
+        <header className="modal-header modal-head--drag-handle" onPointerDown={dragHandleProps.onPointerDown} title={dragHandleProps.title}>
           <div>
             <h2>What You've Built</h2>
             <p className="muted modal-subtitle">

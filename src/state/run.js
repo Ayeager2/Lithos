@@ -95,6 +95,10 @@ export const RUN_DEFAULTS = {
   // Combat math reads this for on-hit effects (Light = heal, Bend =
   // spirit return, etc). See systems/runesmithing.js.
   weaponImbues: {},       // { [weaponId]: { [runeId]: { appliedAt } } }
+  // #151 — temporary blessings. Burn a rune + spend Spirit to apply its
+  // imbueEffect for ~5 min. Aggregated alongside weapon imbues in
+  // getEffectiveImbueEffects so combat math sees both.
+  blessings: {},          // { [runeId]: { expiresAt } }
   studiesCompleted: {},   // { [nodeId]: { completedAt } } — permanent
   lastStudyTickAt: 0,     // for offline-catchup elapsed math
   // Cached stat bumps from study `addsStat` effects (e.g. Wardweave +2 armor).
@@ -134,8 +138,7 @@ export const RUN_DEFAULTS = {
 
 
   // Combat style (#82) — melee / ranged / magic toggle. Drives which
-  // weapon slot is consulted, which combat skill earns XP, and which stat
-  // scales damage. Magic attacks additionally drain Spirit per swing.
+  // weapon slot is consulted, which combat skill earns XP, and which stat  // scales damage. Magic attacks additionally drain Spirit per swing.
   combatStyle: "melee",
 
   log: [],
