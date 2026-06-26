@@ -6607,3 +6607,24 @@ body.motion-reduced .tool-durability-fill {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ──────────────────────────────────────────────────────────────────
+   #201 — staffing assignment pulse. Triggers via key={assigned} so the
+   span remounts when the count changes, firing the animation each time.
+   ────────────────────────────────────────────────────────────────── */
+@keyframes townAssignPulse {
+  0%   { background: rgba(220, 154, 74, 0.4); }
+  60%  { background: rgba(220, 154, 74, 0.15); }
+  100% { background: transparent; }
+}
+.town-assign-pulse {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin: 0 -4px;
+  animation: townAssignPulse 600ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .town-assign-pulse { animation: none !important; }
+}

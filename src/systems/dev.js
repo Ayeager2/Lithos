@@ -524,6 +524,161 @@ export function devLevelThievery(state, level = 10) {
   return devLevelSkill(state, "thievery", level);
 }
 
+// #182 — town dev helpers.
+export function devSetPopulation(state, n = 10) {
+  return { run: { ...state.run, population: Math.max(0, n) }, msg: `🛠️ Population → ${n}.` };
+}
+
+// Stamp every shelter building as built so housing cap jumps. Useful
+// for testing the at-cap branch.
+export function devBuildAllShelter(state) {
+  const built = { ...(state.run.built || {}) };
+  const ids = ["hut", "home", "lean_to", "cottage"];
+  const now = Date.now();
+  let added = 0;
+  for (const id of ids) {
+    if (!built[id]) { built[id] = { at: now }; added++; }
+  }
+  return { run: { ...state.run, built }, msg: `🛠️ +${added} shelter buildings.` };
+}
+
+// #195 — Town economy dev helpers ─────────────────────────────────
+// Force a starvation event by stamping a shortage that's already past
+// the death threshold for food. Useful for testing the death cascade.
+export function devForceStarvation(state) {
+  const shortageMs = { ...(state.run.shortageMs || {}) };
+  shortageMs.food = 6 * 60 * 1000;
+  return {
+    run: { ...state.run, shortageMs, inventory: { ...state.run.inventory, food: 0 } },
+    msg: "🛠️ Starvation forced — food shortage stamped at 6 min.",
+  };
+}
+
+// Clear all shortage timers + restore food to a comfortable buffer.
+export function devEndStarvation(state) {
+  return {
+    run: {
+      ...state.run,
+      shortageMs: {},
+      shortageLastLossAt: {},
+      inventory: { ...state.run.inventory, food: Math.max(50, state.run.inventory?.food || 0) },
+    },
+    msg: "🛠️ Shortage cleared, food refilled to 50+.",
+  };
+}
+
+// Force-destroy a random non-shelter building (mirrors raid damage)
+// so the player can test the repair flow without firing a raid.
+export function devDestroyRandomBuilding(state) {
+  const built = { ...(state.run.built || {}) };
+  const destroyed = { ...(state.run.destroyedBuildings || {}) };
+  const candidates = Object.keys(built).filter((id) => {
+    // Skip shelter — can't evict housing.
+    return id !== "hut" && id !== "home" && id !== "lean_to" && id !== "cottage";
+  });
+  if (candidates.length === 0) {
+    return { run: state.run, msg: "🛠️ No non-shelter buildings to destroy." };
+  }
+  const pick = candidates[Math.floor(Math.random() * candidates.length)];
+  delete built[pick];
+  destroyed[pick] = { destroyedAt: Date.now() };
+  return {
+    run: { ...state.run, built, destroyedBuildings: destroyed },
+    msg: `🛠️ Destroyed: ${pick}. Repair button now available on TownView.`,
+  };
+}
+
+export function devClearDestroyed(state) {
+  return {
+    run: { ...state.run, destroyedBuildings: {} },
+    msg: "🛠️ Destroyed-buildings list cleared (without repairing).",
+  };
+}
+
+// Give a comfortable buffer of every common resource so the economy
+// tick is testable without grinding.
+export function devStockResources(state) {
+  const inv = { ...(state.run.inventory || {}) };
+  const buffers = {
+    wood: 200, stone: 200, fragments: 30,
+    food: 100, water_muddy: 50, water_boiled: 30,
+    hide: 20, sinew: 10, feathers: 15, bird_meat: 10, bird_eggs: 5,
+    iron: 10, tarnished_coin: 20, scroll: 3, ink: 5, torn_page: 5,
+  };
+  for (const [k, v] of Object.entries(buffers)) {
+    inv[k] = Math.max(inv[k] || 0, v);
+  }
+  return { run: { ...state.run, inventory: inv }, msg: "🛠️ Stockpile filled to comfortable buffers." };
+}
+
+// Force-clear all manual staffing locks so auto-fill takes over.
+// #200 — Morale + trade dev helpers.
+export function devSetMorale(state, value = 50) {
+  return {
+    run: { ...state.run, morale: Math.max(0, Math.min(100, value)) },
+    msg: `🛠️ Morale → ${value}.`,
+  };
+}
+
+// Force the marketplace trade route to fire on next tick.
+export function devForceTradeRoute(state) {
+  const lastAt = { ...(state.run.tradeRouteLastAt || {}) };
+  lastAt.marketplace = 0; // expires the cycleMs window
+  return {
+    run: { ...state.run, tradeRouteLastAt: lastAt },
+    msg: "🛠️ Marketplace trade route window reset — fires next tick.",
+  };
+}
+
+// Give a hide stockpile for trade-route testing.
+export function devGiveTradeStock(state) {
+  const inv = { ...state.run.inventory };
+  inv.wood = Math.max(inv.wood || 0, 100);
+  inv.stone = Math.max(inv.stone || 0, 100);
+  inv.hide = Math.max(inv.hide || 0, 20);
+  return {
+    run: { ...state.run, inventory: inv },
+    msg: "🛠️ Trade stock: 100 wood, 100 stone, 20 hide.",
+  };
+}
+
+// Stamp a sample of settlement etchings for UI testing.
+import { stampEtchingOnce as _stampEtch } from "./etchings.js";
+export function devStampSettlementEtchings(state) {
+  const now = Date.now();
+  let persistent = state.persistent;
+  const stamps = [
+    ["settlement:pop:5", "Settlement reached 5 villagers"],
+    ["settlement:pop:10", "Settlement reached 10 villagers"],
+    ["settlement:raid:survived", "First raid fully repelled"],
+    ["settlement:repair:first", "First building repaired"],
+  ];
+  for (const [id, label] of stamps) {
+    persistent = _stampEtch(persistent, id, label);
+  }
+  return {
+    persistent,
+    msg: `🛠️ Stamped ${stamps.length} sample settlement etchings.`,
+  };
+}
+
+// #202 — grant a companion immediately + activate.
+export function devGrantCompanion(state, id) {
+  const companions = state.run.companions || { active: null, owned: {} };
+  const owned = { ...companions.owned, [id]: { recruitedAt: Date.now() } };
+  return {
+    run: { ...state.run, companions: { active: id, owned } },
+    msg: `🛠️ Companion granted + activated: ${id}.`,
+  };
+}
+
+export function devClearAssignments(state) {
+  return {
+    run: { ...state.run, assignments: {} },
+    msg: "🛠️ All staffing locks cleared — auto-fill resumes.",
+  };
+}
+
 export function devClearEnchantments(state) {
   return { run: { ...state.run, enchantments: {} }, msg: "🛠️ Enchantments cleared." };
 }

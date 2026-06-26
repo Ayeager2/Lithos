@@ -3,7 +3,8 @@
 import { ACTIONS } from "./actions.js";
 import { freshRun } from "./run.js";
 import { performGather } from "../systems/gathering.js";
-import { performBuild } from "../systems/building.js";
+import { performBuild, performRepair } from "../systems/building.js";
+import { performRecruit, setActiveCompanion } from "../systems/companions.js";
 import { performListen } from "../systems/research.js";
 import { performCraft, startCraft, tickActiveCraft, cancelActiveCraft } from "../systems/crafting.js";
 import { performImbueWeapon, performRemoveImbue, performBless, tickBlessings } from "../systems/runesmithing.js";
@@ -42,6 +43,7 @@ import { performBuyEchoUpgrade, applyEchoUpgrades } from "../systems/echoes.js";
 import { performBossFightEnd } from "../systems/boss.js";
 import { setActiveLoop, clearActiveLoop, tickActiveLoop } from "../systems/loop.js";
 import { tickWorkers } from "../systems/workers.js";
+import { tickPopulation, tickRecipeProduction, setBuildingAssignment, tickConsumption, tickTradeRoutes, tickMorale } from "../systems/town.js";
 import {
   applyPassiveProduction,
   clearStalePests,
@@ -219,6 +221,42 @@ export function reducer(state, action) {
       // Town workers (#71) — passive drip from hired townspeople.
       const workersState = { ...state, run };
       const workersResult = tickWorkers(workersState);
+      // #182 — population growth tick. Reads housing cap + survival
+      // thresholds and integrates toward +1 villager / 5 min.
+      const townTickResult = tickPopulation({ run: workersResult.run, persistent: workersResult.persistent || state.persistent });
+      if (townTickResult.events && townTickResult.events.length) {
+        workersResult.events = [...(workersResult.events || []), ...townTickResult.events];
+      }
+      workersResult.run = townTickResult.run;
+      if (townTickResult.persistent) workersResult.persistent = townTickResult.persistent;
+      // #183 — production recipe tick. Auto-staffs idle villagers across
+      // production buildings (round-robin), then consumes inputs +
+      // produces outputs scaled by assignment.
+      const recipeTickResult = tickRecipeProduction({ run: workersResult.run, persistent: workersResult.persistent || state.persistent });
+      if (recipeTickResult.events && recipeTickResult.events.length) {
+        workersResult.events = [...(workersResult.events || []), ...recipeTickResult.events];
+      }
+      workersResult.run = recipeTickResult.run;
+      // #192 — settlement consumption tick. Drains food/water/wood per
+      // villager per minute. Runs AFTER production so a worker can
+      // produce-and-consume in the same tick without double-spending.
+      const consumeResult = tickConsumption({ run: workersResult.run, persistent: workersResult.persistent || state.persistent });
+      if (consumeResult.events && consumeResult.events.length) {
+        workersResult.events = [...(workersResult.events || []), ...consumeResult.events];
+      }
+      workersResult.run = consumeResult.run;
+      // #197 — trade routes. Periodic surplus → coin exchange.
+      const tradeResult = tickTradeRoutes({ run: workersResult.run, persistent: workersResult.persistent || state.persistent });
+      if (tradeResult.events && tradeResult.events.length) {
+        workersResult.events = [...(workersResult.events || []), ...tradeResult.events];
+      }
+      workersResult.run = tradeResult.run;
+      // #199 — morale tick. Drifts run.morale toward equilibrium every 30s.
+      const moraleResult = tickMorale({ run: workersResult.run, persistent: workersResult.persistent || state.persistent });
+      if (moraleResult.events && moraleResult.events.length) {
+        workersResult.events = [...(workersResult.events || []), ...moraleResult.events];
+      }
+      workersResult.run = moraleResult.run;
       if (workersResult.run !== run) run = workersResult.run;
       events.push(...(workersResult.events || []));
 
@@ -295,6 +333,28 @@ export function reducer(state, action) {
     case ACTIONS.THIEVERY_MUG: {
       const { run, persistent, events } = performMug(state, action.targetId);
       return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.SET_BUILDING_ASSIGNMENT: {
+      // #187 — manual staffing lock. action.count==null clears the lock.
+      const { run, events } = setBuildingAssignment(state.run, action.buildingId, action.count);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.REPAIR_BUILDING: {
+      // #194 — rebuild a raid-destroyed building at 50% cost.
+      const { run, persistent, events } = performRepair(state, action.buildingId);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.RECRUIT_COMPANION: {
+      const { run, persistent, events } = performRecruit(state, action.id);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.SET_ACTIVE_COMPANION: {
+      const { run, events } = setActiveCompanion(state, action.id);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
     }
 
     case ACTIONS.HUNT: {

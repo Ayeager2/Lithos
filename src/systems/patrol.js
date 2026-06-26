@@ -13,6 +13,7 @@
 
 import { getMob, getMobsForEra } from "../content/mobs.js";
 import { resolveFight, getEffectiveWeapon, getCombatSkillForWeapon } from "./combat.js";
+import { getActiveCompanionBonus } from "./companions.js";
 import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
 import { gainXp, getSkillState } from "./skills.js";
 import { getSpdCooldownMult } from "./character.js";
@@ -117,10 +118,15 @@ function getButcheringBonuses(run) {
 function rollDrops(drops, inventory, run, rng = Math.random) {
   if (!Array.isArray(drops)) return { inventory, parts: [] };
   const { chanceBonus, qtyMult } = getButcheringBonuses(run || {});
+  // #203 — companion rune drop bonus (Pet Crow / Spirit Familiar).
+  const compBonus = getActiveCompanionBonus({ run });
+  const runeBonus = compBonus.runeChanceBonus || 0;
   const next = { ...inventory };
   const parts = [];
   for (const d of drops) {
-    const effChance = Math.min(1, (d.chance ?? 1) + chanceBonus);
+    // Rune drops (anything ending in "Rune") get the companion bonus.
+    const isRune = typeof d.resource === "string" && d.resource.endsWith("Rune");
+    const effChance = Math.min(1, (d.chance ?? 1) + chanceBonus + (isRune ? runeBonus : 0));
     if (rng() >= effChance) continue;
     const baseQty = Array.isArray(d.qty)
       ? randInt(rng, d.qty[0], d.qty[1])
@@ -284,6 +290,21 @@ export function performPatrol(state, opts = {}, now = Date.now(), rng = Math.ran
       events.push({
         kind: "drop",
         message: `🎒 Spoils: ${dropResult.parts.join(", ")}.`,
+      });
+    }
+
+    // #203 — companion weaponDropChance (Old Veteran). On victory, roll
+    // for a bonus weapon item drop. Picks a random weapon the mob could
+    // plausibly carry from common Era 1-2 weapons.
+    const compBonusPatrol = getActiveCompanionBonus({ run });
+    if (compBonusPatrol.weaponDropChance && rng() < compBonusPatrol.weaponDropChance) {
+      const candidates = ["woodenClub", "boneKnife", "stoneAxe"];
+      const pick = candidates[Math.floor(rng() * candidates.length)];
+      run.inventory = { ...run.inventory, [pick]: (run.inventory[pick] || 0) + 1 };
+      events.push({
+        kind: "drop",
+        // Read the weapon's display name (woodenClub → "Wooden Club" etc.).
+        message: `🪖 Your companion picks up a ${pick.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())} from the field.`,
       });
     }
 

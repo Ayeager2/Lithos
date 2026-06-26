@@ -12,6 +12,7 @@ import {
   getBuildingTreeBounds,
 } from "../content/buildings.js";
 import { getResource } from "../content/resources.js";
+import { getAutoAssignments } from "../systems/town.js";
 import { canBuild, getKnownBuildings } from "../systems/building.js";
 import PanZoomSvg from "./PanZoomSvg.jsx";
 
@@ -290,6 +291,47 @@ export default function BuildingsTreeModal({ state, actions, onClose }) {
                     {selected.effectSummary}
                   </p>
                 )}
+
+                {/* #183 — staffing + live production rate for production buildings. */}
+                {isSelectedBuilt && (selected.staffSlots || 0) > 0 && (() => {
+                  const auto = getAutoAssignments(state);
+                  const assigned = auto[selected.id] || 0;
+                  const cap = selected.staffSlots || 0;
+                  const recipe = selected.productionRecipe;
+                  const ratePerMin = recipe ? (recipe.perVillagerPerMinute || 0) * assigned : 0;
+                  let outputLine = "";
+                  if (recipe?.output) {
+                    const parts = Object.entries(recipe.output).map(([r, q]) => `+${(q * ratePerMin).toFixed(2)} ${r}/min`);
+                    outputLine = parts.join(" · ");
+                  }
+                  let inputLine = "";
+                  if (recipe?.input && Object.keys(recipe.input).length > 0) {
+                    const parts = Object.entries(recipe.input).map(([r, q]) => `-${(q * ratePerMin).toFixed(2)} ${r}/min`);
+                    inputLine = parts.join(" · ");
+                  }
+                  return (
+                    <div className="building-staffing" style={{ marginTop: 6, padding: "6px 8px", background: "rgba(220,154,74,0.07)", border: "1px solid var(--border)", borderRadius: 6 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>
+                        👥 Staffed: {assigned}/{cap} villager{cap === 1 ? "" : "s"}
+                      </div>
+                      {outputLine && (
+                        <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+                          {outputLine}
+                        </div>
+                      )}
+                      {inputLine && (
+                        <div className="muted" style={{ fontSize: 11 }}>
+                          {inputLine}
+                        </div>
+                      )}
+                      {assigned === 0 && cap > 0 && (
+                        <div className="muted" style={{ fontSize: 11, marginTop: 2, fontStyle: "italic" }}>
+                          No villagers — production stalled. Grow your settlement or assign manually (coming soon).
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {isSelectedBuilt ? (
                   <div className="tree-detail-learned">Built.</div>

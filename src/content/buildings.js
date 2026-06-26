@@ -17,11 +17,110 @@ export const BUILDINGS = {
     cost: { wood: 50, stone: 25, water: 2 },
     requires: { rockAwakened: true },
     effect: { gatherBonus: 1, gatherSpeedup: 150 },
-    effectSummary: "+1 gather yield · -150ms gather cooldown · activates survival",
+    housing: 1, // #182 — first villager (you).
+    effectSummary: "+1 gather yield · -150ms gather cooldown · activates survival · houses 1.",
     onBuiltMessage: "You raise a small hut from gathered timber and stone. The wasteland is no longer empty.",
     whisperOnAvailable: "The stone whispers: shelter, warmth, a place to call your own. Build a hut.",
     whisperOnBuilt: "The stone whispers: there are skills to learn. Listen, and the world will open.",
     tier: 1, col: 0, parents: [],
+  },
+
+  // #182 — Era 1 housing extension. Cheap, +1 capacity. Lets the
+  // settlement scale beyond just the hut.
+  lean_to: {
+    id: "lean_to", name: "Lean-to", icon: "⛺", category: "shelter",
+    description: "Branches against a stone, a hide thrown over. Not much, but a place out of the wind.",
+    cost: { wood: 20, stone: 5, hide: 1 },
+    requires: { hasBuilding: "hut" },
+    effect: {},
+    housing: 1,
+    effectSummary: "+1 housing — room for one more villager.",
+    onBuiltMessage: "⛺ The lean-to leans true. Someone could live here now.",
+    whisperOnBuilt: "The stone whispers: a place for one more. The settlement begins.",
+    tier: 2, col: -1, parents: ["hut"],
+  },
+
+  // Era 2 cottage — proper roofed dwelling, +3.
+  cottage: {
+    id: "cottage", name: "Cottage", icon: "🏠", category: "shelter",
+    description: "Daub walls, thatched roof, a real hearth. Three can sleep under it, more if the floor is clean.",
+    cost: { wood: 80, stone: 40, water_muddy: 4, hide: 2 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    housing: 3,
+    effectSummary: "+3 housing — a cottage holds a small family.",
+    onBuiltMessage: "🏠 You raise the cottage. The thatch settles. Three more can live here now.",
+    whisperOnBuilt: "The stone whispers: walls thick enough to keep the cold and quiet enough to keep the dreams.",
+    tier: 6, col: 3, parents: ["home"],
+  },
+
+  // ─── Era 2 production (#183) ───────────────────────────────────────
+  // Each building has a productionRecipe (or perVillager passive) that
+  // ticks via systems/town.js tickRecipeProduction. Output scales with
+  // assigned villagers (auto-staffed from idle pop, capped by staffSlots).
+  sawmill: {
+    id: "sawmill", name: "Sawmill", icon: "🪚", category: "production",
+    description: "A pit and a saw. Two strong arms above, one below. Wood comes out faster than the forest can run from you.",
+    cost: { wood: 60, stone: 30, hide: 2 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    staffSlots: 2,
+    productionRecipe: { input: {}, output: { wood: 2 }, perVillagerPerMinute: 1 },
+    effectSummary: "Each villager produces +2 wood / minute. Staff up to 2.",
+    onBuiltMessage: "🪚 The sawmill stands. The first plank falls.",
+    tier: 6, col: 4, parents: ["home"],
+  },
+
+  quarry: {
+    id: "quarry", name: "Quarry", icon: "⛰️", category: "production",
+    description: "A cut into the hillside. The stone shows its grain. Patient work, hard work.",
+    cost: { wood: 40, stone: 80 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    staffSlots: 2,
+    productionRecipe: { input: {}, output: { stone: 2 }, perVillagerPerMinute: 1 },
+    effectSummary: "Each villager produces +2 stone / minute. Staff up to 2.",
+    onBuiltMessage: "⛰️ The first cut into the cliff. The hill bleeds stone.",
+    tier: 6, col: 5, parents: ["home"],
+  },
+
+  bakery: {
+    id: "bakery", name: "Bakery", icon: "🍞", category: "production",
+    description: "Stone oven, wooden trough. The first warm thing that wasn't survival.",
+    cost: { wood: 50, stone: 60, water_muddy: 5 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { food: 2 }, output: { bread: 1 }, perVillagerPerMinute: 1 },
+    effectSummary: "Converts 2 food → 1 bread per villager per minute (bread is 10× more nutritious + keeps longer).",
+    onBuiltMessage: "🍞 The oven warms. The first loaf comes out dark and dense and warm.",
+    tier: 7, col: 4, parents: ["cottage"],
+  },
+
+  tannery: {
+    id: "tannery", name: "Tannery", icon: "🟫", category: "production",
+    description: "A row of pits, a row of frames. Smells worse than it looks. Looks worse than it smells.",
+    cost: { wood: 40, stone: 20, hide: 4 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { hide: 1 }, output: { leather: 1 }, perVillagerPerMinute: 1 },
+    effectSummary: "Converts 1 hide → 1 leather per villager per minute.",
+    onBuiltMessage: "🟫 The tannery stands. The first hide goes in. The wait begins.",
+    tier: 7, col: 5, parents: ["cottage"],
+  },
+
+  brewery: {
+    id: "brewery", name: "Brewery", icon: "🍺", category: "production",
+    description: "Vats and pipes. A patience that makes water do unexpected things.",
+    cost: { wood: 70, stone: 50, water_boiled: 5, food: 5 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { water_boiled: 1, food: 1 }, output: { ale: 1 }, perVillagerPerMinute: 0.5 },
+    effectSummary: "Converts 1 boiled water + 1 food → 1 ale per villager per 2 minutes.",
+    onBuiltMessage: "🍺 The first batch ferments slow. The first cup is the best one.",
+    tier: 7, col: 6, parents: ["cottage"],
   },
 
   firepit: {
@@ -103,7 +202,8 @@ export const BUILDINGS = {
     cost: { wood: 60, stone: 50, water: 5 },
     requires: { researched: "home" },
     effect: { gatherBonus: 1, restBonus: { energy: 10, happiness: 3, sanity: 2 } },
-    effectSummary: "+1 gather yield · Rest restores more here · Resolve & Sanity boost on build.",
+    housing: 2, // #182 — fits a small family.
+    effectSummary: "+1 gather yield · Rest restores more here · Resolve & Sanity boost on build · houses 2.",
     onBuiltMessage: "🏡 You raise a true house. The roof sets. The door swings true.",
     whisperOnBuilt: "The stone whispers: now you have a place to return to. Even the wasteland respects that.",
     tier: 5, col: 1, parents: ["hut"],
@@ -180,6 +280,184 @@ export const BUILDINGS = {
     onBuiltMessage: "🕯️ The Altar takes shape — flat stone, polished, knee-high. You set the stone on it. It looks at you, then closes its eye.",
     whisperOnBuilt: "The stone whispers: now there is a place. Sit with me. There is work that does not end when you stand up.",
     tier: 6, col: 3, parents: ["home"],
+  },
+
+  // ─── Era 3 magical production (#184) ──────────────────────────────
+  // Each gates on Stone Altar + Era 3-tier research. They reuse the
+  // productionRecipe + staffSlots schema from #183 (sawmill etc.) — the
+  // same tick handles arcane and mundane production.
+  apothecary: {
+    id: "apothecary", name: "Apothecary", icon: "🧪", category: "production",
+    description: "Glass alembics catch the firelight. The smell is bitter and faintly sweet. The wares heal, when they work.",
+    cost: { wood: 60, stone: 50, fragments: 8, water_boiled: 5 },
+    requires: { researched: "altarWork", hasBuilding: "stoneAltar" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { fragments: 2, food: 3, water_muddy: 2 }, output: { potionMending: 1 }, perVillagerPerMinute: 0.2 },
+    effectSummary: "1 villager: 2 fragments + 3 food + 2 muddy water → 1 Potion of Mending per 5 min.",
+    onBuiltMessage: "🧪 The apothecary stands. The first vial steams.",
+    tier: 8, col: 1, parents: ["stoneAltar"],
+  },
+
+  scriptorium: {
+    id: "scriptorium", name: "Scriptorium", icon: "📜", category: "production",
+    description: "Long benches under the window-light. Pen-strokes that are not all yours. Knowledge made portable.",
+    cost: { wood: 80, stone: 40, ink: 3, torn_page: 5 },
+    requires: { researched: "altarWork", hasBuilding: "stoneAltar" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { torn_page: 2, ink: 1 }, output: { scroll: 1 }, perVillagerPerMinute: 0.25 },
+    effectSummary: "1 villager: 2 torn pages + 1 ink → 1 scroll per 4 min.",
+    onBuiltMessage: "📜 The scriptorium is set. The first page is bound.",
+    tier: 8, col: 2, parents: ["stoneAltar"],
+  },
+
+  runeForge: {
+    id: "runeForge", name: "Rune Forge", icon: "🪬", category: "production",
+    description: "Cold fire, hot stone. A villager who can hold a chisel and a name can leave both on the world.",
+    cost: { stone: 100, wood: 60, fragments: 10, iron: 4 },
+    requires: { researched: "altarWork", hasBuilding: "stoneAltar" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { fragments: 4, stone: 3 }, output: { splinterRune: 1 }, perVillagerPerMinute: 0.1 },
+    effectSummary: "1 villager: 4 fragments + 3 stone → 1 Splinter Rune per 10 min.",
+    onBuiltMessage: "🪬 The rune forge stands. The first rune cools blue.",
+    tier: 8, col: 3, parents: ["stoneAltar"],
+  },
+
+  // Pure passive trickle — like the Stone Altar itself, this building
+  // contributes via building.effect.spiritPerMinute (read by
+  // systems/passive.js getBuildingStatRates). No staffing needed.
+  spiritCenserWorkshop: {
+    id: "spiritCenserWorkshop", name: "Spirit Censer Workshop", icon: "🪔", category: "arcane",
+    description: "Hanging censers that swing without wind. Each breath the room takes returns a little of itself to you.",
+    cost: { wood: 60, stone: 50, fragments: 6, sinew: 3 },
+    requires: { researched: "altarWork", hasBuilding: "stoneAltar" },
+    effect: { spiritPerMinute: 0.5 },
+    effectSummary: "+0.5 spirit / min — passive, no staffing required.",
+    onBuiltMessage: "🪔 The censers hang. The smoke that rises is not all from the burning.",
+    tier: 8, col: 4, parents: ["stoneAltar"],
+  },
+
+  temple: {
+    id: "temple", name: "Temple", icon: "⛪", category: "arcane",
+    description: "Stone pillars at the head of the village. A place for the things that have no name. The walls hold a quiet that hands cannot.",
+    cost: { stone: 200, wood: 100, fragments: 15, hide: 5 },
+    requires: { researched: "altarWork", hasBuilding: "stoneAltar" },
+    effect: { sanityPerMinute: 0.8 },
+    effectSummary: "+0.8 sanity / min — passive. The settlement breathes easier.",
+    onBuiltMessage: "⛪ The temple stands. The first night under it, the dreams are kinder.",
+    tier: 8, col: 5, parents: ["stoneAltar"],
+  },
+
+  // ─── Era 2/3 civic buildings (#189) ───────────────────────────────
+  // Non-production support: defense, faster pop growth, trade,
+  // research/study speedup. Each plugs into an existing system hook.
+  watchtower: {
+    id: "watchtower", name: "Watchtower", icon: "🗼", category: "comfort",
+    description: "Stone column at the settlement's edge. The first to see what comes; the first to ring the bell. Garrisons up to 3.",
+    cost: { wood: 60, stone: 80, iron: 2 },
+    requires: { researched: "home", hasBuilding: "walls" },
+    effect: { defense: 5 },
+    staffSlots: 3,
+    effectSummary: "+5 defense + critical raid protection. Garrison up to 3 villagers as guards (each guard = 3 army points). Without this, raids sweep 90% of your inventory.",
+    onBuiltMessage: "🗼 The watchtower stands. The horizon is no longer unobserved.",
+    tier: 7, col: 0, parents: ["walls"],
+  },
+
+  mootHall: {
+    id: "mootHall", name: "Moot Hall", icon: "🏛️", category: "comfort",
+    description: "A roof over the gathering circle. People stay longer when they have somewhere to argue.",
+    cost: { wood: 100, stone: 60, hide: 4, food: 10 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: { populationGrowthMult: 1.5 },
+    effectSummary: "Population grows 50% faster while this stands.",
+    onBuiltMessage: "🏛️ The moot hall is built. The first night, people stay later than they used to.",
+    tier: 7, col: 7, parents: ["cottage"],
+  },
+
+  marketplace: {
+    id: "marketplace", name: "Marketplace", icon: "🪙", category: "production",
+    description: "Stalls under awnings. Hands change goods for coin. Coin changes hands again.",
+    cost: { wood: 60, stone: 30, hide: 3, tarnished_coin: 5 },
+    requires: { researched: "home", hasBuilding: "cottage" },
+    effect: {},
+    staffSlots: 1,
+    productionRecipe: { input: { food: 5 }, output: { tarnished_coin: 1 }, perVillagerPerMinute: 1 },
+    // #197 — trade route. Every cycleMs, if EACH listed resource has
+    // more than `threshold` in inventory, exchange `take` of each for
+    // `give` of the output. Surplus → coin pipeline.
+    tradeRoute: {
+      cycleMs: 5 * 60 * 1000,
+      trades: [
+        { take: { wood: 20 }, give: { tarnished_coin: 5 }, threshold: 40 },
+        { take: { stone: 20 }, give: { tarnished_coin: 5 }, threshold: 40 },
+        { take: { hide: 5 }, give: { tarnished_coin: 3 }, threshold: 10 },
+      ],
+    },
+    effectSummary: "Converts 5 food → 1 tarnished coin / villager / minute. Plus every 5 min: trades surplus wood/stone/hide for coins.",
+    onBuiltMessage: "🪙 The marketplace opens. By noon, the first deal is done.",
+    tier: 7, col: 8, parents: ["cottage"],
+  },
+
+  university: {
+    id: "university", name: "University", icon: "🎓", category: "arcane",
+    description: "Halls of patient instruction. The lessons take less time when there is somewhere to take them.",
+    cost: { wood: 150, stone: 120, fragments: 10, scroll: 3, ink: 2 },
+    requires: { researched: "altarWork", hasBuilding: "scriptorium" },
+    effect: { studySpeedMult: 1.25 },
+    effectSummary: "Arcane Studies complete 25% faster while this stands.",
+    onBuiltMessage: "🎓 The university opens. The first class fills the hall by morning.",
+    tier: 9, col: 2, parents: ["scriptorium"],
+  },
+
+  // ─── Storage cap buildings (#194) ──────────────────────────────
+  granary: {
+    id: "granary", name: "Granary", icon: "🌾", category: "comfort",
+    description: "A raised, vented shed. Mice can't climb the stilts. The dry stays inside.",
+    cost: { wood: 80, stone: 30, hide: 2 },
+    requires: { researched: "home", hasBuilding: "home" },
+    effect: {},
+    storageCaps: { food: 50, bread: 20, bird_meat: 15, bird_eggs: 10 },
+    effectSummary: "+50 food, +20 bread, +15 bird meat, +10 eggs storage cap.",
+    onBuiltMessage: "🌾 The granary is up. The first sacks go in.",
+    tier: 7, col: 9, parents: ["home"],
+  },
+
+  cistern: {
+    id: "cistern", name: "Cistern", icon: "🪣", category: "comfort",
+    description: "Stone-lined, lidded, deeper than a man stands. Water that goes in stays drinkable longer.",
+    cost: { stone: 100, wood: 30 },
+    requires: { researched: "home", hasBuilding: "well" },
+    effect: {},
+    storageCaps: { water_muddy: 30, water_boiled: 20, water_stagnant: 10 },
+    effectSummary: "+30 muddy, +20 boiled, +10 stagnant water storage cap.",
+    onBuiltMessage: "🪣 The cistern fills slow. The water keeps.",
+    tier: 7, col: 10, parents: ["well"],
+  },
+
+  lumberStack: {
+    id: "lumberStack", name: "Lumber Stack", icon: "🪵", category: "comfort",
+    description: "Stacked square and roofed. The wood dries instead of rotting.",
+    cost: { wood: 30, stone: 20 },
+    requires: { hasBuilding: "hut" },
+    effect: {},
+    storageCaps: { wood: 50 },
+    effectSummary: "+50 wood storage cap.",
+    onBuiltMessage: "🪵 The lumber stack is squared. The wood will keep.",
+    tier: 3, col: 7, parents: ["hut"],
+  },
+
+  mint: {
+    id: "mint", name: "Mint", icon: "💰", category: "arcane",
+    description: "A small forge. Smaller hammers. The coins come out marked and bright.",
+    cost: { stone: 100, iron: 6, fragments: 8 },
+    requires: { researched: "altarWork", hasBuilding: "marketplace" },
+    effect: {},
+    passiveProduce: { tarnished_coin: { perMinute: 0.5 } },
+    effectSummary: "+0.5 tarnished coin / minute — passive, no staffing.",
+    onBuiltMessage: "💰 The mint stamps its first coin. The metal rings.",
+    tier: 9, col: 3, parents: ["marketplace"],
   },
 };
 

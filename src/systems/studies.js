@@ -46,6 +46,7 @@ import {
   getPathCompletionDelta,
 } from "../content/studies.js";
 import { totalWater, spendWater } from "../content/resources.js";
+import { getAllBuildings } from "../content/buildings.js";
 
 // 5 seconds of doing nothing before the study clock resumes. Keeps the
 // rhythm honest — finishing a quick gather doesn't pause your study, but
@@ -281,6 +282,19 @@ export function performCancelStudy(state, nodeId) {
 // and only when the player has been idle for at least IDLE_THRESHOLD_MS.
 // Returns { run, persistent, events } — persistent may be updated when a
 // study completes and writes an altar etching.
+// #189 — study-speed multiplier. Multiplicative across owned buildings.
+// University → 1.25.
+export function getStudySpeedMult(state) {
+  const built = state.run?.built || {};
+  let mult = 1.0;
+  for (const b of getAllBuildings()) {
+    if (!built[b.id]) continue;
+    const m = b.effect?.studySpeedMult;
+    if (typeof m === "number" && m > 0) mult *= m;
+  }
+  return mult;
+}
+
 export function tickStudies(state, now = Date.now()) {
   const run = state.run;
   const persistent = state.persistent;
@@ -329,7 +343,9 @@ export function tickStudies(state, now = Date.now()) {
   // the next tick will credit the full 4 minutes minus IDLE_THRESHOLD.
   // That's the intended behavior — the player gets credit for being away.
   const lastTickAt = run.lastStudyTickAt || now;
-  const elapsedMs = Math.min(now - lastTickAt, MAX_CATCHUP_MS);
+  const rawElapsed = Math.min(now - lastTickAt, MAX_CATCHUP_MS);
+  // #189 — apply study-speed multiplier from civic buildings.
+  const elapsedMs = Math.round(rawElapsed * getStudySpeedMult(state));
   if (elapsedMs <= 0) {
     return {
       run: { ...run, lastStudyTickAt: now },

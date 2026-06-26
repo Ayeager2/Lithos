@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import DevPanel, { useDevPanelToggle, isDevAvailable } from "./DevPanel.jsx";
 import Scene from "./Scene.jsx";
 import ActionPanel from "./ActionPanel.jsx";
+import TownView from "./TownView.jsx";
 import CharacterView from "./CharacterView.jsx";
 import CraftingView from "./CraftingView.jsx";
 import PatrolView from "./PatrolView.jsx";
@@ -167,12 +168,14 @@ export default function Shell({ state, actions, settingsHook }) {
 
         <main className={`shell-area shell-area--center shell-area--view-${view}`}>
           {view === "world" && (
-            <ActionPanel
-              state={state}
-              actions={actions}
-              settings={settingsHook.settings}
-              settingsHook={settingsHook}
-            />
+            computeEra(state) >= 2
+              ? <TownView state={state} actions={actions} />
+              : <ActionPanel
+                  state={state}
+                  actions={actions}
+                  settings={settingsHook.settings}
+                  settingsHook={settingsHook}
+                />
           )}
           {view === "character" && <CharacterView state={state} actions={actions} />}
           {view === "crafting" && <CraftingView state={state} actions={actions} />}

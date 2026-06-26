@@ -801,6 +801,307 @@ export const EVENTS = {
       },
     ],
   },
+
+  // ============================================================
+  // #188 — Population events (wanderers + losses)
+  // ============================================================
+
+  wandererArrival: {
+    id: "wandererArrival", name: "A Wanderer Arrives", trigger: "interval", weight: 4,
+    requires: { era: 1, hasBuilding: "hut" }, cooldownMs: 8 * 60 * 1000,
+    flavor: "A figure on the road, asking nothing, eyes on the dust.",
+    onFire: {
+      effects: {
+        population: 1,
+        populationReason: "a wanderer joined the settlement",
+        stats: { happiness: 2 },
+        log: { kind: "event_good", message: "🚶 A wanderer reaches your fire. They ask only for a place to sit. Tomorrow they pick up a shovel." },
+      },
+    },
+  },
+
+  refugeeFamily: {
+    id: "refugeeFamily", name: "Refugee Family", trigger: "interval", weight: 2,
+    requires: { era: 2, hasBuilding: "home" }, cooldownMs: 20 * 60 * 1000,
+    flavor: "Three at the gate. Tired. The youngest has not slept in days.",
+    choices: [
+      { id: "take_in", label: "Take them in",
+        effect: {
+          population: 3,
+          populationReason: "took in a refugee family",
+          stats: { food: 0, happiness: 4, sanity: 2 },
+          inventory: { food: -5, water: -3 },
+          alignment: { good: 2 },
+          log: { kind: "event_good", message: "🏘️ You take them in. They have nothing — they bring less. By the third week they bring more." },
+        },
+      },
+      { id: "turn_away", label: "Turn them away",
+        effect: {
+          stats: { sanity: -3, happiness: -2 },
+          alignment: { evil: 1 },
+          log: { kind: "event_strange", message: "🏘️ You turn them away. The youngest is the one you cannot stop seeing in your sleep." },
+        },
+      },
+    ],
+  },
+
+  villagerLost: {
+    id: "villagerLost", name: "Villager Lost", trigger: "interval", weight: 2,
+    requires: { era: 1, hasBuilding: "hut" }, cooldownMs: 25 * 60 * 1000,
+    flavor: "Someone left for water and did not come back.",
+    onFire: {
+      effects: {
+        population: -1,
+        populationReason: "wandered into the wastes and did not return",
+        stats: { sanity: -3, happiness: -2 },
+        log: { kind: "event_strange", message: "🕯️ The dust holds onto the ones who walk too far. The settlement is one quieter tonight." },
+      },
+    },
+  },
+
+  plagueOutbreak: {
+    id: "plagueOutbreak", name: "Plague Outbreak", trigger: "interval", weight: 1,
+    requires: { era: 2 }, cooldownMs: 45 * 60 * 1000,
+    flavor: "A coughing that doesn't stop. The wells taste wrong.",
+    choices: [
+      { id: "quarantine", label: "Quarantine the sick",
+        effect: {
+          population: -1,
+          populationReason: "lost to plague (quarantined the rest)",
+          stats: { sanity: -2 },
+          inventory: { water_boiled: -5 },
+          log: { kind: "event_strange", message: "🤒 You wall off the sick. One does not make it. The rest do." },
+        },
+      },
+      { id: "let_run", label: "Let it run",
+        effect: {
+          population: -3,
+          populationReason: "lost to plague",
+          stats: { sanity: -5, happiness: -4 },
+          alignment: { evil: 1 },
+          log: { kind: "event_strange", message: "💀 You do nothing. The cough takes three. The fourth wakes coughing." },
+        },
+      },
+    ],
+  },
+
+  villagerSeeksFortune: {
+    id: "villagerSeeksFortune", name: "Villager Seeks Fortune", trigger: "interval", weight: 2,
+    requires: { era: 2, hasBuilding: "home" }, cooldownMs: 20 * 60 * 1000,
+    flavor: "One of the villagers has been looking at the road too long.",
+    choices: [
+      { id: "blessing", label: "Send them off with a blessing",
+        effect: {
+          population: -1,
+          populationReason: "left to seek their fortune",
+          inventory: { food: -3, water: -2 },
+          stats: { sanity: 1, happiness: 1 },
+          alignment: { good: 1 },
+          log: { kind: "event_good", message: "🌅 They take a pack and a kind word. The settlement is smaller, but you sleep well." },
+        },
+      },
+      { id: "force_stay", label: "Make them stay",
+        effect: {
+          stats: { sanity: -2, happiness: -3 },
+          alignment: { evil: 2 },
+          log: { kind: "event_strange", message: "⛓️ They stay. They will not look you in the eye after." },
+        },
+      },
+    ],
+  },
+
+  travelingCaravan: {
+    id: "travelingCaravan", name: "Traveling Caravan", trigger: "interval", weight: 2,
+    requires: { era: 2, hasBuilding: "home" }, cooldownMs: 30 * 60 * 1000,
+    flavor: "Wagon-wheels on the road. Two carts. Five people. The lead driver tips their hat.",
+    onFire: {
+      effects: {
+        population: 2,
+        populationReason: "the caravan stayed",
+        inventory: { food: 4, tarnished_coin: 3 },
+        stats: { happiness: 3 },
+        log: { kind: "event_good", message: "🐎 The caravan parks at the edge of the settlement. Two of them never get back on the cart. The rest leave with thanks." },
+      },
+    },
+  },
+
+  // ============================================================
+  // #190 — Settlement raids
+  // ============================================================
+
+  banditRaid: {
+    id: "banditRaid", name: "Bandit Raid", trigger: "interval", weight: 3,
+    requires: { era: 2, hasBuilding: "home" }, cooldownMs: 25 * 60 * 1000,
+    flavor: "Men on horses on the road, looking for what they can take.",
+    onFire: {
+      effects: {
+        raid: { sweepFraction: 0.6, stealResource: { id: "food", amount: 15 }, killVillagers: 1 },
+        stats: { sanity: -3, happiness: -3 },
+        log: { kind: "alert", message: "⚔️ Bandits hit the settlement. They take what isn't nailed down." },
+      },
+    },
+  },
+
+  carrionCrew: {
+    id: "carrionCrew", name: "Carrion Crew", trigger: "interval", weight: 2,
+    requires: { era: 2, hasBuilding: "cottage" }, cooldownMs: 35 * 60 * 1000,
+    flavor: "Scavengers who work in numbers. They smell weakness.",
+    onFire: {
+      effects: {
+        raid: { sweepFraction: 0.5, stealResource: { id: "tarnished_coin", amount: 5 }, damageBuilding: { count: 1 } },
+        stats: { sanity: -2 },
+        log: { kind: "alert", message: "🦅 A carrion crew swarms in. Coin and lumber both go missing." },
+      },
+    },
+  },
+
+  cultistVisit: {
+    id: "cultistVisit", name: "Cultists Come Calling", trigger: "interval", weight: 2,
+    requires: { era: 3, hasBuilding: "stoneAltar" }, cooldownMs: 40 * 60 * 1000,
+    flavor: "Robed strangers ask after the stone. They are not asking.",
+    choices: [
+      { id: "refuse", label: "Refuse them",
+        effect: {
+          raid: { sweepFraction: 0.7, killVillagers: 2, damageBuilding: { count: 1 } },
+          stats: { sanity: -5, happiness: -3 },
+          alignment: { good: 1 },
+          log: { kind: "alert", message: "🕯️ You refuse them. They take what they came for, the slow way." },
+        },
+      },
+      { id: "appease", label: "Give them fragments",
+        effect: {
+          inventory: { fragments: -10 },
+          stats: { sanity: -2 },
+          alignment: { evil: 1 },
+          log: { kind: "event_strange", message: "🕯️ You hand over the fragments. They thank you in a language you do not know." },
+        },
+      },
+    ],
+  },
+
+  demonIncursion: {
+    id: "demonIncursion", name: "Demon Incursion", trigger: "interval", weight: 1,
+    requires: { era: 3, hasBuilding: "stoneAltar" }, cooldownMs: 60 * 60 * 1000,
+    flavor: "The wards crack. Something steps through.",
+    onFire: {
+      effects: {
+        raid: { sweepFraction: 0.95, killVillagers: 3, damageBuilding: { count: 2 }, stealResource: { id: "fragments", amount: 8 } },
+        stats: { sanity: -8, happiness: -5 },
+        alignment: { evil: 1 },
+        log: { kind: "alert", message: "👹 A demon steps from a thinning. By the time it goes back through, the settlement is smaller." },
+      },
+    },
+  },
+
+  plagueCaravan: {
+    id: "plagueCaravan", name: "Plague Caravan", trigger: "interval", weight: 2,
+    requires: { era: 3, hasBuilding: "marketplace" }, cooldownMs: 35 * 60 * 1000,
+    flavor: "A caravan limps in. The lead driver coughs into a rag the wrong color.",
+    choices: [
+      { id: "turn_back", label: "Turn them back",
+        effect: {
+          stats: { sanity: -2, happiness: -1 },
+          alignment: { evil: 1 },
+          log: { kind: "event_strange", message: "🚫 You turn the caravan away. The wagon wheels squeal as they recede." },
+        },
+      },
+      { id: "trade", label: "Trade with them anyway",
+        effect: {
+          inventory: { tarnished_coin: 10, food: 5 },
+          raid: { sweepFraction: 0.3, killVillagers: 2 },
+          stats: { sanity: -3 },
+          log: { kind: "alert", message: "🤝 You trade. The coin is good. The cough spreads through the settlement by week's end." },
+        },
+      },
+    ],
+  },
+
+  // ============================================================
+  // #201 — NPC trading caravans
+  // ============================================================
+
+  wanderingTinker: {
+    id: "wanderingTinker", name: "Wandering Tinker", trigger: "interval", weight: 3,
+    requires: { era: 1, hasBuilding: "hut" }, cooldownMs: 12 * 60 * 1000,
+    flavor: "A small cart at the road's bend. Pots dangle from the awning. The tinker waves you over.",
+    choices: [
+      { id: "trade_wood", label: "Trade 10 wood for 1 hide",
+        effect: {
+          inventory: { wood: -10, hide: 1 },
+          stats: { sanity: 1 },
+          log: { kind: "event_good", message: "🛒 The tinker stacks the wood and hands over a folded hide. Even trade." },
+        },
+      },
+      { id: "trade_stone", label: "Trade 15 stone for 1 sinew",
+        effect: {
+          inventory: { stone: -15, sinew: 1 },
+          stats: { sanity: 1 },
+          log: { kind: "event_good", message: "🛒 The tinker hefts the stone bag and tosses you a length of sinew. Done." },
+        },
+      },
+      { id: "wave_off", label: "Wave them on",
+        effect: {
+          log: { kind: "event_strange", message: "🛒 They roll on without complaint. The cart squeaks all the way out of earshot." },
+        },
+      },
+    ],
+  },
+
+  saltCaravan: {
+    id: "saltCaravan", name: "Salt Caravan", trigger: "interval", weight: 2,
+    requires: { era: 2, hasBuilding: "cottage" }, cooldownMs: 25 * 60 * 1000,
+    flavor: "Four pack-mules. A driver who counts your buildings as they speak.",
+    choices: [
+      { id: "buy_salt", label: "Buy 5 salt for 6 tarnished coin",
+        effect: {
+          inventory: { tarnished_coin: -6, salt_crystal: 5 },
+          log: { kind: "event_good", message: "🛒 You take the salt. The driver counts the coins twice." },
+        },
+      },
+      { id: "sell_iron", label: "Sell 3 iron for 8 tarnished coin",
+        effect: {
+          inventory: { iron: -3, tarnished_coin: 8 },
+          log: { kind: "event_good", message: "🛒 They take the iron and the wagon sits lower as they leave. Coins in hand." },
+        },
+      },
+      { id: "refuse", label: "Refuse",
+        effect: {
+          log: { kind: "event_strange", message: "🛒 They tip a hat and keep walking. The mules follow." },
+        },
+      },
+    ],
+  },
+
+  pilgrimCaravan: {
+    id: "pilgrimCaravan", name: "Pilgrim Caravan", trigger: "interval", weight: 1,
+    requires: { era: 3, hasBuilding: "stoneAltar" }, cooldownMs: 35 * 60 * 1000,
+    flavor: "Robed travelers, eyes too still. They ask after the stone, then after the altar. They carry odd weight.",
+    choices: [
+      { id: "buy_fragments", label: "Trade 4 coin for 2 fragments",
+        effect: {
+          inventory: { tarnished_coin: -4, fragments: 2 },
+          stats: { sanity: -1 },
+          log: { kind: "event_strange", message: "🛒 The pilgrim hands you the fragments. They hum lightly against your palm." },
+        },
+      },
+      { id: "buy_runes", label: "Trade 8 coin + 3 fragments for a Splinter Rune",
+        effect: {
+          inventory: { tarnished_coin: -8, fragments: -3, splinterRune: 1 },
+          stats: { sanity: -2 },
+          alignment: { evil: 1 },
+          log: { kind: "event_strange", message: "🛒 The rune comes warm and dark. The pilgrim walks off humming a phrase you almost remember." },
+        },
+      },
+      { id: "wave_off", label: "Wave them on",
+        effect: {
+          stats: { sanity: 2 },
+          alignment: { good: 1 },
+          log: { kind: "event_good", message: "🛒 You let them pass. The sound of their humming fades, then stops." },
+        },
+      },
+    ],
+  },
+
 };
 
 export const getEvent = (id) => EVENTS[id] || null;

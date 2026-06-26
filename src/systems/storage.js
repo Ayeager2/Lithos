@@ -1,6 +1,7 @@
 // Storage system. Inventory caps + food spoilage.
 
 import { getAllResources, getResource } from "../content/resources.js";
+import { getActiveCompanionBonus } from "./companions.js";
 import { getAllBuildings } from "../content/buildings.js";
 
 // Cap on how much offline spoilage we apply at once. Same idea as passive
@@ -17,6 +18,11 @@ export function getResourceCap(state, resourceId) {
     if (!state.run.built?.[b.id]) continue;
     const inc = b.storageCaps?.[resourceId];
     if (typeof inc === "number") cap += inc;
+  }
+  // #203 — companion storage multiplier (Stable Mule = ×1.15).
+  const compBonus = getActiveCompanionBonus(state);
+  if (compBonus.storageCapMult && compBonus.storageCapMult > 0) {
+    cap = Math.floor(cap * compBonus.storageCapMult);
   }
   return cap;
 }

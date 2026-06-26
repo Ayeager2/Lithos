@@ -981,3 +981,107 @@ Same NPCs are intended to return in later eras as proto-companion encounters onc
 - `accBonus` (0..1, folds into hit roll)
 - `critChanceBonus` (0..1, folds into crit roll)
 - `spir
+
+
+## Town / Economy (#182 / #183 / #184 / #186 / #187 / #188 / #189 / #190 / #191 / #192 / #193 / #194) — ✅ live
+
+A self-contained settlement-management arc layered on top of the Wasteland survival game. Era 2+ swaps the legacy ActionPanel (Wasteland) for the new TownView. Closes a full loop of population growth → consumption → production → raids → defense → repair.
+
+**State (all run-scoped, wipes on prestige):**
+
+| Field | Set by | Read by |
+| --- | --- | --- |
+| `population` | tickPopulation, gain/losePopulation, events | tickConsumption, getAssignments, UI |
+| `populationGrowAccum`, `lastPopulationTickAt` | tickPopulation | tickPopulation |
+| `assignments[buildingId].locked` | setBuildingAssignment | getAssignments |
+| `recipeAccum`, `lastRecipeTickAt` | tickRecipeProduction | tickRecipeProduction |
+| `consumptionAccum`, `lastConsumptionTickAt` | tickConsumption | tickConsumption |
+| `shortageMs`, `shortageLastLossAt` | tickConsumption | tickConsumption, getShortageStatus, TownView |
+| `destroyedBuildings[id]` | raid (events.js applyEffects) | canRepair, performRepair, TownView |
+
+**Tick order (TICK_LOOP, every 250ms):**
+
+```
+tickWorkers (existing)
+  → tickPopulation     (#182, +villager every 5min when food/water/sanity OK)
+  → tickRecipeProduction  (#183, recipe outputs scaled by assigned villagers)
+  → tickConsumption    (#192/193, drains stockpile + tracks shortage)
+applyPassiveProduction (existing, passiveProduce buildings)
+```
+
+**Population growth math (#182):**
+
+`+1 villager per 5min × populationGrowthMult` when:
+- food ≥ 5 in stockpile
+- water (any tier) ≥ 1
+- sanity ≥ 30
+- population < housing cap
+
+Housing cap = sum of `building.housing` across built buildings. Default ladder: Hut=1, Lean-to=1, Home=2, Cottage=3. Moot Hall (Era 2 civic) gives ×1.5 growth speed multiplier (#189).
+
+**Production math (#183/#184):**
+
+Each building has either:
+- `productionRecipe: { input, output, perVillagerPerMinute }` — consumes input, produces output, scaled by `staffSlots` × `perVillagerPerMinute`
+- `passiveProduce: { [res]: { perMinute } }` — straight passive (no staffing)
+- `effect.spiritPerMinute` / `effect.sanityPerMinute` — passive stat trickle
+
+Recipe skips entirely if ANY input is missing. Output respects inventory caps via clampToCap.
+
+Era 2 production roster: Sawmill (wood), Quarry (stone), Bakery (food→bread), Tannery (hide→leather), Brewery (water+food→ale), Marketplace (food→coin).
+
+Era 3 arcane roster: Apothecary (frag+food→potion), Scriptorium (page+ink→scroll), Rune Forge (frag+stone→Splinter Rune), Spirit Censer (+0.5 spirit/min), Temple (+0.8 sanity/min), Mint (+0.5 coin/min), University (+25% study speed).
+
+**Staffing (#183/#187):**
+
+`getAssignments(state)` returns `{ [buildingId]: count }` — total villagers on each building.
+
+Hybrid model:
+1. Apply locked assignments (`run.assignments[id].locked`) first — capped by staffSlots and remaining population
+2. Distribute remaining idle pop round-robin across unlocked buildings
+
+Manual lock via `actions.assignBuilding(id, count)` (count==null clears the lock).
+
+**Consumption + starvation (#192/#193):**
+
+Per-villager drain per minute:
+- food: 0.3
+- water: 0.3 (drains highest tier first: boiled → muddy → stagnant)
+- wood: 0.2
+
+When stockpile can't cover a resource's demand, `run.shortageMs[res]` accumulates real-time ms. Escalating penalties:
+- 0–60s: grace
+- 60s+: warning banner; sanity drain -0.5/min per missing resource (60s+)
+- 180s+: villagers walk off (-1 every 60s of continued shortage)
+- 300s+: villagers die (-1 every 60s of continued shortage)
+
+Shortage clears the moment a tick fully meets demand for that resource. `getShortageStatus(state)` returns `{ [res]: { tier, ms } }` for UI.
+
+**Raids (#190/#191):**
+
+5 raid events (Bandit, Carrion Crew, Cultists, Demon Incursion, Plague Caravan). Each has `effects.raid: { sweepFraction, damageBuilding, killVillagers, stealResource }`.
+
+Sweep math (defense.js `getRaidLossFraction`):
+- Base sweep = `effects.raid.sweepFraction` (0.5–0.95)
+- Pre-Watchtower defenses (Walls etc.) shave -4% per defense point
+- Watchtower (must be built) applies critical 0.35× multiplier
+- Army strength = (weapons in inventory) + (Watchtower-staffed villagers × 3); each point reduces multiplier by 4% (floor 0.15×)
+- Floor: 5% always lost
+
+Protected from sweep: anything with `weaponStats` or `category: "tool"/"consumable"/"arcane"`. The player keeps what they need to fight.
+
+Building destruction targets random non-shelter buildings, removes them from `run.built`, stamps `run.destroyedBuildings[id]`.
+
+**Repair (#194):**
+
+`canRepair(state, id)` checks `destroyedBuildings[id]` exists + player can afford 50% of original cost (rounded up). `performRepair` spends and re-adds to `built`. Action: `REPAIR_BUILDING`, dispatcher `actions.repairBuilding(id)`. TownView surfaces a 🔥 Damaged section with Repair buttons.
+
+**TownView UI (#186):**
+
+Sections: Settlement header (population N/M + growth status), 🔥 Consumption row (live -X/min per resource), 📊 Net row (production - consumption per resource), ⚠️ Starvation banner (color-tiered by severity), 🔥 Damaged (only when buildings destroyed), then building grid grouped by category (Housing / Production / Arcane / Comfort / Other).
+
+Each BuildingCard shows built/unbuilt state, staffing count + lock indicator, live output rate, +/- buttons for manual staffing, cost chips for unbuilt.
+
+**Dev panel helpers (#195):**
+
+Arcane tab → Town economy section: Stock all resources, Force starvation, End all shortages, Destroy random building, Clear destroyed list, Clear all staffing locks. Counter row shows live: destroyed count, lock count, shortage count.

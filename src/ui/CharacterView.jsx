@@ -20,6 +20,8 @@
 
 import { useState } from "react";
 import { SLOTS, getEquippable } from "../systems/equipment.js";
+import { getAllCompanions, getCompanion } from "../content/companions.js";
+import { canRecruit, getOwnedCompanions } from "../systems/companions.js";
 import {
   getPersonalArmor,
   getCombatSkillForWeapon,
@@ -266,6 +268,7 @@ const JUMP_ITEMS = [
   { id: "char-stats", icon: "📊", label: "Stats" },
   { id: "char-skills", icon: "🎯", label: "Skills" },
   { id: "char-equipment", icon: "🛡️", label: "Equipment" },
+  { id: "char-companions", icon: "🐾", label: "Companions" },
   { id: "char-altar", icon: "🕯️", label: "Altar" },
   { id: "char-items", icon: "🎒", label: "Items" },
 ];
@@ -295,6 +298,7 @@ function etchingMeta(id) {
   if (id.startsWith("craft:weapon:")) return { icon: "⚒️", group: "Crafts" };
   if (id.startsWith("craft:")) return { icon: "⚒️", group: "Crafts" };
   if (id.startsWith("ascension:")) return { icon: "🌌", group: "Ascensions" };
+  if (id.startsWith("settlement:")) return { icon: "🏘️", group: "Settlement" };
   return { icon: "🕯️", group: "Other" };
 }
 function fmtRelTime(ms) {
@@ -317,6 +321,112 @@ function AltarEtching({ id, entry }) {
     </div>
   );
 }
+function CompanionsSection({ state, actions }) {
+  const all = getAllCompanions();
+  const owned = new Set(Object.keys(state.run?.companions?.owned || {}));
+  const activeId = state.run?.companions?.active || null;
+  const era = state.run?.era || 0;
+  return (
+    <div id="char-companions" className="char-section">
+      <h3 className="char-section-title">
+        <span aria-hidden="true">🐾</span> Companions
+        <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
+          {owned.size} owned · {activeId ? "1 active" : "none active"}
+        </span>
+      </h3>
+      <p className="muted char-section-lead">
+        One walks with you. The rest wait nearby. Click to swap.
+      </p>
+      <div className="patrol-card-grid">
+        {all.filter((c) => (c.era || 1) <= era + 1).map((c) => {
+          const isOwned = owned.has(c.id);
+          const isActive = activeId === c.id;
+          const check = canRecruit(state, c.id);
+          const bonusLines = Object.entries(c.bonuses || {}).map(([k, v]) => {
+            const labels = {
+              hpRegenPerMin: `+${v} HP / min`,
+              spiritPerMin: `+${v} Spirit / min`,
+              defense: `+${v} defense`,
+              gatherDropMult: `×${v} gather drops`,
+              gatherChanceBonus: `+${Math.round(v * 100)}% gather success`,
+              runeChanceBonus: `+${Math.round(v * 100)}% rune drops`,
+              weaponDropChance: `${Math.round(v * 100)}% bonus weapon / patrol`,
+              storageCapMult: `×${v} inventory cap`,
+            };
+            return labels[k] || `${k}: ${v}`;
+          });
+          return (
+            <div key={c.id}
+              className={`patrol-card patrol-card--magic ${!isOwned ? "is-locked" : ""} ${isActive ? "is-active-loop" : ""}`}
+              title={c.description}>
+              <div className="patrol-card-head">
+                <span className="patrol-card-icon" aria-hidden="true">{c.icon}</span>
+                <div className="patrol-card-title">
+                  <div className="patrol-card-name">{c.name}</div>
+                  <div className="patrol-card-sub">
+                    {isActive ? (
+                      <span className="patrol-card-tier patrol-card-tier--rare">🌟 Active</span>
+                    ) : isOwned ? (
+                      <span className="patrol-card-tier patrol-card-tier--common">✔ Owned</span>
+                    ) : (
+                      <span className="patrol-card-tier patrol-card-tier--uncommon">Unmet</span>
+                    )}
+                    <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
+                      · era {c.era} · {c.bond}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="patrol-card-desc muted" style={{ fontSize: 11 }}>{c.description}</p>
+              <div className="patrol-card-drops">
+                <div className="patrol-card-drops-label muted" style={{ fontSize: 10 }}>Bonuses</div>
+                <ul className="patrol-card-drops-list" style={{ fontSize: 11 }}>
+                  {bonusLines.map((line, i) => (
+                    <li key={i} className="patrol-card-drop">{line}</li>
+                  ))}
+                </ul>
+              </div>
+              {!isOwned && (
+                <>
+                  <div className="patrol-card-drops">
+                    <div className="patrol-card-drops-label muted" style={{ fontSize: 10 }}>Cost</div>
+                    <ul className="patrol-card-drops-list" style={{ fontSize: 11 }}>
+                      {Object.entries(c.cost || {}).map(([res, qty]) => (
+                        <li key={res} className="patrol-card-drop">{res} ×{qty}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <button type="button"
+                    className="btn btn-primary btn-sm patrol-card-cta-btn"
+                    disabled={!check.ok}
+                    title={check.ok ? `Recruit ${c.name}` : check.reason}
+                    onClick={() => actions.recruitCompanion(c.id)}>
+                    {check.ok ? "Recruit" : "Locked"}
+                  </button>
+                </>
+              )}
+              {isOwned && !isActive && (
+                <button type="button"
+                  className="btn btn-primary btn-sm patrol-card-cta-btn"
+                  onClick={() => actions.setActiveCompanion(c.id)}>
+                  Activate
+                </button>
+              )}
+              {isActive && (
+                <button type="button"
+                  className="btn btn-ghost btn-sm patrol-card-cta-btn"
+                  onClick={() => actions.setActiveCompanion(null)}>
+                  Dismiss
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AltarSection({ state }) {
   const built = !!state.run?.built?.stoneAltar;
   const etchings = state.persistent?.altarEtchings || {};
@@ -327,6 +437,7 @@ function AltarSection({ state }) {
     Ascensions: [],
     Studies: [],
     Bosses: [],
+    Settlement: [],
     Combat: [],
     Thievery: [],
     Hunts: [],
@@ -598,7 +709,10 @@ export default function CharacterView({ state, actions }) {
         </div>
       </div>
 
-      {/* ─── 4. Stone Altar etchings ─── */}
+      {/* ─── 4. Companions ─── */}
+      <CompanionsSection state={state} actions={actions} />
+
+      {/* ─── 5. Stone Altar etchings ─── */}
       <AltarSection state={state} />
 
       {/* ─── 5. Items ─── */}

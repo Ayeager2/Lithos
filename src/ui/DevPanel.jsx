@@ -488,6 +488,51 @@ function ArcaneTab({ state, apply }) {
         </div>
         <Btn label="🗡️ Set Thievery to Lv 10" onClick={() => apply(dev.devLevelThievery(state, 10))} />
         <Btn label="🗡️ Set Thievery to Lv 20 (max)" onClick={() => apply(dev.devLevelThievery(state, 20))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Town / population (#182).
+        </div>
+        <Btn label="🏠 Set Population → 10" onClick={() => apply(dev.devSetPopulation(state, 10))} />
+        <Btn label="🏠 Set Population → 0" onClick={() => apply(dev.devSetPopulation(state, 0))} />
+        <Btn label="🛖 Build all Era 1-2 shelter" onClick={() => apply(dev.devBuildAllShelter(state))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Population: {state.run?.population ?? 0} · housing cap: {state.run?.built ? Object.keys(state.run.built).length : 0} buildings built.
+        </div>
+
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Town economy (#182-#194).
+        </div>
+        <Btn label="📦 Stock all resources" onClick={() => apply(dev.devStockResources(state))} />
+        <Btn label="💀 Force starvation (food)" danger onClick={() => apply(dev.devForceStarvation(state))} />
+        <Btn label="🌾 End all shortages" onClick={() => apply(dev.devEndStarvation(state))} />
+        <Btn label="🔥 Destroy random building" danger onClick={() => apply(dev.devDestroyRandomBuilding(state))} />
+        <Btn label="🧹 Clear destroyed list" onClick={() => apply(dev.devClearDestroyed(state))} />
+        <Btn label="🎚️ Clear all staffing locks" onClick={() => apply(dev.devClearAssignments(state))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Destroyed: {Object.keys(state.run?.destroyedBuildings || {}).length} ·
+          Locks: {Object.keys(state.run?.assignments || {}).length} ·
+          Shortages: {Object.keys(state.run?.shortageMs || {}).length}
+        </div>
+
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Morale + trade (#196-#200).
+        </div>
+        <Btn label="✨ Morale → 0 (Despondent)" onClick={() => apply(dev.devSetMorale(state, 0))} />
+        <Btn label="✨ Morale → 50 (Settled)" onClick={() => apply(dev.devSetMorale(state, 50))} />
+        <Btn label="✨ Morale → 100 (Joyful)" onClick={() => apply(dev.devSetMorale(state, 100))} />
+        <Btn label="🪙 Force trade route fire" onClick={() => apply(dev.devForceTradeRoute(state))} />
+        <Btn label="📦 Give trade stock" onClick={() => apply(dev.devGiveTradeStock(state))} />
+        <Btn label="🏘️ Stamp sample settlement etchings" onClick={() => apply(dev.devStampSettlementEtchings(state))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Companions (#202).
+        </div>
+        <Btn label="🐕 Grant Stray Dog" onClick={() => apply(dev.devGrantCompanion(state, "strayDog"))} />
+        <Btn label="🐦‍⬛ Grant Pet Crow" onClick={() => apply(dev.devGrantCompanion(state, "petCrow"))} />
+        <Btn label="🪖 Grant Old Veteran" onClick={() => apply(dev.devGrantCompanion(state, "oldVeteran"))} />
+        <Btn label="🐴 Grant Stable Mule" onClick={() => apply(dev.devGrantCompanion(state, "stableMule"))} />
+        <Btn label="🦋 Grant Spirit Familiar" onClick={() => apply(dev.devGrantCompanion(state, "spiritFamiliar"))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Morale: {Math.round(state.run?.morale ?? 50)}
+        </div>
         <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
           Alignment: {state.run?.alignment?.good || 0} good · {state.run?.alignment?.evil || 0} evil
         </div>

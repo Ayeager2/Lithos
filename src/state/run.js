@@ -100,6 +100,41 @@ export const RUN_DEFAULTS = {
   // reads them through getEffectiveImbueEffects (same effect schema as
   // runes). See systems/enchantments.js and content/enchantments.js.
   enchantments: {},       // { [weaponId]: { [enchantId]: { appliedAt } } }
+
+  // ─── Town / Economy (#182) ───────────────────────────────────────
+  // Population tracks villagers in the settlement. Grows passively
+  // when food/water/sanity thresholds are met (see systems/town.js).
+  population: 0,
+  populationGrowAccum: 0, // fractional carrier between TICKs
+  lastPopulationTickAt: 0,
+  // #183 — production recipes. recipeAccum carries fractional output
+  // between TICKs, lastRecipeTickAt drives the catchup window.
+  recipeAccum: {},
+  lastRecipeTickAt: 0,
+  // #192 — settlement consumption. Population drains food/water/wood
+  // every tick. consumptionAccum carries the fractional drain.
+  consumptionAccum: {},
+  lastConsumptionTickAt: 0,
+  // #193 — starvation tracking. Per-resource sustained-shortage counter
+  // (ms). Penalties fire at 60s/180s/300s thresholds.
+  shortageMs: {},
+  shortageLastLossAt: {},
+  // #194 — buildings destroyed by raids. Repairable at 50% cost via
+  // performRepair (systems/building.js). { [id]: { destroyedAt } }.
+  destroyedBuildings: {},
+  // #197 — last trade-route fire timestamp per building.
+  tradeRouteLastAt: {},
+  // #202 — companions / pets. One active at a time, full roster in owned.
+  companions: { active: null, owned: {} },
+  // #199 — settlement morale (0-100). Default 50. Drifts toward an
+  // equilibrium computed by getMoraleEquilibrium. Multiplies production
+  // rates via getMoraleMult.
+  morale: 50,
+  lastMoraleTickAt: 0,
+  // #187 — manual staffing overrides. { [buildingId]: { locked: N } }.
+  // Absence of an entry == auto-fill. Locked entries take priority,
+  // remaining pop auto-fills the rest.
+  assignments: {},
   // #151 — temporary blessings. Burn a rune + spend Spirit to apply its
   // imbueEffect for ~5 min. Aggregated alongside weapon imbues in
   // getEffectiveImbueEffects so combat math sees both.

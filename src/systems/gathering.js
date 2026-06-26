@@ -10,6 +10,7 @@ import { getBuilding } from "../content/buildings.js";
 import { getResearch } from "../content/research.js";
 import { getToolEffects } from "../content/tools.js";
 import { getBuildingBonuses } from "./building.js";
+import { getActiveCompanionBonus } from "./companions.js";
 import { getResearchBonuses } from "./research.js";
 import { getBonus, gainXp } from "./skills.js";
 import { getSpdCooldownMult } from "./character.js";
@@ -127,11 +128,16 @@ export function performGather(state, rng = Math.random) {
   const researchBonuses = getResearchBonuses(run);
   const toolEff = getToolEffects(run);
   const skillGatherBonus = getBonus(run, "gatherBonus");
+  // #203 — companion bonuses to gather (Pet Crow drop mult, Stray Dog
+  // success bonus, Stable Mule small drop mult).
+  const compBonus = getActiveCompanionBonus(state);
   const gatherBonus =
     (buildingBonuses.gatherBonus || 0) +
     (researchBonuses.gatherBonus || 0) +
     (toolEff.gatherBonus || 0) +
-    skillGatherBonus;
+    skillGatherBonus +
+    (compBonus.gatherChanceBonus || 0);
+  const compDropMult = compBonus.gatherDropMult || 1.0;
 
   const yieldMult = survivalActive(state)
     ? getYieldMultiplier(run.stats, run)
@@ -159,7 +165,7 @@ export function performGather(state, rng = Math.random) {
       else if (result.id === "stone") perResourceBonus = toolEff.stoneBonus || 0;
       else if (result.id === "food") perResourceBonus = toolEff.foodBonus || 0;
       const rawQty = baseQty + gatherBonus + perResourceBonus;
-      let qty = Math.max(1, Math.round(rawQty * yieldMult * worldGatherMult));
+      let qty = Math.max(1, Math.round(rawQty * yieldMult * compDropMult * worldGatherMult));
 
       // World Score may promote a water_stagnant gather to a better tier
       // (≥30: 10% chance to muddy; ≥50: muddy guaranteed, 10% to boiled).

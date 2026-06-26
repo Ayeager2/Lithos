@@ -1,6 +1,7 @@
 // Body & Mind stat bars, shown in the action panel once survival is active.
 import { SURVIVAL } from "../content/survival.js";
 import { getDefense } from "../systems/threats.js";
+import { getHousingCap } from "../systems/town.js";
 import { computeEra } from "../systems/era.js";
 
 const STAT_TIPS = {
@@ -70,6 +71,25 @@ export default function SurvivalBars({ state }) {
         <span className="sb-defense-name">Defense</span>
         <span className="sb-defense-value">{defense}</span>
       </div>
+
+      {(() => {
+        const pop = state?.run?.population ?? 0;
+        const cap = getHousingCap(state);
+        if (cap === 0 && pop === 0) return null;
+        const atCap = pop >= cap;
+        return (
+          <div
+            className="sb-defense"
+            title={atCap
+              ? "Population at housing cap. Build more shelter to grow."
+              : "Population — grows slowly when food / water / sanity allow."}
+          >
+            <span className="sb-defense-icon" aria-hidden="true">🏠</span>
+            <span className="sb-defense-name">Population</span>
+            <span className="sb-defense-value">{pop} / {cap}</span>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -140,6 +140,30 @@ export const RESOURCES = {
     deathDebuffRecovery: 0.12,
   },
 
+  // ─── Era 2 production outputs (#183) ───────────────────────────────
+  // Crafted from raw food/water/hide via production buildings.
+  bread: {
+    id: "bread", name: "Bread", icon: "🍞", category: "food",
+    nutrition: 30, tier: 2,
+    description: "Stone-ground, slow-baked. Keeps a week if the air is dry.",
+    baseCap: 20,
+    spoilage: { perMinute: 0.15, atCapMultiplier: 4 },
+    deathDebuffRecovery: 0.10,
+  },
+
+  leather: {
+    id: "leather", name: "Leather", icon: "🟫", category: "materials",
+    description: "Cured, supple, strong. The kind of material that becomes other things.",
+    baseCap: 30,
+  },
+
+  ale: {
+    id: "ale", name: "Ale", icon: "🍺", category: "drink",
+    description: "Bitter and warm. The day softens around its edges.",
+    baseCap: 15, thirstRelief: 8, sanityRelief: 5,
+    spoilage: { perMinute: 0.05, atCapMultiplier: 2 },
+  },
+
   bird_eggs: {
     id: "bird_eggs",
     name: "Bird Eggs",

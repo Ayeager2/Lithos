@@ -192,3 +192,67 @@ export function getBuildingBonuses(run) {
   }
   return { gatherBonus };
 }
+
+
+// ─── Building repair (#194) ─────────────────────────────────────────
+// When raids destroy a building (#190/#191), it lands on
+// run.destroyedBuildings = { [id]: { destroyedAt } }. The player can
+// then rebuild at HALF the original cost — much faster than rebuilding
+// from scratch (the foundation survives; only the structure needs
+// replacing). Once repaired, the entry is removed from destroyedBuildings
+// and re-added to run.built.
+
+export function canRepair(state, buildingId) {
+  const building = getBuilding(buildingId);
+  if (!building) return { ok: false, reason: "Unknown building." };
+  if (!state.run.destroyedBuildings?.[buildingId]) {
+    return { ok: false, reason: "Nothing to repair." };
+  }
+  if (state.run.built?.[buildingId]) {
+    return { ok: false, reason: "Already standing." };
+  }
+  // Half cost (rounded up so a 1-cost item still costs 1).
+  const cost = building.cost || {};
+  const inv = state.run.inventory || {};
+  for (const [res, qty] of Object.entries(cost)) {
+    const need = Math.max(1, Math.ceil(qty * 0.5));
+    if (res === "water") {
+      // Sum all water tiers.
+      const total = (inv.water_stagnant || 0) + (inv.water_muddy || 0) + (inv.water_boiled || 0);
+      if (total < need) return { ok: false, reason: `Need ${need} water.` };
+    } else if ((inv[res] || 0) < need) {
+      return { ok: false, reason: `Need ${need} ${res}.` };
+    }
+  }
+  return { ok: true };
+}
+
+export function performRepair(state, buildingId) {
+  const check = canRepair(state, buildingId);
+  if (!check.ok) {
+    return { run: state.run, persistent: state.persistent,
+      events: [{ kind: "buildFail", message: check.reason }] };
+  }
+  const building = getBuilding(buildingId);
+  let inventory = { ...(state.run.inventory || {}) };
+  for (const [res, qty] of Object.entries(building.cost || {})) {
+    const need = Math.max(1, Math.ceil(qty * 0.5));
+    if (res === "water") {
+      inventory = spendWater(inventory, need);
+    } else {
+      inventory[res] = (inventory[res] || 0) - need;
+    }
+  }
+  const built = { ...(state.run.built || {}), [buildingId]: { at: Date.now(), repairedAt: Date.now() } };
+  const destroyedBuildings = { ...(state.run.destroyedBuildings || {}) };
+  delete destroyedBuildings[buildingId];
+  const run = { ...state.run, inventory, built, destroyedBuildings };
+  // #198 — first repair ever stamps an etching.
+  let persistent = state.persistent;
+  const events = [{ kind: "build", message: `🔨 The ${building.name} stands again — repaired at half cost.` }];
+  if (isFirstStamp(persistent, "settlement:repair:first")) {
+    persistent = stampEtchingOnce(persistent, "settlement:repair:first", `First building repaired (${building.name})`);
+    events.push({ kind: "milestone", message: "🕯️ An etching appears on the Altar: First building repaired." });
+  }
+  return { run, persistent, events };
+}

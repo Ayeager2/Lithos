@@ -1,6 +1,7 @@
 // Passive production system. Reducer's TICK case calls this every 15s.
 
 import { getAllBuildings } from "../content/buildings.js";
+import { getActiveCompanionBonus } from "./companions.js";
 import { getResourceCap } from "./storage.js";
 import { getToolEffects } from "../content/tools.js";
 import { getStudyPassives } from "./studies.js";
@@ -104,11 +105,14 @@ export function applyPassiveProduction(state) {
   const toolEff = getToolEffects(run);
   // Building-side stat trickles (e.g. Stone Altar +0.2 sanity / min).
   const buildingStatRates = getBuildingStatRates(run);
+  // #203 — companion stat trickles (Spirit Familiar / Stray Dog / etc.).
+  const compBonus = getActiveCompanionBonus(state);
   const spiritPerMin =
-    (toolEff.spiritPerMinute || 0) + buildingStatRates.spiritPerMinute;
+    (toolEff.spiritPerMinute || 0) + buildingStatRates.spiritPerMinute + (compBonus.spiritPerMin || 0);
   const sanityPerMin = buildingStatRates.sanityPerMinute;
+  const hpPerMin = (compBonus.hpRegenPerMin || 0);
 
-  if (Object.keys(rates).length === 0 && spiritPerMin === 0 && sanityPerMin === 0) {
+  if (Object.keys(rates).length === 0 && spiritPerMin === 0 && sanityPerMin === 0 && hpPerMin === 0) {
     return { run, events: [] };
   }
 
@@ -166,6 +170,20 @@ export function applyPassiveProduction(state) {
   // Stone Altar's passive Sanity trickle. Same accumulator pattern as
   // Spirit above — the +0.2/min rate means partial points accrue
   // between ticks and only credited when they reach a whole integer.
+  // #203 — companion HP trickle.
+  if (hpPerMin > 0) {
+    const key = "_stat_hp";
+    accum[key] = (accum[key] || 0) + hpPerMin * elapsedMin;
+    const whole = Math.floor(accum[key]);
+    if (whole > 0) {
+      const current = stats?.hp ?? 100;
+      const next = Math.max(0, Math.min(100, current + whole));
+      if (next !== current) stats = { ...stats, hp: next };
+      accum[key] -= whole;
+      if (accum[key] > hpPerMin) accum[key] = hpPerMin;
+    }
+  }
+
   if (sanityPerMin > 0) {
     const key = "_stat_sanity";
     accum[key] = (accum[key] || 0) + sanityPerMin * elapsedMin;

@@ -1,9 +1,13 @@
 // Random events system.
 
 import { getAllEvents, getEvent } from "../content/events.js";
+import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
 import { applyEffect } from "./survival.js";
 import { totalWater, spendWater } from "../content/resources.js";
 import { computeEra } from "./era.js";
+import { gainPopulation, losePopulation } from "./town.js";
+import { getDefense, getRaidLossFraction, getRaidProtectedKeys } from "./defense.js";
+import { getAllBuildings } from "../content/buildings.js";
 
 export const INTERVAL_MS = 60 * 1000;
 const GATHER_EVENT_CHANCE = 0.04;
@@ -116,6 +120,120 @@ function applyEventEffects(state, effects, multiplier = 1.0) {
         intensity: intensity || 1,
       };
     }
+  }
+
+  // #190 — raid effects. effects.raid is an object describing the raid:
+  //   { stealResource: { id, amount }, damageBuilding: { count }, killVillagers: N }
+  // All quantities are scaled inversely by settlement defense (each
+  // point of defense reduces effective intensity by ~7%, capped at 70%).
+  if (effects.raid) {
+    const raid = effects.raid;
+    const defense = getDefense({ run, persistent });
+    const reduction = Math.min(0.7, defense * 0.07);
+    const survive = 1 - reduction; // 1.0 with no defense, 0.3 floor at high def
+
+    // Inventory sweep — the punishing default. raid.sweepFraction is
+    // 0.9 by default (90% of every non-protected resource). Defense +
+    // Watchtower + army reduce this dramatically via getRaidLossFraction.
+    if (typeof raid.sweepFraction === "number" && raid.sweepFraction > 0) {
+      const lossFrac = getRaidLossFraction({ run, persistent }, raid.sweepFraction);
+      const protectedSet = getRaidProtectedKeys({ run, persistent });
+      const totals = {};
+      for (const [k, v] of Object.entries(run.inventory || {})) {
+        if (!v || v <= 0) continue;
+        if (protectedSet.has(k)) continue;
+        const lost = Math.floor(v * lossFrac);
+        if (lost > 0) {
+          run.inventory[k] = v - lost;
+          totals[k] = lost;
+        }
+      }
+      const lossPct = Math.round(lossFrac * 100);
+      if (Object.keys(totals).length === 0) {
+        events.push({ kind: "alert", message: `🛡️ Raid pushed back — your defense held. ${lossPct}% sweep blocked.` });
+        // #198 — first time defenses fully blocked a sweep.
+        if (isFirstStamp(persistent, "settlement:raid:survived")) {
+          persistent = stampEtchingOnce(persistent, "settlement:raid:survived", "First raid fully repelled");
+          events.push({ kind: "milestone", message: "🕯️ An etching appears on the Altar: First raid fully repelled." });
+        }
+      } else {
+        const top = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 4);
+        const detail = top.map(([k, n]) => `${n} ${k}`).join(", ");
+        events.push({ kind: "alert", message: `🔥 Raid swept ${lossPct}% of the stockpile — ${detail}.` });
+      }
+    }
+
+    // Resource theft. id can be "food" virtual key or a concrete res id.
+    if (raid.stealResource) {
+      const { id, amount } = raid.stealResource;
+      const want = Math.max(0, Math.round((amount || 0) * survive * multiplier));
+      if (want > 0) {
+        if (id === "food") {
+          run.inventory.food = Math.max(0, (run.inventory.food || 0) - want);
+        } else {
+          run.inventory[id] = Math.max(0, (run.inventory[id] || 0) - want);
+        }
+        events.push({ kind: "alert", message: `🛡️ Raid stole ${want} ${id}${defense > 0 ? ` (defense ${defense} softened it)` : ""}.` });
+      }
+    }
+
+    // Building damage. Picks a random non-shelter built building and
+    // destroys it (removes from run.built). `count` non-shelter
+    // buildings get hit. Shelter is excluded so the player never loses
+    // housing — that would cascade into population eviction.
+    if (raid.damageBuilding) {
+      const candidateIds = Object.keys(run.built || {}).filter((id) => {
+        const b = getAllBuildings().find((x) => x.id === id);
+        return b && b.category !== "shelter";
+      });
+      const wantDmg = Math.round((raid.damageBuilding.count || 1) * survive * multiplier);
+      const builtNext = { ...(run.built || {}) };
+      const destroyed = [];
+      for (let i = 0; i < wantDmg && candidateIds.length > 0; i++) {
+        const idx = Math.floor(Math.random() * candidateIds.length);
+        const pickId = candidateIds.splice(idx, 1)[0];
+        delete builtNext[pickId];
+        const def = getAllBuildings().find((x) => x.id === pickId);
+        destroyed.push(def?.name || pickId);
+      }
+      if (destroyed.length > 0) {
+        run.built = builtNext;
+        // #194 — record destruction so the player can repair at 50% cost.
+        const destroyedMap = { ...(run.destroyedBuildings || {}) };
+        for (const id of candidateIds) {} // noop; iterating only changed list below
+        // Walk the names list back to ids via getAllBuildings lookup.
+        for (const name of destroyed) {
+          const def = getAllBuildings().find((x) => x.name === name);
+          if (def) destroyedMap[def.id] = { destroyedAt: Date.now() };
+        }
+        run.destroyedBuildings = destroyedMap;
+        events.push({ kind: "alert", message: `🔥 Raid destroyed: ${destroyed.join(", ")}.` });
+      } else if (wantDmg > 0) {
+        events.push({ kind: "alert", message: `🛡️ Raid pushed back — no buildings damaged.` });
+      }
+    }
+
+    // Villager kills.
+    if (raid.killVillagers) {
+      const want = Math.max(0, Math.round((raid.killVillagers || 0) * survive * multiplier));
+      if (want > 0) {
+        const popRes = losePopulation(run, want, "killed defending the settlement");
+        run = { ...popRes.run, inventory: run.inventory, stats: run.stats, alignment: run.alignment, activePests: run.activePests, built: run.built };
+        if (popRes.events) events.push(...popRes.events);
+      }
+    }
+  }
+
+  // #188 — population effects. effects.population is a number (positive
+  // → gainPopulation, negative → losePopulation). Pumped through the
+  // town.js helpers so the milestone/alert log line is consistent.
+  if (typeof effects.population === "number" && effects.population !== 0) {
+    const reason = effects.populationReason || null;
+    const popRes = effects.population > 0
+      ? gainPopulation(run, Math.round(effects.population * multiplier), reason)
+      : losePopulation(run, Math.round(-effects.population * multiplier), reason);
+    run = { ...popRes.run, inventory: run.inventory, stats: run.stats, alignment: run.alignment, activePests: run.activePests };
+    if (popRes.events) events.push(...popRes.events);
   }
 
   if (effects.log) {
