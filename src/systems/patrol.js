@@ -13,6 +13,7 @@
 
 import { getMob, getMobsForEra } from "../content/mobs.js";
 import { resolveFight, getEffectiveWeapon, getCombatSkillForWeapon } from "./combat.js";
+import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
 import { gainXp, getSkillState } from "./skills.js";
 import { getSpdCooldownMult } from "./character.js";
 import { computeEra } from "./era.js";
@@ -255,8 +256,22 @@ export function performPatrol(state, opts = {}, now = Date.now(), rng = Math.ran
   if (result.outcome === "victory") {
     // Tally mob kill (lifetime, run-scoped — feeds boss gates).
     const mobsDefeated = { ...(run.mobsDefeated || {}) };
+    const firstKill = (mobsDefeated[mob.id] || 0) === 0;
     mobsDefeated[mob.id] = (mobsDefeated[mob.id] || 0) + 1;
     run = { ...run, mobsDefeated };
+
+    // #176 — first kill of a species stamps an etching.
+    if (firstKill) {
+      const fid = `mob:${mob.id}:first`;
+      if (isFirstStamp(result.persistent || state.persistent, fid)) {
+        const nextPers = stampEtchingOnce(result.persistent || state.persistent, fid, `First ${mob.name} slain`);
+        result.persistent = nextPers;
+        events.push({
+          kind: "milestone",
+          message: `🕯️ An etching appears on the Altar: First ${mob.name} slain.`,
+        });
+      }
+    }
 
     // Drops.
     const dropResult = rollDrops(mob.drops, run.inventory || {}, run, rng);

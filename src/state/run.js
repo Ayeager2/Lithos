@@ -95,6 +95,11 @@ export const RUN_DEFAULTS = {
   // Combat math reads this for on-hit effects (Light = heal, Bend =
   // spirit return, etc). See systems/runesmithing.js.
   weaponImbues: {},       // { [weaponId]: { [runeId]: { appliedAt } } }
+  // #170 (#37) — permanent weapon enchantments. Study-gated, applied at
+  // the Stone Altar; separate slot budget from rune imbues. Combat math
+  // reads them through getEffectiveImbueEffects (same effect schema as
+  // runes). See systems/enchantments.js and content/enchantments.js.
+  enchantments: {},       // { [weaponId]: { [enchantId]: { appliedAt } } }
   // #151 — temporary blessings. Burn a rune + spend Spirit to apply its
   // imbueEffect for ~5 min. Aggregated alongside weapon imbues in
   // getEffectiveImbueEffects so combat math sees both.

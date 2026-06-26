@@ -196,6 +196,26 @@ export const SKILLS = {
       "Your hands learn where the meat hides. The kill gives more.",
   },
 
+  // #180 — Thievery. The "stalk and take" loop. XP from successful mugs;
+  // levels increase mug success chance + loot drop chance. Read by
+  // systems/thievery.js getThieveryBonuses.
+  thievery: {
+    id: "thievery",
+    name: "Thievery",
+    icon: "🗡️",
+    description: "The quiet hand. Knowing where to stand, when not to breathe, and which pocket holds the day's catch.",
+    active: true,
+    category: "combat",
+    xpCurve: STANDARD_CURVE,
+    maxLevel: 20,
+    bonuses: [
+      { stat: "mugSuccessBonus", perLevel: 0.01, max: 0.25 },
+      { stat: "mugLootChanceBonus", perLevel: 0.01, max: 0.20 },
+    ],
+    firstUnlockMessage:
+      "🗡️ A lesson the road taught. You learn what doesn't need to be earned.",
+  },
+
   // ==================== Stubs (future eras) ====================
   // These exist in the data file so the schema is stable and Era 2+ wiring
   // is a one-line "set active: true and add an XP trigger" change.

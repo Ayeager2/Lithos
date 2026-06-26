@@ -1,6 +1,8 @@
 // Dev / debug actions. Skip-the-grind helpers for testing.
 
 import { getAllResources } from "../content/resources.js";
+import { ENCHANTMENTS } from "../content/enchantments.js";
+import { getMaxEnchantmentSlots } from "./enchantments.js";
 import { getAllBuildings } from "../content/buildings.js";
 import { getAllResearch } from "../content/research.js";
 import { getAllTools } from "../content/tools.js";
@@ -479,6 +481,95 @@ export function devClearBlessings(state) {
 // #138 — wipe weapon imbues for the run (useful when testing slot caps).
 export function devClearImbues(state) {
   return { run: { ...state.run, weaponImbues: {} }, msg: "🛠️ Weapon imbues cleared." };
+}
+
+// #170 (#37) — fill every owned weapon with the highest-impact set of
+// enchantments allowed by its slot budget. Bypasses cost + study gates so
+// devs can smoke-test combat math.
+export function devEtchAllEnchants(state) {
+  const enchantments = { ...(state.run.enchantments || {}) };
+  const inv = state.run.inventory || {};
+  const allEnchants = Object.values(ENCHANTMENTS);
+  // Find owned weapons by scanning inventory keys that match any defined
+  // resource id with weaponStats. Cheap dev shortcut.
+  const weaponIds = Object.keys(inv).filter((id) => inv[id] > 0);
+  let etchedCount = 0;
+  let weaponCount = 0;
+  for (const wid of weaponIds) {
+    // Skip if not a weapon — quickest heuristic: ignore ids without
+    // matching ENCHANTMENTS slot (we still need weapon def). We let the
+    // caller pick by intent; cheapest is to just try all and check max.
+    const weaponDef = { id: wid, category: "arcane" }; // assume arcane → 3 slots
+    const max = getMaxEnchantmentSlots(weaponDef);
+    const onWeapon = { ...(enchantments[wid] || {}) };
+    for (const e of allEnchants) {
+      if (Object.keys(onWeapon).length >= max) break;
+      onWeapon[e.id] = { appliedAt: Date.now() };
+      etchedCount++;
+    }
+    if (Object.keys(onWeapon).length > 0) {
+      enchantments[wid] = onWeapon;
+      weaponCount++;
+    }
+  }
+  return {
+    run: { ...state.run, enchantments },
+    msg: `🛠️ Etched ${etchedCount} enchantments across ${weaponCount} weapons.`,
+  };
+}
+
+// #180 — Thievery dev helper. Levels up the skill quickly so the
+// mug success curve becomes testable.
+export function devLevelThievery(state, level = 10) {
+  return devLevelSkill(state, "thievery", level);
+}
+
+export function devClearEnchantments(state) {
+  return { run: { ...state.run, enchantments: {} }, msg: "🛠️ Enchantments cleared." };
+}
+
+// #178 — dev helpers for the altar etchings UI (#174 / #176).
+// Drop a sampler set of marks so you can see every group render at
+// once without having to grind the actual triggers.
+export function devStampSampleEtchings(state) {
+  const now = Date.now();
+  const sample = {
+    "studies:first": { stampedAt: now - 86400_000 * 3, label: "First lesson" },
+    "studies:first-crossover": { stampedAt: now - 86400_000 * 2, label: "First crossover" },
+    "path:light:first": { stampedAt: now - 3600_000 * 6, label: "First lesson on the light path" },
+    "path:bend:first": { stampedAt: now - 3600_000 * 4, label: "First lesson on the bend path" },
+    "mob:wildDog:first": { stampedAt: now - 3600_000 * 2, label: "First Wild Dog slain" },
+    "mob:graybackRat:first": { stampedAt: now - 60_000 * 90, label: "First Grayback Rat slain" },
+    "prey:dustRabbit:first": { stampedAt: now - 60_000 * 50, label: "First Dust Rabbit hunted" },
+    "prey:windSparrow:first": { stampedAt: now - 60_000 * 30, label: "First Wind Sparrow hunted" },
+    "craft:weapon:primitive:first": { stampedAt: now - 60_000 * 20, label: "First primitive weapon crafted" },
+    "craft:weapon:bronze:first": { stampedAt: now - 60_000 * 15, label: "First bronze weapon crafted" },
+    "craft:rune:first": { stampedAt: now - 60_000 * 10, label: "First rune inscribed" },
+    "craft:enchant:first": { stampedAt: now - 60_000 * 5, label: "First enchant etched" },
+    "ascension:1": { stampedAt: now - 60_000 * 2, label: "Ascension 1" },
+  };
+  return {
+    persistent: {
+      ...state.persistent,
+      altarEtchings: { ...(state.persistent.altarEtchings || {}), ...sample },
+    },
+    msg: `🛠️ Stamped ${Object.keys(sample).length} sample etchings.`,
+  };
+}
+
+// Filter wipe — keeps only etchings whose id matches the prefix.
+export function devClearEtchingsByPrefix(state, prefix) {
+  const all = state.persistent.altarEtchings || {};
+  const kept = {};
+  let removed = 0;
+  for (const [id, entry] of Object.entries(all)) {
+    if (id.startsWith(prefix)) { removed++; continue; }
+    kept[id] = entry;
+  }
+  return {
+    persistent: { ...state.persistent, altarEtchings: kept },
+    msg: `🛠️ Removed ${removed} etching(s) matching "${prefix}".`,
+  };
 }
 
 // Equip an item to a specific slot (or auto-pick slot). Wraps the

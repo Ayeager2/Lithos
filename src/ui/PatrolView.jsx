@@ -22,6 +22,9 @@ import {
   getAllBosses,
   getBossesAvailable,
 } from "../content/bosses.js";
+import { getMugTargetsForEra } from "../content/mugTargets.js";
+import { canMug } from "../systems/thievery.js";
+import { getSkillState } from "../systems/skills.js";
 import { canPatrol } from "../systems/patrol.js";
 import { getEquippedMagicDef, getEquippedRangedDef } from "../systems/combat.js";
 
@@ -396,9 +399,58 @@ function describeLock(boss, state) {
     : `Need: ${parts.join(", ")}.`;
 }
 
+// ─── Mug card (#180) ────────────────────────────────────────────────
+// Renders a thievery target the same way patrol cards render foes:
+// icon + name + difficulty chip + loot preview + Mug CTA.
+function MugCard({ target, state, onClick, mugCount }) {
+  const check = canMug(state, target.id);
+  const disabled = !check.ok;
+  const lootPreview = (target.loot || []).slice(0, 4).map((l) => {
+    const q = Array.isArray(l.qty) ? `${l.qty[0]}-${l.qty[1]}` : (l.qty || 1);
+    return `${l.resource}×${q} (${Math.round((l.chance || 1) * 100)}%)`;
+  }).join(" · ");
+  const diffPct = Math.round((target.difficulty || 0.4) * 100);
+  return (
+    <button
+      type="button"
+      className={`patrol-card patrol-card--tier-uncommon ${disabled ? "is-disabled" : ""}`}
+      disabled={disabled}
+      onClick={onClick}
+      title={check.ok ? `Mug the ${target.name} — alignment +${target.alignmentEvil || 1} evil` : check.reason}
+    >
+      <div className="patrol-card-head">
+        <span className="patrol-card-icon" aria-hidden="true">{target.icon}</span>
+        <div className="patrol-card-title">
+          <div className="patrol-card-name">{target.name}</div>
+          <div className="patrol-card-sub">
+            <span className="patrol-card-tier patrol-card-tier--uncommon">
+              {diffPct}% fail
+            </span>
+            <span className="patrol-card-kind muted">· era {target.era}</span>
+            {mugCount > 0 && (
+              <span className="patrol-card-kills">· mugged ×{mugCount}</span>
+            )}
+          </div>
+        </div>
+      </div>
+      <p className="patrol-card-desc muted">{target.description}</p>
+      <div className="patrol-card-drops">
+        <div className="patrol-card-drops-label muted">Loot table</div>
+        <div className="patrol-card-drops-list" style={{ fontSize: 11 }}>{lootPreview}</div>
+      </div>
+      <div className="patrol-card-cta-row">
+        <span className="btn btn-primary btn-sm patrol-card-cta-btn">
+          {disabled ? "Locked" : `Mug (+${target.xp || 2} XP)`}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 export default function PatrolView({ state, actions }) {
   const era = computeEra(state);
   const [, force] = useState(0);
+  const [tab, setTab] = useState("foes"); // #180 — "foes" | "mug"
 
   // Active-loop UI tick — re-render at ~10fps while a patrol loop is
   // running so the per-card progress bar moves smoothly between the
@@ -492,6 +544,34 @@ export default function PatrolView({ state, actions }) {
         })()}
       </div>
 
+      <nav className="magic-tabs" role="tablist" aria-label="Patrol mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "foes"}
+          className={`magic-tab ${tab === "foes" ? "is-active" : ""}`}
+          onClick={() => setTab("foes")}
+        >
+          ⚔️ Foes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "mug"}
+          className={`magic-tab ${tab === "mug" ? "is-active" : ""}`}
+          onClick={() => setTab("mug")}
+          title="Thievery — stalk and take. Each mug nudges alignment toward evil."
+        >
+          🗡️ Mug
+          <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
+            Lv {getSkillState(state.run, "thievery").level}
+          </span>
+        </button>
+      </nav>
+
+      <div className="magic-tab-panel" key={tab}>
+      {tab === "foes" && (
+        <>
       <PileOfGoods
         state={state}
         activeLoop={activeLoop}
@@ -536,6 +616,30 @@ export default function PatrolView({ state, actions }) {
           </div>
         );
       })}
+        </>
+      )}
+      {tab === "mug" && (
+        <div className="patrol-mug-section">
+          <p className="muted" style={{ marginBottom: 8 }}>
+            The road carries those who carry things. Each mug nudges alignment toward evil — and trains the quieter hand.
+          </p>
+          <div className="patrol-grid">
+            {getMugTargetsForEra(era).map((t) => (
+              <MugCard
+                key={t.id}
+                target={t}
+                state={state}
+                mugCount={state.run?.mugsLanded?.[t.id] || 0}
+                onClick={() => actions.mug(t.id)}
+              />
+            ))}
+            {getMugTargetsForEra(era).length === 0 && (
+              <p className="muted">No marks on this road yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+      </div>
     </section>
   );
 }

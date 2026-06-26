@@ -6405,3 +6405,205 @@ body.motion-reduced .tool-durability-fill {
   flex: 1 1 auto;
   min-width: 0;
 }
+
+
+/* ───────────────────────────────────────────────────────────────────
+   #49 / #173 — UX polish pass.
+   Four pieces: tab-panel fade, hover lift, equip flash, danger pulse.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* 1) Tab-panel fade-in. The panel wrapper is keyed by activeTab in
+   MagicView + CraftingView so each switch remounts the panel and the
+   animation re-fires. Subtle — 220ms, slight upward drift. */
+@keyframes tabPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.magic-tab-panel {
+  animation: tabPanelFadeIn 220ms ease-out;
+}
+/* Respect prefers-reduced-motion across all #173 animations. */
+@media (prefers-reduced-motion: reduce) {
+  .magic-tab-panel,
+  .char-slot-value--flash,
+  .sb-bar--danger .sb-bar-fill {
+    animation: none !important;
+  }
+}
+
+/* 2) Stronger hover lift on patrol cards. Existing :hover gives
+   translateY(-1px); we layer a deeper shadow + accent glow for read.
+   Also tighten the transition so the new shadow doesn't lag. */
+.patrol-card {
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.12s ease-out,
+    box-shadow 0.18s ease-out;
+}
+.patrol-card:hover:not(.is-disabled):not(.is-locked) {
+  box-shadow:
+    0 4px 14px -6px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(220, 154, 74, 0.18) inset;
+}
+.patrol-card--boss:hover:not(.is-disabled):not(.is-locked) {
+  box-shadow:
+    0 4px 14px -6px rgba(195, 65, 65, 0.55),
+    0 0 0 1px rgba(195, 65, 65, 0.28) inset;
+}
+
+/* Primary buttons get a matching micro-lift on hover. Keeps the
+   visual language consistent across cards + standalone CTAs. */
+.btn-primary {
+  transition:
+    background-color 0.12s,
+    border-color 0.12s,
+    transform 0.1s ease-out,
+    box-shadow 0.14s ease-out;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px -4px rgba(220, 154, 74, 0.55);
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* 3) Equipment slot flash on equip/unequip. The inner value span is
+   keyed by cur.id in CharacterView so it remounts when the equipped
+   item changes — that fires this animation each time. Brief amber
+   pulse so the eye catches what just changed. */
+@keyframes charSlotEquipFlash {
+  0% {
+    background: rgba(220, 154, 74, 0.45);
+    box-shadow: 0 0 0 0 rgba(220, 154, 74, 0.45);
+  }
+  60% {
+    background: rgba(220, 154, 74, 0.12);
+    box-shadow: 0 0 0 8px rgba(220, 154, 74, 0);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0 rgba(220, 154, 74, 0);
+  }
+}
+.char-slot-value--flash {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  animation: charSlotEquipFlash 700ms ease-out;
+}
+
+/* 4) Damaged-stat pulsing red overlay. Triggers on .sb-bar--danger
+   for HP / Sanity / Spirit when their values drop into danger range
+   (thresholds set in SurvivalBars.jsx — HP ≤ 20, Resolve/Sanity ≤ 25,
+   Spirit ≤ 15). The existing per-stat color rules stay; this layers
+   a slow red wash on top so the bar reads "you're in trouble". */
+@keyframes statDangerPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(195, 65, 65, 0.0),
+      inset 0 0 12px 2px rgba(195, 65, 65, 0.35);
+    filter: saturate(1.0);
+  }
+  50% {
+    box-shadow:
+      0 0 8px 1px rgba(195, 65, 65, 0.5),
+      inset 0 0 14px 3px rgba(195, 65, 65, 0.55);
+    filter: saturate(1.3);
+  }
+}
+.sb-bar--danger .sb-bar-fill {
+  animation: statDangerPulse 1.6s ease-in-out infinite;
+}
+/* The danger label color was already set; bump weight so it reads
+   immediately when scanning the column. */
+.sb-bar--danger .sb-bar-value {
+  font-weight: 700;
+  text-shadow: 0 0 6px rgba(195, 65, 65, 0.45);
+}
+
+
+/* ───────────────────────────────────────────────────────────────────
+   Stone Altar etchings (#37 / etchings-UI) — Character page section.
+   Grouped grid: Foundation / Studies / Bosses / Other. Each etching
+   is a compact card with icon + label + relative time.
+   ─────────────────────────────────────────────────────────────────── */
+.altar-empty {
+  padding: 16px 12px;
+  text-align: center;
+  font-style: italic;
+}
+.altar-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.altar-group-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+  padding-left: 2px;
+}
+.altar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.altar-etching {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background:
+    radial-gradient(120% 200% at 0% 0%, rgba(220, 154, 74, 0.10) 0%, transparent 60%),
+    rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--border);
+  border-left: 3px solid rgba(220, 154, 74, 0.5);
+  border-radius: 6px;
+  min-width: 0;
+  transition: border-color 0.15s, transform 0.1s ease-out, box-shadow 0.18s ease-out;
+}
+.altar-etching:hover {
+  border-color: var(--accent);
+  border-left-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px -5px rgba(220, 154, 74, 0.55);
+}
+.altar-etching-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 6px rgba(220, 154, 74, 0.25));
+}
+.altar-etching-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.altar-etching-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.altar-etching-time {
+  font-size: 10px;
+}
+@media (max-width: 480px) {
+  .altar-grid {
+    grid-template-columns: 1fr;
+  }
+}

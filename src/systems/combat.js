@@ -8,6 +8,7 @@ import {
   getEquippable,
 } from "./equipment.js";
 import { RESOURCES } from "../content/resources.js";
+import { ENCHANTMENTS } from "../content/enchantments.js";
 
 // Re-export so UI views can read it via combat.js alongside other helpers.
 export { getEquippedRangedDef };
@@ -284,6 +285,13 @@ export function getEffectiveImbueEffects(state) {
     for (const runeId of Object.keys(map)) addImbue(RESOURCES[runeId]?.imbueEffect);
   }
   for (const runeId of blessingIds) addImbue(RESOURCES[runeId]?.imbueEffect);
+  // #170 (#37) — permanent weapon enchantments. Same effect schema as
+  // runes (damageBonus, accBonus, etc.), so the existing aggregator
+  // handles them. A fully kitted weapon can carry both.
+  const enchantMap = state.run?.enchantments?.[weapon.id];
+  if (enchantMap) {
+    for (const eid of Object.keys(enchantMap)) addImbue(ENCHANTMENTS[eid]?.effect);
+  }
   return eff;
 }
 

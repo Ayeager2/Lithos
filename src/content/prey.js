@@ -87,6 +87,65 @@ export const PREY = {
     },
   },
 
+  // ─── Era 1 bird tier (#175) ────────────────────────────────────────
+  // Three birds layered around the existing Wind Sparrow. The two
+  // "feedsOnGrubs" entries (dustWren + scrubFinch) interact with the
+  // carrion-flock pest: when birdFlock is active, their drop chance
+  // bumps and they roll a bonus grubs drop. (Their food source is also
+  // out — pests bring opportunity.)
+  dustWren: {
+    id: "dustWren", name: "Dust Wren", icon: "🐤",
+    era: 1, tier: "common", encounterChance: 0.95, difficulty: 0.3,
+    description: "Tiny, brown, never still. The kind of bird that disappears into a thornbush before you blink.",
+    drops: [
+      { resource: "feathers",  qty: [1, 2], chance: 0.95 },
+      { resource: "bird_meat", qty: 1, chance: 0.6 },
+    ],
+    xp: 2,
+    feedsOnGrubs: true,
+    huntFlavor: {
+      opener: ["🐤 A wren bobs on a dry stem, watching you sideways."],
+      success: ["🐤 The stone finds. Small body, smaller meal."],
+      fail: ["🐤 The wren is already three branches over. Then gone."],
+    },
+  },
+
+  scrubFinch: {
+    id: "scrubFinch", name: "Scrub Finch", icon: "🐥",
+    era: 1, tier: "uncommon", encounterChance: 0.55, difficulty: 0.5,
+    description: "Striped chest, sharp beak. Nests low in the scrub and guards its eggs like a dog.",
+    drops: [
+      { resource: "feathers",  qty: [2, 4], chance: 0.95 },
+      { resource: "bird_meat", qty: [1, 2], chance: 0.8 },
+      { resource: "bird_eggs", qty: [1, 2], chance: 0.45 },
+    ],
+    xp: 5,
+    feedsOnGrubs: true,
+    huntFlavor: {
+      opener: ["🐥 The finch sees you and goes still — that's when you know the nest is close."],
+      success: ["🐥 The finch falls. You take the nest too. The eggs are warm."],
+      fail: ["🐥 The finch leads you the wrong way, the way a parent does. The nest stays hidden."],
+    },
+  },
+
+  gristleVulture: {
+    id: "gristleVulture", name: "Gristle Vulture", icon: "🦅",
+    era: 1, tier: "rare", encounterChance: 0.3, difficulty: 0.7,
+    description: "Bald head, wet eye, a smell that arrives before it does. Apex of the carrion line — the bird the smaller flocks scatter for.",
+    drops: [
+      { resource: "bird_meat", qty: [2, 4], chance: 0.95 },
+      { resource: "feathers",  qty: [3, 6], chance: 1.0 },
+      { resource: "sinew",     qty: [1, 2], chance: 0.65 },
+      { resource: "fragments", qty: 1, chance: 0.10 },
+    ],
+    xp: 9,
+    huntFlavor: {
+      opener: ["🦅 The vulture lands heavy on a stone. It looks at you the way it looks at the dead."],
+      success: ["🦅 The arrow finds the breast. The vulture falls without sound."],
+      fail: ["🦅 The vulture lifts off, slow as guilt, and circles. Watching. Waiting."],
+    },
+  },
+
   // ─── Era 2 ─────────────────────────────────────────────────────────
   marshDeer: {
     id: "marshDeer", name: "Marsh Deer", icon: "🦌",

@@ -7,8 +7,10 @@ import { performBuild } from "../systems/building.js";
 import { performListen } from "../systems/research.js";
 import { performCraft, startCraft, tickActiveCraft, cancelActiveCraft } from "../systems/crafting.js";
 import { performImbueWeapon, performRemoveImbue, performBless, tickBlessings } from "../systems/runesmithing.js";
+import { performEnchant } from "../systems/enchantments.js";
 import { performHunt } from "../systems/hunting.js";
 import { performPatrol } from "../systems/patrol.js";
+import { performMug } from "../systems/thievery.js";
 import {
   performSurvivalAction,
   performDrink,
@@ -59,6 +61,7 @@ import {
   updateLifetime,
   appendRunHistory,
 } from "../systems/stats.js";
+import { stampEtchingOnce } from "../systems/etchings.js";
 
 const MAX_LOG = 30;
 
@@ -154,7 +157,7 @@ export function reducer(state, action) {
       // all future ascensions. Most importantly: fragments stop reading
       // "???" once they've ascended carrying knowledge of them.
       const permanentlyKnown = snapshotKnownResources(state);
-      const persistent = {
+      let persistent = {
         ...state.persistent,
         echoes: state.persistent.echoes + reward.echoes,
         runHistory,
@@ -165,6 +168,10 @@ export function reducer(state, action) {
           runsCompleted: lifetimeStats.runsCompleted + 1,
         },
       };
+      // #176 — ascension stamp. Use the updated runsCompleted count
+      // as N so multiple ascensions accumulate as separate marks.
+      const n = persistent.lifetimeStats.runsCompleted;
+      persistent = stampEtchingOnce(persistent, `ascension:${n}`, `Ascension ${n}`);
       // Ascension start: Era 1 — rock found + awakened, hut already
       // raised, survival mechanics live. The "find the stone in the
       // dust" opening only plays once per save lifetime.
@@ -276,6 +283,17 @@ export function reducer(state, action) {
     case "BLESS_RUNE": {
       // #151 — burn a rune for a temporary buff. See systems/runesmithing.js.
       const { run, persistent, events } = performBless(state, action.runeId);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case "ENCHANT_WEAPON": {
+      // #170 (#37) — permanent, study-gated weapon enchantment.
+      const { run, persistent, events } = performEnchant(state, action.weaponId, action.enchantId);
+      return { persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.THIEVERY_MUG: {
+      const { run, persistent, events } = performMug(state, action.targetId);
       return { persistent, run: appendLogAndStamp(run, events) };
     }
 
@@ -542,7 +560,7 @@ export function reducer(state, action) {
     case ACTIONS.DEV_PATCH: {
       const patch = action.patch || {};
       const run = patch.run || state.run;
-      const persistent = patch.persistent || state.persistent;
+        const persistent = patch.persistent || state.persistent;
       const events = [];
       if (Array.isArray(patch.events)) events.push(...patch.events);
       if (patch.msg) events.push({ kind: "dev", message: patch.msg });

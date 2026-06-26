@@ -618,12 +618,45 @@ Live in `tools/`. See `tools/README.md` for the full list.
 
 ## Pipeline (planned, not built)
 
-### 🟡 Stone Altar etchings (foundation laid, content authoring pending)
-**State.** `persistent.altarEtchings` is live and populates from Arcane Studies completions (`studies:first`, `path:<id>:first`, `studies:first-crossover`, `voidcall:<nodeId>`). Visual rendering on the altar surface is pending — currently only the data exists.
+### 🟢 Stone Altar etchings (#174) — ✅ live
+**State.** `persistent.altarEtchings = { [etchingId]: { stampedAt, label } }` populates from Arcane Studies completions (`studies:first`, `studies:first-crossover`, `path:<id>:first`, `voidcall:<nodeId>`) and boss first-defeats (`stampEtching` in `systems/boss.js`).
 
-**Next steps.** Add a "Home" tab/page that surfaces the Stone Altar with its etchings rendered as runes/marks. Folded into Character page (#44) phasing.
+**UI.** New "Altar" section on the Character page (id `char-altar`, between Equipment and Items) renders the etchings grouped by source — Foundation / Studies / Bosses / Other. Each etching is a compact card with a source-derived icon, the original label, and a relative stamp time ("2h ago", "3d ago"). Jump-nav gets a 🕯️ Altar entry.
 
-**Long arc.** Pairs with ERA_PLAN.md "Era 2 → 3 transition — Home tab + Stone Altar" entry. The Altar becomes the trophy wall across many lifetimes.
+**Source-icon mapping.** Group + icon are inferred from the etching id prefix in `etchingMeta()`:
+
+| ID pattern | Group | Icon |
+| --- | --- | --- |
+| `studies:first` | Foundation | 📜 |
+| `studies:first-crossover` | Foundation | 🪞 |
+| `path:light:*` / `path:bend:*` / ... | Studies | ☀️ / 🌑 / 🌿 / ✒️ / 🔔 / 👂 / ⚫ |
+| `voidcall:*` | Studies | ⚫ |
+| `boss:*` or `era*` | Bosses | 🥇 |
+| `mob:<id>:first` | Combat | 🗡️ |
+| `prey:<id>:first` | Hunts | 🏹 |
+| `craft:weapon:<category>:first` | Crafts | ⚒️ |
+| `craft:rune:first` / `craft:enchant:first` | Crafts | 🪬 |
+| `ascension:<N>` | Ascensions | 🌌 |
+| (other) | Other | 🕯️ |
+
+**Stamp hooks (#176).** Shared `src/systems/etchings.js` exports `stampEtchingOnce(persistent, id, label)` (no-op if id present) and `isFirstStamp(persistent, id)`. Six gameplay events now stamp etchings on their first occurrence:
+
+| Event | ID | Stamped in |
+| --- | --- | --- |
+| First hunt of a prey species | `prey:<preyId>:first` | `systems/hunting.js` `performTargetedHunt` |
+| First kill of a mob species | `mob:<mobId>:first` | `systems/patrol.js` `performPatrol` |
+| First weapon crafted per tier | `craft:weapon:<category>:first` | `systems/crafting.js` `tickActiveCraft` |
+| First rune inscribed | `craft:rune:first` | same |
+| First enchant etched | `craft:enchant:first` | `systems/enchantments.js` `performEnchant` |
+| Each ascension | `ascension:<N>` (`lifetimeStats.runsCompleted`) | reducer PRESTIGE case |
+
+Each stamp pushes a `kind: "milestone"` log entry ("🕯️ An etching appears on the Altar: ...") on first occurrence; subsequent triggers are silent.
+
+**Gating.** If `state.run.built.stoneAltar` is false the section renders a placeholder line ("The Stone Altar is unbuilt. When it stands, what you do in this life — and every life before it — will be remembered here."). If the altar exists but no etchings have been stamped yet, an emptier "altar is bare" line.
+
+**Persistence.** Etchings live on `persistent` so they survive prestige — the altar is the trophy wall across many lifetimes (ERA_PLAN.md "Era 2 → 3 transition — Home tab + Stone Altar").
+
+**Dev inspector.** The Arcane tab in DevPanel.jsx (line 452+) still shows the raw map + "Clear all etchings" button. Useful for confirming new boss kills + study completions land in the right group.
 
 ---
 
@@ -653,8 +686,41 @@ New resources: `iron_ore`, `coal`, `herbs`, `mushrooms`, `arrow`. Each action ha
 
 ---
 
-### ⬜ Combat Phase 6 — weapon enchants (#37)
-**Vision.** Enchant slots on weapons by level (1 at lvl 3, 2 at lvl 6, 3 at lvl 9). Enchants unlocked by Arcane Studies completions across Light/Bend/Elemental paths — Fire-bite, Drain, Truesight, Wardstrike, Earthcall, Verdant. Ring slots (from equipment.js) can also carry enchants. New Altar UI for applying enchants.
+### 🟢 Weapon enchants (#37 / #170) — ✅ live
+**Shipped.** Second-pathway mark system on top of the Runesmithing rune layer. Two permanence models now coexist on the same weapon: runes (removable, multi-slot, broad effects) + enchants (permanent, study-gated, focused effects).
+
+**Data — `src/content/enchantments.js`.** Nine enchants, one (or two) per Arcane Studies path. Each entry: `{ id, name, icon, path, description, requires: { studied: nodeId, alignment? }, cost: { fragments, spirit }, effect }`. The `effect` schema matches `rune.imbueEffect` exactly so the combat aggregator handles both without branching. Shipped enchants:
+
+| Path | Enchant | Effect |
+| --- | --- | --- |
+| Light | Mending Aura | +4 HP / hit, +2 HP / min |
+| Light | Blessing Mark | +8% acc, +6% crit |
+| Bend | Drain Sigil | +4 Spirit / hit, +2 Spirit / min |
+| Bend | Dominance Ward | +6 dmg, −1 Sanity / hit |
+| Elemental | Greenward | +3 HP / min, −5% dmg taken |
+| Sigilcraft | Truestrike Sigil | +10% acc, +8% crit |
+| Memory | Echo Weave | 20% echo, +2 dmg |
+| Stoneword | Wardward | 30% wear save, +1 HP / min |
+| Voidcall | Voidmark | +12 dmg, +10% crit, −2 Sanity / hit |
+
+**Slot ladder — per weapon category.** Distinct from rune-imbue slots; the two budgets are independent.
+
+| Category | Enchant slots |
+| --- | --- |
+| primitive | 1 |
+| bronze | 2 |
+| iron | 2 |
+| arcane | 3 |
+
+**Gates — `canEnchant` in `src/systems/enchantments.js`.** Weapon ownership, target study completed (`run.studiesCompleted[nodeId]`), Stone Altar built (`run.built.stoneAltar`), alignment threshold (Voidmark requires 5 evil), slot remaining, fragments + Spirit available. No removal action — enchantments are permanent by design.
+
+**State.** `run.enchantments = { [weaponId]: { [enchantId]: { appliedAt } } }`. Action: `ENCHANT_WEAPON` → `performEnchant` → spend cost, write enchantment, gain 20 Runesmithing XP. Store dispatcher: `actions.enchantWeapon(weaponId, enchantId)`.
+
+**Combat wiring.** `getEffectiveImbueEffects` in `systems/combat.js` reads three sources and folds them into one effect bag: weapon imbues (runes), active blessings (rune-burn temp buffs), and enchantments. Same `addImbue()` helper applies to all three because the effect schemas match.
+
+**UI.** Magic page → Runesmithing tab → `WeaponImbueCard` now renders `EnchantSection` below the Apply-rune list. Shows bound marks with a "Permanent" tag + pip indicator (●/○) for slot usage. Etch list filters to enchants whose study the player has completed. Click an Etch button → confirm dialog ("Etch X onto Y? This cannot be undone.") → dispatches the action.
+
+**Dev helpers (#171).** ArcaneTab section: etch-all-on-every-weapon, clear-enchantments, build-Stone-Altar shortcut, complete-all-studies shortcut, +50 Arcane Shards. Counter row shows enchanted-weapon count.
 
 ---
 
@@ -859,9 +925,48 @@ Same NPCs are intended to return in later eras as proto-companion encounters onc
 
 ---
 
-## Runesmithing (#115 / #132 / #133 / #134 / #135 / #136 / #137) — ✅ live
+## Boss-fight UX (#40 / #139 / #140 / #141 / #155–#168) — ✅ live
 
-**Status.** Full vertical slice from rune resource → craft recipe → imbue UI → combat math → passive trickle.
+**Modal lifecycle.** `BossFightModal` exposes two phases: a **BossPicker** (patrol-card grid of available bosses showing era/tier chip, stats panel, possible rune-drop chips) and a **BossFight** (the active arena). `chosenId` state drives which view renders; `initialBossId` prop seeds it (patrol encounters auto-open with the encountered boss pre-selected). The `key={chosenId}` on BossFight ensures clean unmount/remount between fights so internal state never leaks. **Return** from the post-fight outro fully closes the modal — simpler and more reliable than keeping it open with the picker.
+
+**Layout (#140).** Two-column arena under the title bar: player on the left, foe on the right, combat log full-width below. Each column has portrait + name + bars + stats sections. Modal sized 70vh × min(960px, 96vw) with internal scrolling so the boss picker can grow without the modal jumping around.
+
+**Action stack.** ⚔️ Attack (toggle for auto-attack mode), ✨ Spell, 🛡️ Defend, 🏃 Flee. The Item button was retired in #162 because the split-button row above the action stack covers that case faster.
+
+**Auto-attack (#157).** Click Attack once → enters auto-attack mode. `setTimeout` scheduler effect queues `performAttackSwing()` every `TURN_CYCLE_MS = 6000` until win/defeat/flee/cancel. A 250ms ticker drives a live countdown number on the player portrait; the number scales 28→52px, turns orange, and pulses via `bossCountdownPulse` keyframe in the final 5 seconds. Spell/Item/Defend/Flee turn auto-attack off. Click Attack again to manually stop.
+
+**Quick consumables (#159–#161).** A split-button row sits between the wielding line and the action stack:
+- **Eat** [icon] [E] — main button eats the best food owned; right-arrow opens a popover listing every owned food with `× count`
+- **Item** [icon] [I] — main button uses the best healing potion/consumable; right-arrow opens a popover for every consumable
+- Keyboard shortcuts `E` and `I` fire the main action from anywhere on the page (skips when input/textarea has focus)
+- Click-away closes any open popover
+
+**Spell picker (#141 / #159).** Each spell renders as a single full-width clickable row showing icon · name · effect chips (`+20 HP`) · cost chips (`✨1 🌀15`). Multiline `title=` tooltip with description + effect + cost + cooldown. Categorized into **⚔️ Attack / ✨ Buff / 💗 Heal** tabs at the top (inferred from the spell's effect shape — positive hp/sanity/spirit = heal, targetsFoe/damage = attack, otherwise buff).
+
+**Foe stats panel (#163).** Mirrors the boss-picker card: HP (live current/max as the player damages it), Accuracy %, Damage range with type label if non-hp, Evasion when present, and the full possible-rune-drops list with rarity-colored chips and drop %.
+
+**Bars (#160).** `.boss-bar` grid (60px label / flex track / 60px num). Color-graded gradient fills per accent — HP red→orange, Sanity blue, Spirit purple, Foe dark red — with `transition: width 0.35s ease` so values slide smoothly when stats change.
+
+**Drag + resize (#165–#168).** Shared `useDraggableModal` hook handles pointer-down on the title bar to translate the modal anywhere on screen. Native CSS `resize: both` with a painted diagonal grip in the bottom-right corner. Overlay close converted to `onPointerDown` so resize-release outside the modal doesn't trigger close. Same treatment applied to the tree modals (Study / Buildings / Teachings). The tree-modal body and SVG are flex-grow-styled so the SVG actually fills the resized modal instead of leaving dead space below.
+
+**Boss-picker (#139).** Patrol-card grid: icon + name + era/tier chip (main=epic-purple, mini=rare-blue) + description + Stats section (HP / acc / damage) + Possible Rune Drops section showing rarity-colored chips with %. `🥇 beaten` chip + 0.72 opacity for already-defeated bosses. Each card has a full-width `⚔️ Challenge` CTA.
+
+**Combat-style filter (#165).** `CombatStylePicker` in PatrolView filters out styles the player can't currently use (no arcane weapon = no Magic button shown). Currently-selected style always stays visible.
+
+**Instant-engage from patrol (#158).** Clicking a boss patrol-card stamps `state.run.patrolBossEncounter = bossId` directly via `devPatch` instead of routing through `setActiveLoop`. The modal opens immediately. Without this, #156's fair-timer fix meant the player waited the full 12s patrol cooldown before the modal showed.
+
+**Files.** `ui/BossFightModal.jsx` · `ui/useDraggableModal.js` · `ui/PatrolView.jsx` (CombatStylePicker + handleBoss) · `index.css` (`.modal--draggable`, `.boss-fight-*`, `.boss-bar-*`, `.boss-fight-quick-*`, `.boss-fight-split-*`, `.boss-fight-countdown`, `.boss-subpicker-tab`).
+
+## Runesmithing (#115 / #132 / #133 / #134 / #135 / #136 / #137 / #138 / #151) — ✅ live
+
+**Status.** Full vertical slice from rune resource → craft recipe → imbue UI → combat math → passive trickle, plus a parallel **Bless** action and **enchant slot caps** per weapon category.
+
+**Enchant slots (#138).** Each weapon has a max number of runes that can be bound simultaneously, driven by category: primitive=1, bronze=2, iron=3, arcane=4 (per-weapon `maxEnchantSlots` overrides). `canImbueWeapon` rejects when full with reason `"No enchant slots left (N/M). Remove a rune first."`. UI shows `🪬 N/M ●●○○` filled-vs-empty pip badges on each Runesmithing card.
+
+**Boss rune drops (#138).** Each boss carries a `runeDrops: [{resource, chance, qty}]` field; `performBossFightEnd` rolls them on victory. Drop tables: Era 1 → Common (~30%), Era 2 → Rare (~25%), Era 3 mini → Epic (~20%), Era 3 main → Legendary + 6% Mythic. God-tier runes are craft-only — the apex stays earned through commitment, not luck.
+
+**Bless action (#151).** Burn 1 rune + spend 10 Spirit to apply that rune's `imbueEffect` as a temporary buff for 5 minutes. `run.blessings: {[runeId]: {expiresAt}}` field. `getEffectiveImbueEffects` aggregates BOTH weapon imbues AND active blessings — combat math is unified. `tickBlessings` clears expired ones on the 15s TICK with a fade log message. UI: `🕯️ Bless` button next to each `Bind` on the Magic page Runesmithing tab; an "Active Blessings" card at the top of the panel shows what's burning with a live mm:ss countdown.
+
 
 **Resources.** 56 runes total across 7 rarity tiers in `content/resources.js`. Each rune carries an `imbueEffect` and a `rarity` field. Rarity ladder: `common (8) → uncommon (8: 6 original + 2 new) → rare (8) → epic (8) → legendary (8) → mythic (8) → god (8)`.
 

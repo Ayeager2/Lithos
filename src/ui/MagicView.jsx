@@ -22,6 +22,15 @@ import {
   canBless,
   getActiveBlessings,
 } from "../systems/runesmithing.js";
+import {
+  getAllEnchantments,
+} from "../content/enchantments.js";
+import {
+  canEnchant,
+  getWeaponEnchantments,
+  getMaxEnchantmentSlots,
+  getEnchantmentUsage,
+} from "../systems/enchantments.js";
 
 function fmtSec(sec) {
   if (sec <= 0) return "ready";
@@ -236,7 +245,90 @@ function WeaponImbueCard({ state, actions, weapon, runes }) {
           })}
         </ul>
       </div>
+
+      <EnchantSection state={state} actions={actions} weapon={weapon} />
     </div>
+  );
+}
+
+// ─── Enchant section (#170 / #37) ─────────────────────
+// Permanent, study-gated marks. Distinct slot budget from rune imbues.
+function EnchantSection({ state, actions, weapon }) {
+  const bound = getWeaponEnchantments(state, weapon.id);
+  const max = getMaxEnchantmentSlots(weapon);
+  const used = getEnchantmentUsage(state, weapon.id);
+  const pips = "●".repeat(used) + "○".repeat(Math.max(0, max - used));
+
+  const all = getAllEnchantments();
+  const visible = all.filter((e) => !!state.run.studiesCompleted?.[e.requires?.studied]);
+
+  return (
+    <>
+      <div className="patrol-card-drops">
+        <div
+          className="patrol-card-drops-label muted"
+          title={`Enchant slots: ${used} of ${max}. Permanent — cannot be removed.`}
+        >
+          Enchantments  <span className="muted">{used}/{max} {pips}</span>
+        </div>
+        {bound.length === 0 ? (
+          <p className="muted" style={{ fontSize: 12, margin: "4px 0" }}>
+            No marks etched. The metal remembers nothing yet.
+          </p>
+        ) : (
+          <ul className="patrol-card-drops-list">
+            {bound.map(({ id, def, effect }) => (
+              <li key={id} className="patrol-card-drop" title={def.description}>
+                <span aria-hidden="true">{def.icon}</span>
+                <span className="patrol-card-drop-name">{def.name}</span>
+                <span className="patrol-card-tier patrol-card-tier--legendary" style={{ marginRight: 4 }}>
+                  Permanent
+                </span>
+                <span className="muted" style={{ fontSize: 11 }}>{effect.label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {visible.length > 0 && used < max && (
+        <div className="patrol-card-drops">
+          <div className="patrol-card-drops-label muted">Etch enchantment (permanent)</div>
+          <ul className="patrol-card-drops-list">
+            {visible.map((e) => {
+              const check = canEnchant(state, weapon.id, e.id);
+              return (
+                <li key={e.id} className="patrol-card-drop" title={e.description}>
+                  <span aria-hidden="true">{e.icon}</span>
+                  <span className="patrol-card-drop-name">
+                    {e.name}
+                    <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>
+                      ✨{e.cost.fragments} · 🌀{e.cost.spirit}
+                    </span>
+                  </span>
+                  <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>
+                    {e.effect.label}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    style={{ marginLeft: "auto", padding: "2px 8px" }}
+                    disabled={!check.ok}
+                    title={check.ok ? `Etch ${e.name} — PERMANENT` : check.reason}
+                    onClick={() => {
+                      if (!confirm(`Etch ${e.name} onto ${weapon.name}? This cannot be undone.`)) return;
+                      actions.enchantWeapon(weapon.id, e.id);
+                    }}
+                  >
+                    Etch
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -509,6 +601,7 @@ export default function MagicView({ state, actions }) {
         })}
       </nav>
 
+      <div className="magic-tab-panel" key={activeBucket}>
       {activeBucket === "runesmithing" ? (
         <RunesmithingPanel state={state} actions={actions} />
       ) : (
@@ -528,6 +621,7 @@ export default function MagicView({ state, actions }) {
           )}
         </div>
       )}
+      </div>
     </section>
   );
 }

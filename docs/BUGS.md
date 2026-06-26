@@ -10,6 +10,96 @@ Add new bugs at the top. When fixing, leave the entry with status `fixed` and a 
 
 ---
 
+## #026 — OneDrive truncation hit five files during #170 enchant work
+**What happened.** While shipping #170 (weapon enchants), the Edit tool reported "success" but OneDrive sync silently truncated the file on disk before the read-back. Affected files: `src/state/store.js`, `src/state/reducer.js`, `src/state/run.js`, `src/systems/combat.js`, `src/ui/MagicView.jsx`. Build failures surfaced as "Unexpected token `<eof>`" or "Expected `}` got `<eof>`" pointing at the truncation site.
+
+**Why this is a recurring foot-gun.** First documented in BUGS #019 ("OneDrive sync truncates files mid-edit") — repeated here because the prior fix (avoid rapid sequential Edit calls) didn't fully mitigate. The Edit tool optimistically returns success while OneDrive's sync engine is still mid-write.
+
+**Working recovery procedure.**
+
+1. `git show HEAD:path/to/file > /tmp/base` to get a known-good copy.
+2. Re-apply the intended diff via Python (`open(p).read()` → `str.replace()` with full multi-line needles + assertions on uniqueness → `open(p, "w").write(out)`).
+3. Write the FULL file contents in a single `open().write()` call — atomic at the kernel level, less time for OneDrive to interfere mid-write.
+4. Re-run `npx vite build` to confirm.
+
+**Why Python beats the Edit tool here.** A `str.replace()` plus a single `open(p, "w").write(out)` is one syscall; OneDrive can't catch the file half-written. The Edit tool appears to round-trip through more I/O.
+
+**Status.** Not fixed at the source — this is a Windows/OneDrive environment quirk. Mitigation: when editing the same file multiple times in a session, batch via Python-based atomic writes from the bash sandbox rather than Edit tool calls.
+
+## #025 — Tree-modal resize crash: SVG didn't refill after resize
+
+**Status:** ✅ fixed (#168 — 2026-06)
+**Severity:** medium
+
+**Repro:** Drag the bottom-right resize handle of a tree modal to enlarge. SVG content stayed at its original dimensions; the bottom of the modal was dead space.
+
+**Fix:** Chained sizing rules scoped to `.modal--tree.modal--draggable`: body flex-grows, body--tree fills, tree-canvas becomes a flex column, panzoom-wrap fills remaining height, and the SVG/.tree-svg drops its `max-height: 520px` cap.
+
+---
+
+## #024 — Resize-release on tree modal closed the modal
+
+**Status:** ✅ fixed (#167 — 2026-06)
+**Severity:** bad
+
+**Repro:** Drag the bottom-right resize handle of a tree modal. As the cursor crosses outside the modal bounds (which happens whenever you shrink past the original size), release the mouse. Modal closes.
+
+**Fix:** Modal-overlay click-to-close handler switched from `onClick` to `onPointerDown` so the close fires on press only, not on release. Resize-drag releases the pointer over the overlay, but the press happened on the resize grip inside the modal — `onPointerDown` ignores that.
+
+**Notes:** Same pattern is used by react-modal, MUI Dialog, etc. Worth standardizing across any future modal that lets the user drag inside.
+
+---
+
+## #023 — Boss modal stuck after first fight
+
+**Status:** ✅ fixed (#155 / #158 — 2026-06)
+**Severity:** bad
+
+**Repro:** Open boss modal, pick a boss, win/lose/flee. After Return, attempting to engage another boss did nothing. Refresh was the only recovery.
+
+**Root cause:** The #142 fix attempted to keep the modal open after Return so the player could quickly pick another boss. React's lifecycle around `chosenId` + `initialBossId` re-syncing + the parent `bossFight` state combined in ways that left the inner BossFight component unable to remount cleanly.
+
+**Fix:** Return now fully closes the modal (`setChosenId(null) + onClose()`). The next engagement starts from a totally fresh mount, mirroring how the gather loop pattern handles fresh actions. One extra click to re-open the modal, but the lifecycle is deterministic. Also: PatrolView's boss-card click now stamps `patrolBossEncounter` directly (bypassing the 12s patrol cooldown that the #156 fair-timer fix introduced).
+
+---
+
+## #022 — Auto-loop instant-fire let players "accidentally" kill mobs
+
+**Status:** ✅ fixed (#156 — 2026-06)
+**Severity:** medium
+
+**Repro:** Click a patrol/gather/hunt card. Click another card (or Stop) within 250ms. The first cycle had already fired — kill counted, drops landed in the pile.
+
+**Root cause:** `setActiveLoop` was biasing `startedAt = now - cycleMs` so the next `TICK_LOOP` (250ms later) fired the first cycle instantly, giving the player visible feedback on click.
+
+**Fix:** `startedAt = now`. The full cycleMs must elapse before the first cycle fires. Cancellation before the timer completes truly cancels — no partial credit, no surprise mobsDefeated bump.
+
+---
+
+## #021 — Side rail labels showing inline instead of as tooltips
+
+**Status:** ✅ fixed (#146 — 2026-06)
+**Severity:** medium
+
+**Repro:** At desktop viewport (≥576px), the left rail icons showed their labels inline (Crafting, Patrol, Magic…) instead of icon-only with hover tooltips.
+
+**Root cause:** CSS file had an unclosed `.patrol-card-drop--short {` block (missing `}`), which made every following rule — including the `@media (min-width: 576px) .lc-rail-label` rule that converts inline labels to absolute tooltips — fall into an invalid state and silently fail.
+
+**Fix:** Closing brace restored; rail rules apply normally. Documented as part of #019 — OneDrive sync truncation pattern.
+
+---
+
+## #020 — CSS file losing closing braces during rapid edits
+
+**Status:** ✅ recovered (#149 — 2026-06)
+**Severity:** medium (process-related, not a code defect)
+
+**Repro:** During #136-#149's rapid CSS additions for boss modal / quick-eat / etc., the file lost its trailing rules to OneDrive sync race conditions. The most-recently-added block would be missing the last few rules + its closing brace, cascading into invalid syntax that broke the crafting card styling further up.
+
+**Fix:** Detect via brace-balance audit (`python -c "..."`), find the unclosed rule's line number, re-paste from git HEAD when the truncation is significant. Same family as #019. The defensive `tr -d '\0' < file > /tmp/x` workflow now runs before every multi-edit session.
+
+---
+
 ## #019 — OneDrive sync truncates files mid-edit
 
 **Status:** ⚠️ open (workaround documented)

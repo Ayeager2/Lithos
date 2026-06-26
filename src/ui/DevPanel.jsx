@@ -435,6 +435,18 @@ function ArcaneTab({ state, apply }) {
           Active blessings: {Object.keys(state.run.blessings || {}).length} ·
           Imbued weapons: {Object.keys(state.run.weaponImbues || {}).length}
         </div>
+
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Enchantments (#170 / #37) — permanent, study-gated.
+        </div>
+        <Btn label="🪬 Etch all unlocked enchants on every weapon" onClick={() => apply(dev.devEtchAllEnchants(state))} />
+        <Btn label="🪬 Clear all enchantments" danger onClick={() => apply(dev.devClearEnchantments(state))} />
+        <Btn label="🕯️ Build Stone Altar (enchant gate)" onClick={() => apply(dev.devBuildStoneAltar(state))} />
+        <Btn label="📚 Complete all studies (unlocks all enchants)" onClick={() => apply(dev.devCompleteAllStudies(state))} />
+        <Btn label="✨ +50 Arcane Shards" onClick={() => apply(dev.devGiveStudyMaterials(state, 50))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Enchanted weapons: {Object.keys(state.run.enchantments || {}).length}
+        </div>
       </Section>
 
       <Section title="Altar etchings (persistent)">
@@ -459,6 +471,26 @@ function ArcaneTab({ state, apply }) {
             })
           }
         />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Sample helpers (#178) — populate the new Character → Altar grid.
+        </div>
+        <Btn label="🪞 Stamp sample etchings (every group)" onClick={() => apply(dev.devStampSampleEtchings(state))} />
+        <Btn label="🗡️ Clear Combat etchings" onClick={() => apply(dev.devClearEtchingsByPrefix(state, "mob:"))} />
+        <Btn label="🏹 Clear Hunts etchings" onClick={() => apply(dev.devClearEtchingsByPrefix(state, "prey:"))} />
+        <Btn label="⚒️ Clear Crafts etchings" onClick={() => apply(dev.devClearEtchingsByPrefix(state, "craft:"))} />
+        <Btn label="🌌 Clear Ascension etchings" onClick={() => apply(dev.devClearEtchingsByPrefix(state, "ascension:"))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Voidmark testing — alignment helper (#177).
+        </div>
+        <Btn label="⚫ Evil 5 (unlocks Voidmark)" onClick={() => apply(dev.devSetAlignment(state, "evil", 5))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 6 }}>
+          Thievery (#180).
+        </div>
+        <Btn label="🗡️ Set Thievery to Lv 10" onClick={() => apply(dev.devLevelThievery(state, 10))} />
+        <Btn label="🗡️ Set Thievery to Lv 20 (max)" onClick={() => apply(dev.devLevelThievery(state, 20))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Alignment: {state.run?.alignment?.good || 0} good · {state.run?.alignment?.evil || 0} evil
+        </div>
       </Section>
     </>
   );

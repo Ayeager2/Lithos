@@ -7,6 +7,7 @@ import { getResourceCap } from "./storage.js";
 import { getStudyPassives } from "./studies.js";
 import { gainXp, getSkillState } from "./skills.js";
 import { RESOURCES } from "../content/resources.js";
+import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
 import {
   decayForAction,
   survivalActive,
@@ -376,7 +377,37 @@ export function tickActiveCraft(state, rng = Math.random) {
     }
   }
 
-  return { run, persistent: state.persistent, events };
+  // #176 — milestone etchings on first weapon-tier craft + first rune inscribe.
+  let persistent = state.persistent;
+  if (succeeded) {
+    // Rune inscribe: tool produces a resource that carries an imbueEffect.
+    if (tool.producesResource) {
+      const outDef = RESOURCES[tool.producesResource.id];
+      if (outDef?.imbueEffect) {
+        const fid = "craft:rune:first";
+        if (isFirstStamp(persistent, fid)) {
+          persistent = stampEtchingOnce(persistent, fid, `First rune inscribed (${outDef.name})`);
+          events.push({
+            kind: "milestone",
+            message: `🕯️ An etching appears on the Altar: First rune inscribed.`,
+          });
+        }
+      }
+    } else if (tool.weaponStats && tool.category) {
+      // First weapon of this tier crafted.
+      const fid = `craft:weapon:${tool.category}:first`;
+      if (isFirstStamp(persistent, fid)) {
+        const label = `First ${tool.category} weapon crafted (${tool.name})`;
+        persistent = stampEtchingOnce(persistent, fid, label);
+        events.push({
+          kind: "milestone",
+          message: `🕯️ An etching appears on the Altar: First ${tool.category} weapon crafted.`,
+        });
+      }
+    }
+  }
+
+  return { run, persistent, events };
 }
 
 // Filter the full tool list down to what CraftingView should render:

@@ -20,7 +20,15 @@
 
 import { useState } from "react";
 import { SLOTS, getEquippable } from "../systems/equipment.js";
-import { getPersonalArmor } from "../systems/combat.js";
+import {
+  getPersonalArmor,
+  getCombatSkillForWeapon,
+  getCombatSkillBonuses,
+  getEffectiveImbueEffects,
+} from "../systems/combat.js";
+import { getStatCombatBonuses } from "../systems/character.js";
+import { getWeaponImbues } from "../systems/runesmithing.js";
+import { getWeaponEnchantments } from "../systems/enchantments.js";
 import { getDeathDebuffMagnitude } from "../systems/death.js";
 import { computeEra } from "../systems/era.js";
 import { getActiveSkills } from "../content/skills.js";
@@ -64,7 +72,64 @@ function StatRow({ label, value, max, icon, tooltip, kind = "default", placehold
   );
 }
 
-function Slot({ slot, equipped, label, onUnequip }) {
+// #179 — multi-line breakdown of an equipped weapon's effective stats.
+// Pulls base damage from the weapon def + skill / stat / imbue / blessing
+// / enchant bonuses through the same combat helpers the fight resolver uses,
+// so the tooltip always reflects what the next swing will actually do.
+function buildWeaponBreakdown(def, state) {
+  if (!def?.weaponStats || !state) return "";
+  const run = state.run;
+  const style = run?.combatStyle || "melee";
+  const stats = def.weaponStats;
+  const skillId = getCombatSkillForWeapon(def, style);
+  const skillBonus = skillId ? getCombatSkillBonuses(run, skillId) : { damageBonus: 0, accBonus: 0, critBonus: 0 };
+  const statBonus = getStatCombatBonuses(state, def, style) || { damageBonus: 0, accBonus: 0, damageMult: 1, evasionBonus: 0 };
+  // Imbues + blessings + enchantments only fold in when this weapon is the
+  // *effective* one; for other equipped weapons, show the raw counts only.
+  const imbues = getWeaponImbues ? getWeaponImbues(state, def.id) : [];
+  const enchants = getWeaponEnchantments ? getWeaponEnchantments(state, def.id) : [];
+  const blessingIds = Object.keys(run?.blessings || {}).filter(
+    (k) => run.blessings[k].expiresAt > Date.now()
+  );
+  // For the effective-totals row we use getEffectiveImbueEffects which
+  // automatically returns null if the weapon isn't equipped — so the
+  // numbers below are only "what the next swing does" when the equipped
+  // weapon matches this slot.
+  const fold = getEffectiveImbueEffects({ run, persistent: state.persistent }) || {};
+  const [lo, hi] = stats.damage || [0, 0];
+  const flatBonus = Math.floor((skillBonus.damageBonus || 0) + (statBonus.damageBonus || 0));
+  const imbueDmg = fold.damageBonus || 0;
+  const effLo = Math.max(0, Math.round((lo + flatBonus + imbueDmg) * (statBonus.damageMult || 1)));
+  const effHi = Math.max(0, Math.round((hi + flatBonus + imbueDmg) * (statBonus.damageMult || 1)));
+  const effAcc = (stats.acc || 0) + (skillBonus.accBonus || 0) + (statBonus.accBonus || 0) + (fold.accBonus || 0);
+  const effCrit = (stats.crit || 0) + (skillBonus.critBonus || 0) + (fold.critChanceBonus || 0);
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  const lines = [];
+  lines.push(`${def.icon || "⚔️"} ${def.name} — ${stats.type || style}`);
+  lines.push("");
+  lines.push(`Base:  ${lo}-${hi} dmg · acc ${pct(stats.acc || 0)} · crit ${pct(stats.crit || 0)}`);
+  if (skillId) {
+    lines.push(`+ ${skillId}: +${skillBonus.damageBonus.toFixed(1)} dmg · +${pct(skillBonus.accBonus)} acc · +${pct(skillBonus.critBonus)} crit`);
+  }
+  if (statBonus.damageBonus || statBonus.accBonus || (statBonus.damageMult && statBonus.damageMult !== 1)) {
+    const mult = (statBonus.damageMult || 1) !== 1 ? ` · ×${(statBonus.damageMult).toFixed(2)}` : "";
+    lines.push(`+ stats: +${statBonus.damageBonus.toFixed(1)} dmg · +${pct(statBonus.accBonus)} acc${mult}`);
+  }
+  if (imbues.length > 0) {
+    lines.push(`+ runes (${imbues.length}): ${imbues.map((i) => i.effect.label).join(", ")}`);
+  }
+  if (blessingIds.length > 0) {
+    lines.push(`+ blessings (${blessingIds.length} active)`);
+  }
+  if (enchants.length > 0) {
+    lines.push(`+ enchants (${enchants.length}): ${enchants.map((e) => e.effect.label).join(", ")}`);
+  }
+  lines.push("");
+  lines.push(`= Effective: ${effLo}-${effHi} dmg · acc ${pct(effAcc)} · crit ${pct(effCrit)}`);
+  return lines.join("\n");
+}
+
+function Slot({ slot, equipped, label, onUnequip, state }) {
   const cur = equipped?.[slot];
   if (cur?.twoHandedHeldIn) {
     const clickable = !!onUnequip;
@@ -91,16 +156,24 @@ function Slot({ slot, equipped, label, onUnequip }) {
   }
   const def = getEquippable(cur.id);
   const clickable = !!onUnequip;
+  // #179 — weapon slots get the multi-line damage/acc/crit breakdown
+  // appended to the title tooltip.
+  const isWeapon = !!def?.weaponStats;
+  const breakdown = isWeapon && state ? buildWeaponBreakdown(def, state) : "";
+  const titleParts = [];
+  titleParts.push(def?.description || def?.name || cur.id);
+  if (breakdown) titleParts.push("", breakdown);
+  if (clickable) titleParts.push("", "Click to unequip.");
   return (
     <button
       type="button"
       className={`char-slot is-filled ${clickable ? "is-clickable" : ""}`}
-      title={`${def?.description || def?.name || cur.id}${clickable ? "\n\nClick to unequip." : ""}`}
+      title={titleParts.join("\n")}
       onClick={clickable ? () => onUnequip(slot) : undefined}
       disabled={!clickable}
     >
       <span className="char-slot-label muted">{label}</span>
-      <span className="char-slot-value">
+      <span className="char-slot-value char-slot-value--flash" key={cur.id}>
         <span aria-hidden="true">{def?.icon || ""}</span> {def?.name || cur.id}
       </span>
     </button>
@@ -193,8 +266,117 @@ const JUMP_ITEMS = [
   { id: "char-stats", icon: "📊", label: "Stats" },
   { id: "char-skills", icon: "🎯", label: "Skills" },
   { id: "char-equipment", icon: "🛡️", label: "Equipment" },
+  { id: "char-altar", icon: "🕯️", label: "Altar" },
   { id: "char-items", icon: "🎒", label: "Items" },
 ];
+
+// ─── Stone Altar etchings (#37 / #170 / etchings-UI) ─────────────────
+// The altar accumulates marks across lives. Etching ids encode the
+// source (study path, boss kill, etc.); we read the prefix to pick an
+// icon and group them visually.
+const ETCHING_PATH_ICON = {
+  light: "☀️", bend: "🌑", elemental: "🌿", sigilcraft: "✒️",
+  memory: "🔔", stoneword: "👂", voidcall: "⚫",
+};
+function etchingMeta(id) {
+  if (!id) return { icon: "🕯️", group: "Other" };
+  if (id === "studies:first") return { icon: "📜", group: "Foundation" };
+  if (id === "studies:first-crossover") return { icon: "🪞", group: "Foundation" };
+  const path = id.startsWith("path:") ? id.split(":")[1] : null;
+  if (path && ETCHING_PATH_ICON[path]) return { icon: ETCHING_PATH_ICON[path], group: "Studies" };
+  if (id.startsWith("voidcall:")) return { icon: "⚫", group: "Studies" };
+  if (id.startsWith("boss:") || id.startsWith("era")) return { icon: "🥇", group: "Bosses" };
+  // #176 — content expansion etchings.
+  if (id.startsWith("mob:")) return { icon: "🗡️", group: "Combat" };
+  if (id.startsWith("mug:")) return { icon: "🥷", group: "Thievery" };
+  if (id.startsWith("prey:")) return { icon: "🏹", group: "Hunts" };
+  if (id === "craft:rune:first") return { icon: "🪬", group: "Crafts" };
+  if (id === "craft:enchant:first") return { icon: "🪬", group: "Crafts" };
+  if (id.startsWith("craft:weapon:")) return { icon: "⚒️", group: "Crafts" };
+  if (id.startsWith("craft:")) return { icon: "⚒️", group: "Crafts" };
+  if (id.startsWith("ascension:")) return { icon: "🌌", group: "Ascensions" };
+  return { icon: "🕯️", group: "Other" };
+}
+function fmtRelTime(ms) {
+  if (!ms) return "";
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return "just now";
+  if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
+  return `${Math.floor(diff / 86400_000)}d ago`;
+}
+function AltarEtching({ id, entry }) {
+  const meta = etchingMeta(id);
+  return (
+    <div className="altar-etching" title={`${entry.label || id}\nstamped ${fmtRelTime(entry.stampedAt)}`}>
+      <span className="altar-etching-icon" aria-hidden="true">{meta.icon}</span>
+      <div className="altar-etching-body">
+        <div className="altar-etching-label">{entry.label || id}</div>
+        <div className="altar-etching-time muted">{fmtRelTime(entry.stampedAt)}</div>
+      </div>
+    </div>
+  );
+}
+function AltarSection({ state }) {
+  const built = !!state.run?.built?.stoneAltar;
+  const etchings = state.persistent?.altarEtchings || {};
+  const entries = Object.entries(etchings);
+  // Group by source.
+  const groups = {
+    Foundation: [],
+    Ascensions: [],
+    Studies: [],
+    Bosses: [],
+    Combat: [],
+    Thievery: [],
+    Hunts: [],
+    Crafts: [],
+    Other: [],
+  };
+  for (const [id, entry] of entries) {
+    const g = etchingMeta(id).group;
+    groups[g].push([id, entry]);
+  }
+  // Sort within each group by stamp time (newest first).
+  for (const k of Object.keys(groups)) {
+    groups[k].sort((a, b) => (b[1].stampedAt || 0) - (a[1].stampedAt || 0));
+  }
+
+  return (
+    <div id="char-altar" className="char-section">
+      <h3 className="char-section-title">
+        <span aria-hidden="true">🕯️</span> Stone Altar
+        <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
+          {entries.length} {entries.length === 1 ? "etching" : "etchings"}
+        </span>
+      </h3>
+      {!built ? (
+        <p className="muted altar-empty">
+          The Stone Altar is unbuilt. When it stands, what you do in this life — and every life before it — will be remembered here.
+        </p>
+      ) : entries.length === 0 ? (
+        <p className="muted altar-empty">
+          The altar is bare. Walk a path, beat a foe, and the first marks will appear.
+        </p>
+      ) : (
+        <div className="altar-groups">
+          {Object.entries(groups).map(([gname, gitems]) => (
+            gitems.length === 0 ? null : (
+              <div key={gname} className="altar-group">
+                <div className="altar-group-title muted">{gname}</div>
+                <div className="altar-grid">
+                  {gitems.map(([id, entry]) => (
+                    <AltarEtching key={id} id={id} entry={entry} />
+                  ))}
+                </div>
+              </div>
+            )
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CharacterView({ state, actions }) {
   const [accessoriesOpen, setAccessoriesOpen] = useState(false);
@@ -353,14 +535,14 @@ export default function CharacterView({ state, actions }) {
         </p>
         <div className="char-equipment">
           <div className="char-slots char-slots--main">
-            <Slot slot={SLOTS.HEAD} equipped={equipped} label="Head" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.CHEST} equipped={equipped} label="Chest" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.LEGGINGS} equipped={equipped} label="Legs" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.BOOTS} equipped={equipped} label="Boots" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.GLOVES} equipped={equipped} label="Gloves" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.HAND_LEFT} equipped={equipped} label="Left hand" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.HAND_RIGHT} equipped={equipped} label="Right hand" onUnequip={handleUnequip} />
-            <Slot slot={SLOTS.RANGED} equipped={equipped} label="Ranged" onUnequip={handleUnequip} />
+            <Slot slot={SLOTS.HEAD} equipped={equipped} label="Head" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.CHEST} equipped={equipped} label="Chest" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.LEGGINGS} equipped={equipped} label="Legs" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.BOOTS} equipped={equipped} label="Boots" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.GLOVES} equipped={equipped} label="Gloves" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.HAND_LEFT} equipped={equipped} label="Left hand" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.HAND_RIGHT} equipped={equipped} label="Right hand" onUnequip={handleUnequip} state={state} />
+            <Slot slot={SLOTS.RANGED} equipped={equipped} label="Ranged" onUnequip={handleUnequip} state={state} />
           </div>
 
           <button
@@ -376,9 +558,9 @@ export default function CharacterView({ state, actions }) {
 
           {accessoriesOpen && (
             <div className="char-slots char-slots--accessories">
-              <Slot slot={SLOTS.BACK} equipped={equipped} label="Back" onUnequip={handleUnequip} />
-              <Slot slot={SLOTS.OVER_ARMOR} equipped={equipped} label="Over-armor" onUnequip={handleUnequip} />
-              <Slot slot={SLOTS.TALISMAN} equipped={equipped} label="Talisman" onUnequip={handleUnequip} />
+              <Slot slot={SLOTS.BACK} equipped={equipped} label="Back" onUnequip={handleUnequip} state={state} />
+              <Slot slot={SLOTS.OVER_ARMOR} equipped={equipped} label="Over-armor" onUnequip={handleUnequip} state={state} />
+              <Slot slot={SLOTS.TALISMAN} equipped={equipped} label="Talisman" onUnequip={handleUnequip} state={state} />
               {rings.map((r, i) => {
                 const clickable = !!r && !!handleUnequipRing;
                 if (!r) {
@@ -416,7 +598,10 @@ export default function CharacterView({ state, actions }) {
         </div>
       </div>
 
-      {/* ─── 4. Items ─── */}
+      {/* ─── 4. Stone Altar etchings ─── */}
+      <AltarSection state={state} />
+
+      {/* ─── 5. Items ─── */}
       <div id="char-items" className="char-section">
         <h3 className="char-section-title">Items</h3>
         {actions && (

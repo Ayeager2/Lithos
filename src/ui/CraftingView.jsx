@@ -346,6 +346,7 @@ export default function CraftingView({ state, actions }) {
         })}
       </nav>
 
+      <div className="magic-tab-panel" key={tab}>
       {visible.length === 0 ? (
         <p className="muted magic-empty">
           You haven't learned to make anything yet. Listen for it.
@@ -369,6 +370,7 @@ export default function CraftingView({ state, actions }) {
                   )}
         </div>
       )}
+      </div>
     </section>
   );
 }

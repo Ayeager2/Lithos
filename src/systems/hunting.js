@@ -8,6 +8,7 @@ import { getSpdCooldownMult } from "./character.js";
 import { applyToolWear } from "./crafting.js";
 import { clampToCap } from "./storage.js";
 import { getPrey } from "../content/prey.js";
+import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
 import {
   decayForAction,
   survivalActive,
@@ -236,10 +237,18 @@ function getButcheringBonuses(run) {
 function rollPreyDrops(prey, inventory, run, rng) {
   if (!Array.isArray(prey.drops)) return { inventory, parts: [] };
   const { chanceBonus, qtyMult } = getButcheringBonuses(run);
+  // #175 — grub-eating birds key off the carrionFlock pest. When the
+  // pest is active, their drop chance bumps and they roll a bonus
+  // grubs drop (the same flock that's eating your garden is feeding
+  // these birds, so they're fat and easy to catch).
+  const birdFlockActive =
+    !!prey.feedsOnGrubs &&
+    (run.activePests?.birdFlock?.until || 0) > Date.now();
+  const pestChanceBonus = birdFlockActive ? 0.15 : 0;
   const next = { ...inventory };
   const parts = [];
   for (const d of prey.drops) {
-    const effChance = Math.min(1, (d.chance ?? 1) + chanceBonus);
+    const effChance = Math.min(1, (d.chance ?? 1) + chanceBonus + pestChanceBonus);
     if (rng() >= effChance) continue;
     const baseQty = Array.isArray(d.qty)
       ? randInt(rng, d.qty[0], d.qty[1])
@@ -248,6 +257,13 @@ function rollPreyDrops(prey, inventory, run, rng) {
     if (qty <= 0) continue;
     next[d.resource] = (next[d.resource] || 0) + qty;
     parts.push(`+${qty} ${d.resource}`);
+  }
+  // #175 grub-bonus drop. Conditional on pest + feedsOnGrubs. Drops
+  // 1–2 grubs (resource id "food") with 50% chance. Standalone roll.
+  if (birdFlockActive && rng() < 0.5) {
+    const bonusQty = Math.max(1, Math.floor((1 + Math.floor(rng() * 2)) * qtyMult));
+    next.food = (next.food || 0) + bonusQty;
+    parts.push(`+${bonusQty} food (flock bonus)`);
   }
   return { inventory: next, parts };
 }
@@ -346,5 +362,16 @@ function performTargetedHunt(state, preyId, now, rng) {
     }
   }
 
-  return { run, persistent: state.persistent, events };
+  // #176 — first hunt of a prey species stamps an altar etching.
+  let persistent = state.persistent;
+  const firstId = `prey:${prey.id}:first`;
+  if (isFirstStamp(persistent, firstId)) {
+    persistent = stampEtchingOnce(persistent, firstId, `First ${prey.name} hunted`);
+    events.push({
+      kind: "milestone",
+      message: `🕯️ An etching appears on the Altar: First ${prey.name} hunted.`,
+    });
+  }
+
+  return { run, persistent, events };
 }

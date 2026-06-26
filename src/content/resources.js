@@ -140,6 +140,20 @@ export const RESOURCES = {
     deathDebuffRecovery: 0.12,
   },
 
+  bird_eggs: {
+    id: "bird_eggs",
+    name: "Bird Eggs",
+    icon: "🥚",
+    category: "food",
+    nutrition: 8,
+    tier: 1,
+    description: "Speckled, still warm. Crack one and you can taste where it has been hiding.",
+    baseCap: 8,
+    // Eggs spoil quickly — a faster perMinute than bird meat.
+    spoilage: { perMinute: 0.6, atCapMultiplier: 5 },
+    deathDebuffRecovery: 0.08,
+  },
+
   feathers: {
     id: "feathers",
     name: "Feathers",
