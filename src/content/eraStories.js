@@ -27,6 +27,27 @@ export const ERA_STORIES = {
         "🌌 You wake in your home, and the air is wrong. The walls are the same. The hearth is the same. But the fragments in your pack are humming, and the stone — the stone — is not whispering. It is waiting. Something has crossed over. The Awakened World begins.",
     },
   },
+
+  4: {
+    sanityBoost: -8,
+    happinessBoost: 0,
+    log: {
+      kind: "era_transition",
+      message:
+        "🔮 The forges are too quiet. The water in the cistern won't ripple. The apprentices speak in unison and don't notice. Something has decided to pay attention. The Arcane Industry era begins. (The Hum.)",
+    },
+  },
+
+  5: {
+    // Era 5 — Eldritch Reckoning. "The Sky Bends." The reckoning clock starts.
+    sanityBoost: -15,
+    happinessBoost: 0,
+    log: {
+      kind: "era_transition",
+      message:
+        "🌌 The horizon tilts. The villagers feel it before they see it. By morning, half the etchings on the Stone Altar have moved. The Stone is awake. The Stone is listening. The Stone is being listened to. The Eldritch Reckoning begins. The clock starts.",
+    },
+  },
 };
 
 export function getEraStory(era) {

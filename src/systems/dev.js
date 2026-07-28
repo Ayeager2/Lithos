@@ -10,6 +10,7 @@ import { getActiveSkills } from "../content/skills.js";
 import { SURVIVAL } from "../content/survival.js";
 import { FRAGMENTS_TO_AWAKEN } from "../content/gatherTable.js";
 import { resolveThreatById } from "./threats.js";
+import { getSummon } from "../content/summons.js";
 
 export function devGiveAll(state, qty = 999) {
   const inventory = { ...state.run.inventory };
@@ -972,3 +973,75 @@ export function devGiveCoins(state, tier = null, qty = 25) {
   return { run: { ...state.run, inventory: inv }, msg: `🛠️ +${qty} coins.` };
 }
 
+
+
+// #215 — Era 4 dev helpers.
+export function devStockEra4(state) {
+  const inv = { ...(state.run.inventory || {}) };
+  const buffers = {
+    aether_iron: 50, conduit_core: 20, ration: 25, fragments: 200,
+    iron: 50, stone: 300, wood: 300,
+  };
+  for (const [k, v] of Object.entries(buffers)) {
+    inv[k] = Math.max(inv[k] || 0, v);
+  }
+  return { run: { ...state.run, inventory: inv }, msg: "🛠️ Era 4 stockpile loaded." };
+}
+
+export function devForceRebellion(state) {
+  return {
+    run: {
+      ...state.run,
+      morale: 5,
+      moraleLowSince: Date.now() - 6 * 60 * 1000,
+    },
+    msg: "🛠️ Morale -> 5. Rebellion fires next tick.",
+  };
+}
+
+export function devEndRebellion(state) {
+  return {
+    run: {
+      ...state.run,
+      morale: 50, moraleLowSince: 0,
+      rebellionActiveSince: null,
+      lastRebellionTickAt: 0,
+    },
+    msg: "🛠️ Rebellion cleared.",
+  };
+}
+
+export function devTaintBuilding(state) {
+  const built = Object.keys(state.run.built || {}).filter((id) => !["hut","lean_to","cottage","home"].includes(id));
+  if (built.length === 0) {
+    return { run: state.run, msg: "🛠️ No non-shelter buildings to taint." };
+  }
+  const id = built[Math.floor(Math.random() * built.length)];
+  const tainted = { ...(state.run.taintedBuildings || {}), [id]: { taintedAt: Date.now() } };
+  return {
+    run: { ...state.run, taintedBuildings: tainted },
+    msg: `🛠️ Tainted ${id}.`,
+  };
+}
+
+export function devBindSummon(state, summonId) {
+  const def = getSummon(summonId);
+  const now = Date.now();
+  return {
+    run: {
+      ...state.run,
+      activeSummon: {
+        id: summonId, bindAt: now,
+        expiresAt: now + (def?.durationMs || 30 * 60 * 1000),
+      },
+    },
+    msg: `🛠️ Bound summon: ${summonId || "?"}.`,
+  };
+}
+
+export function devForceEra4(state) {
+  return {
+    run: { ...state.run, era: 4, worldScore: Math.max(state.run.worldScore || 0, 60) },
+    msg: "🛠️ Era 4 forced.",
+  };
+}

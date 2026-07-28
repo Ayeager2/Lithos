@@ -21,7 +21,7 @@ Era 4 is **magitek industrial**: the player automates what used to be manual, bu
 Any one of:
 1. Settlement reaches **25 villagers** AND **Temple + Stone Altar** built
 2. Player completes **3+ Arcane Studies paths**
-3. **World score ≥ 60** (positive arc) OR **alignment evil ≥ 10** (negative arc)
+3. **World score >= 60** (positive arc) OR **alignment evil >= 10** (negative arc)
 
 Whichever fires first. Triggers a one-time story event ("The Hum"):
 - Bumps `state.run.era` to 4
@@ -31,36 +31,36 @@ Whichever fires first. Triggers a one-time story event ("The Hum"):
 ## Building roster (8 buildings, 4 thematic pairs + Summoning Circle)
 
 **Power**
-- **Aether Foundry** 🔥 — converts `fragments + iron → aether iron`. Has a `tradeRoute`: surplus aether iron → coin.
-- **Conduit Array** ⚡ — passive **+3 spirit / min**, drains `worldScore` by 0.5 / min while running.
+- **Aether Foundry** - converts `fragments + iron -> aether iron`. Has a `tradeRoute`: surplus aether iron -> coin.
+- **Conduit Array** - passive **+3 spirit / min**, drains `worldScore` by 0.5 / min while running.
 
 **Automation**
-- **Automaton Bay** 🤖 — `staffSlots: 4`, each slot when filled creates an artificed laborer that **does not consume food/water/wood**.
-- **Echo Mill** 🌀 — bakery analog: `1 fragment + 1 food → 1 ration`. Drains **0.1 morale / min**.
+- **Automaton Bay** - `staffSlots: 4`, each slot when filled creates an artificed laborer that **does not consume food/water/wood**.
+- **Echo Mill** - bakery analog: `1 fragment + 1 food -> 1 ration`. Drains **0.1 morale / min**.
 
 **Knowledge**
-- **Council Hall** 🏛️ — `+25% population growth`, `+5 housing`, unlocks Era 4 companions.
-- **University Wing** 🎓 — doubles `studySpeedMult` from 1.25× to 1.5×.
+- **Council Hall** - `+25% population growth`, `+5 housing`, unlocks Era 4 companions.
+- **University Wing** - doubles `studySpeedMult` from 1.25x to 1.5x.
 
 **Defense**
-- **Iron Bastion** 🏰 — Watchtower upgrade. `+10 defense`, `staffSlots: 5`, raid loss multiplier `0.20×`.
-- **Sigil Wards** 🛡️ — passive: `-15% raid frequency`, `-20% additional sweep`.
+- **Iron Bastion** - Watchtower upgrade. `+10 defense`, `staffSlots: 5`, raid loss multiplier `0.20x`.
+- **Sigil Wards** - passive: `-15% raid frequency`, `-20% additional sweep`.
 
-**+ Summoning Circle** 🪐 — see Summoning section.
+**+ Summoning Circle** - see Summoning section.
 
 ## Resource additions
 
-- **Aether Iron** ⚙️ — Era 4 material. Aether Foundry output.
-- **Ration** 🥫 — Era 4 food. Doesn't spoil. Echo Mill output. Nutrition 40.
-- **Conduit Core** 🔮 — drops from Era 4 raid victories + occasional Aether Foundry output.
+- **Aether Iron** - Era 4 material. Aether Foundry output.
+- **Ration** - Era 4 food. Doesn't spoil. Echo Mill output. Nutrition 40.
+- **Conduit Core** - drops from Era 4 raid victories + occasional Aether Foundry output.
 
 ## Companions (Era 4 set — gated on Council Hall)
 
 | Companion | Bond | Bonuses | Cost |
 | --- | --- | --- | --- |
-| 🤖 **Tin Automaton** | bound | +2 defense · ×1.10 production · *no consumption* | 5 aether_iron + 3 conduit_core + 30 fragments |
-| 🕯️ **Cult Initiate** | bound by ritual | +0.5 spirit/min · +0.5 sanity/min · -1 morale/min · +5% rune drop | 20 fragments + 2 scroll + 10 ink |
-| 👁️ **Tame Demon** | uneasy | +6 defense · +10% weapon drop · 15% chance of -2 sanity per patrol · +1 alignment evil | 30 fragments + 3 conduit_core + alignment evil ≥ 5 |
+| **Tin Automaton** | bound | +2 defense, x1.10 production, *no consumption* | 5 aether_iron + 3 conduit_core + 30 fragments |
+| **Cult Initiate** | bound by ritual | +0.5 spirit/min, +0.5 sanity/min, -1 morale/min, +5% rune drop | 20 fragments + 2 scroll + 10 ink |
+| **Tame Demon** | uneasy | +6 defense, +10% weapon drop, 15% chance of -2 sanity per patrol, +1 alignment evil | 30 fragments + 3 conduit_core + alignment evil >= 5 |
 
 ## Summoning — high-cost realm-pulled allies
 
@@ -87,31 +87,31 @@ New skill `summoning` (combat category):
 
 | Summon | Tier | Duration | Bonuses | Cost |
 | --- | --- | --- | --- | --- |
-| 🦂 **Skitter-Form** | minor | 30 min | +0.20 evasion, +15% rune drop, -0.2 sanity/min | 8 fragments + 12 Spirit + Summoning 3 + Alchemy 3 |
-| 🌑 **Shade-Walker** | major | 1 hour | +8 defense, +15% gather, **suppresses rebellion ticks** | 1 voidRune + 15 fragments + 20 Spirit + Summoning 5 + Sigilcraft 4 |
-| 🔥 **Cinder Hound** | major | 45 min | +10 melee damage, +25% weapon drop, -0.5 sanity/min, **suppresses rebellion** | 2 emberRune + 20 fragments + 25 Spirit + Summoning 6 + Butchering 5 + Alchemy 4 |
-| 👁️ **Wraith of the Hollow** | apex (evil) | 2 hours | +15 all combat, +30% rune drop, +1 spirit/min, **suppresses rebellion + drains 1 morale/min, +1 evil alignment per call** | 3 conduit_core + 30 fragments + 50 Spirit + Summoning 8 + Voidcall path mastered + 4 other skills ≥ 8 |
+| **Skitter-Form** | minor | 30 min | +0.20 evasion, +15% rune drop, -0.2 sanity/min | 8 fragments + 12 Spirit + Summoning 3 + Alchemy 3 |
+| **Shade-Walker** | major | 1 hour | +8 defense, +15% gather, **suppresses rebellion ticks** | 1 voidRune + 15 fragments + 20 Spirit + Summoning 5 + Sigilcraft 4 |
+| **Cinder Hound** | major | 45 min | +10 melee damage, +25% weapon drop, -0.5 sanity/min, **suppresses rebellion** | 2 emberRune + 20 fragments + 25 Spirit + Summoning 6 + Butchering 5 + Alchemy 4 |
+| **Wraith of the Hollow** | apex (evil) | 2 hours | +15 all combat, +30% rune drop, +1 spirit/min, **suppresses rebellion + drains 1 morale/min, +1 evil alignment per call** | 3 conduit_core + 30 fragments + 50 Spirit + Summoning 8 + Voidcall path mastered + 4 other skills >= 8 |
 
 ### Good arc — supporters (raise morale, boost production, fix the cause)
 
 | Summon | Tier | Duration | Bonuses | Cost |
 | --- | --- | --- | --- | --- |
-| 🌫️ **Whisper-Bound** | minor | 30 min | +0.5 sanity recovery, **+0.5 morale/min**, +5 defense | 5 fragments + 10 Spirit + Summoning 1 |
-| 🌱 **Garden-Spirit** | major | 1 hour | **+20% production rate**, **+1 morale/min**, +0.3 sanity/min | 2 lightRune + 15 fragments + 20 Spirit + Summoning 5 + Alchemy 5 |
-| ⚒️ **Forgehand** | major | 1 hour | ×1.5 to one selected production building, **+0.5 morale/min**, +5 worldScore on bind | 3 elementalRune + 20 fragments + 25 Spirit + Summoning 6 + Blacksmithing 6 |
-| ☀️ **Aspect of the First Light** | apex (good) | 2 hours | +15 all combat, +50% sanity recovery, **+3 morale/min**, +1 worldScore/min, **breaks active rebellion on bind** | 5 lightRune + 30 fragments + 50 Spirit + Summoning 8 + Light path mastered + worldScore ≥ 70 |
+| **Whisper-Bound** | minor | 30 min | +0.5 sanity recovery, **+0.5 morale/min**, +5 defense | 5 fragments + 10 Spirit + Summoning 1 |
+| **Garden-Spirit** | major | 1 hour | **+20% production rate**, **+1 morale/min**, +0.3 sanity/min | 2 lightRune + 15 fragments + 20 Spirit + Summoning 5 + Alchemy 5 |
+| **Forgehand** | major | 1 hour | x1.5 to one selected production building, **+0.5 morale/min**, +5 worldScore on bind | 3 elementalRune + 20 fragments + 25 Spirit + Summoning 6 + Blacksmithing 6 |
+| **Aspect of the First Light** | apex (good) | 2 hours | +15 all combat, +50% sanity recovery, **+3 morale/min**, +1 worldScore/min, **breaks active rebellion on bind** | 5 lightRune + 30 fragments + 50 Spirit + Summoning 8 + Light path mastered + worldScore >= 70 |
 
-### Summon ↔ rebellion interaction
+### Summon <-> rebellion interaction
 
 - **Evil summons suppress the SYMPTOM** — rebellion ticks skip while active. Morale stays low; production stays slow via `getMoraleMult`. Player still bleeds output, just not material. The **tyranny path**.
 - **Good summons FIX the cause** — `+morale/min` raises the stat. Aspect clears `rebellionActiveSince` on bind, ending the rebellion immediately.
-- **Wraith and Aspect are mutually exclusive in practice** — opposite-path requirements (Voidcall + high evil vs Light + worldScore ≥ 70).
+- **Wraith and Aspect are mutually exclusive in practice** — opposite-path requirements (Voidcall + high evil vs Light + worldScore >= 70).
 
 ### Summoning Circle building
 
 | Building | Era | Cost | Effect |
 | --- | --- | --- | --- |
-| 🪐 **Summoning Circle** | 4 | 100 stone + 30 aether_iron + 5 conduit_core + 30 fragments | Required for all summons. Drains 0.2 worldScore/min while a summon is active. |
+| **Summoning Circle** | 4 | 100 stone + 30 aether_iron + 5 conduit_core + 30 fragments | Required for all summons. Drains 0.2 worldScore/min while a summon is active. |
 
 ## Rebellion — what happens when morale collapses
 
@@ -121,7 +121,7 @@ Up to now, low morale just slowed production via `getMoraleMult`. **Rebellions t
 
 When `state.run.morale < 20` for **5 sustained minutes**:
 - `run.rebellionActiveSince = timestamp`
-- TownView shows a red banner: **🔥 Rebellion — your villagers are destroying the settlement**
+- TownView shows a red banner: **Rebellion — your villagers are destroying the settlement**
 - Every 60s of continued rebellion fires one ROUND of damage
 
 ### Per-round rebellion damage
@@ -135,15 +135,15 @@ A new `tickRebellion` runs while active:
 ### Resolution paths
 
 Rebellion ends when ANY of these is true:
-1. **Morale climbs back ≥ 30** — natural recovery. Logs "🌾 The villagers calm. The settlement breathes."
+1. **Morale climbs back >= 30** — natural recovery. Logs "The villagers calm. The settlement breathes."
 2. **Active evil summon** at major+ tier (Shade-Walker, Cinder Hound, Wraith) — SUPPRESSES ticks; morale stays low.
-3. **High alignment evil** (≥ 20) — fear keeps order. Ticks skip; morale stays low.
+3. **High alignment evil** (>= 20) — fear keeps order. Ticks skip; morale stays low.
 4. **Active good summon** with `+morale/min` — raises morale back over threshold within minutes (Garden-Spirit, Whisper-Bound, Forgehand, Aspect).
 5. **Aspect of the First Light** on bind — clears `rebellionActiveSince` immediately.
 
 ### Suppression cost (why it isn't free)
 
-Evil-path resolutions (2, 3) SUPPRESS the symptom without fixing the cause. Morale stays in 0-19 band; production stays slow via `getMoraleMult` (×0.5). The player keeps stockpile but bleeds 50% of production speed. The **tyranny path** — survive forever, never grow.
+Evil-path resolutions (2, 3) SUPPRESS the symptom without fixing the cause. Morale stays in 0-19 band; production stays slow via `getMoraleMult` (x0.5). The player keeps stockpile but bleeds 50% of production speed. The **tyranny path** — survive forever, never grow.
 
 Good-path resolutions (1, 4, 5) FIX the cause. Morale climbs, `getMoraleMult` rises, production restores.
 
@@ -162,17 +162,17 @@ First system where **alignment choice has a mechanical floor**. Low-morale settl
 
 Good-arc summons aren't just stat boosts. They're the **only path to scaling** out of late-game morale crises.
 
-## Class armor (Mage / Ranger / Warrior) — Era 2 → 4 ladder
+## Class armor (Mage / Ranger / Warrior) — Era 2 -> 4 ladder
 
-Three armor classes, full 5-slot sets (head/chest/leggings/boots/gloves) at three tiers (bronze/iron/aether). **3 classes × 3 tiers × 5 slots = 45 armor pieces** across Era 2-4.
+Three armor classes, full 5-slot sets (head/chest/leggings/boots/gloves) at three tiers (bronze/iron/aether). **3 classes x 3 tiers x 5 slots = 45 armor pieces** across Era 2-4.
 
 ### Class affinities
 
 | Class | Style | Stats | Materials |
 | --- | --- | --- | --- |
-| 🛡️ Warrior | melee | +damage, +HP, +defense | aether iron + leather + tusks |
-| 🏹 Ranger | ranged | +accuracy, +ranged crit, +evasion | hide + sinew + feathers |
-| 🪄 Mage | magic | +max spirit, +rune drop, +magic damage | rags + ink + scrolls |
+| Warrior | melee | +damage, +HP, +defense | aether iron + leather + tusks |
+| Ranger | ranged | +accuracy, +ranged crit, +evasion | hide + sinew + feathers |
+| Mage | magic | +max spirit, +rune drop, +magic damage | rags + ink + scrolls |
 
 ### Tier scaling
 
@@ -199,24 +199,24 @@ A new skill (`tinker`) that gates deployable combat consumables. **Synergy-drive
 ### Skill behavior
 
 - Crafting + USING tinker items both require `tinker > 0`. Hard gate.
-- Synergy: each recipe has `synergySkills: [{ id, weight }]`. Effective craft skill = `tinker × 1.0 + Σ(synergySkill × weight)`.
+- Synergy: each recipe has `synergySkills: [{ id, weight }]`. Effective craft skill = `tinker x 1.0 + Sum(synergySkill x weight)`.
 
 ### Tinker items (9 across Era 2-4)
 
 **Era 2 (Tinker 1-5)**
-- 🧨 **Smoke Bomb** — combat: enemy -20% acc for fight. Tinker 1 + Alchemy 2 (0.8) + Survival 1 (0.3).
-- 🪤 **Trip Wire** — patrol: 25% auto-win. Tinker 2 + Hunting 3 (1.0) + Survival 2 (0.5).
-- 🌿 **Caltrop Bag** — combat: 1d3 counter-damage on hit. Tinker 2 + Blacksmithing 2 (1.0) + Hunting 1 (0.4).
+- **Smoke Bomb** — combat: enemy -20% acc for fight. Tinker 1 + Alchemy 2 (0.8) + Survival 1 (0.3).
+- **Trip Wire** — patrol: 25% auto-win. Tinker 2 + Hunting 3 (1.0) + Survival 2 (0.5).
+- **Caltrop Bag** — combat: 1d3 counter-damage on hit. Tinker 2 + Blacksmithing 2 (1.0) + Hunting 1 (0.4).
 
 **Era 3 (Tinker 5-10)**
-- 🧪 **Acid Vial** — combat: ignores 50% defense. Tinker 5 + Alchemy 4 (1.0) + Runesmithing 2 (0.5).
-- ⚡ **Flash Charge** — combat: 60% stun. Tinker 6 + Sigilcraft 3 (1.0) + Alchemy 3 (0.7).
-- 🪝 **Spring Snare** — hunting: guaranteed catch. Tinker 7 + Hunting 6 (1.2) + Blacksmithing 3 (0.5).
+- **Acid Vial** — combat: ignores 50% defense. Tinker 5 + Alchemy 4 (1.0) + Runesmithing 2 (0.5).
+- **Flash Charge** — combat: 60% stun. Tinker 6 + Sigilcraft 3 (1.0) + Alchemy 3 (0.7).
+- **Spring Snare** — hunting: guaranteed catch. Tinker 7 + Hunting 6 (1.2) + Blacksmithing 3 (0.5).
 
 **Era 4 (Tinker 10-20)**
-- 💣 **Aether Grenade** — combat: AoE +30 damage, -3 sanity per use. Tinker 10 + Alchemy 5 + Blacksmithing 5 + Runesmithing 3.
-- 🕸️ **Web Spinner** — patrol: 50% chance to block raid sweep. Tinker 12 + Hunting 8 + Sigilcraft 6.
-- 🌀 **Recall Beacon** — emergency exit current fight. Tinker 15 + Memory studies path completed.
+- **Aether Grenade** — combat: AoE +30 damage, -3 sanity per use. Tinker 10 + Alchemy 5 + Blacksmithing 5 + Runesmithing 3.
+- **Web Spinner** — patrol: 50% chance to block raid sweep. Tinker 12 + Hunting 8 + Sigilcraft 6.
+- **Recall Beacon** — emergency exit current fight. Tinker 15 + Memory studies path completed.
 
 ### Why this matters
 
@@ -225,7 +225,7 @@ Tinker is **the first skill that demands every other craft skill**. Late-game lo
 ## Threat evolution
 
 Era 4 raids escalate:
-- **Tainted Outriders** — Bandits return at 0.95× sweepFraction, +1 building damaged per raid.
+- **Tainted Outriders** — Bandits return at 0.95x sweepFraction, +1 building damaged per raid.
 - **The Quiet Census** — villagers may go missing without combat. Recoverable via Council Hall.
 - **Building corruption** — raid may *taint* a building: still produces but bleeds 0.5 sanity + 0.3 morale per tick. Cleanable at Stone Altar for 5 fragments. Tracked in `run.taintedBuildings`.
 
@@ -242,7 +242,7 @@ Era 4 raids escalate:
 - **Trade routes (#197)** — Aether Foundry runs an Era 4 trade route.
 - **Storage (#194)** — Aether Repository (+30 aether_iron, +15 conduit_core cap).
 - **Settlement etchings (#198)** — Era 4 entry stamps `settlement:era:4`. First summon stamps `summon:first`. First apex summon stamps `summon:apex:first`. First rebellion stamps `settlement:rebellion:first` (a darker entry on the altar).
-- **Raid sweep math (#190/#191)** — Iron Bastion 0.20× replaces Watchtower 0.35×. Sigil Wards -20% sweep additive.
+- **Raid sweep math (#190/#191)** — Iron Bastion 0.20x replaces Watchtower 0.35x. Sigil Wards -20% sweep additive.
 - **Combat (#33/#34)** — Class armor + tinker pre-fight throw + active summon stats fold through existing combat resolver.
 - **Skills (#3/#112)** — Two new skills (Tinker + Summoning).
 - **Companions (#202)** — Summons share the companion infrastructure but use a separate `activeSummon` slot.

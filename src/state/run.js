@@ -7,7 +7,6 @@ export const RUN_DEFAULTS = {
   era: 0,
   inventory: {
     wood: 0, stone: 0, fragments: 0,
-    // Water tier ladder — see content/resources.js WATER_TIERS.
     water_stagnant: 0, water_muddy: 0, water_boiled: 0,
   },
   gathered: {
@@ -35,150 +34,98 @@ export const RUN_DEFAULTS = {
   toolDurability: {},
   lastHuntAt: 0,
 
-  // Patrol (#66) — combat-loop action. Cooldown + lifetime mob-kill
-  // counts that gate boss unlocks. Shape: { [mobId]: integer }.
   lastPatrolAt: 0,
   mobsDefeated: {},
 
-  // Auto-loop (#68) — single active idle action. When set, the loop
-  // runner re-fires the action every `cycleMs`. Clicking any other
-  // action replaces this (interrupt model). Shape:
-  //   { kind: "patrol", target: { mobId? bossId? }, startedAt, cycleMs }
-  // null = no active loop.
   activeLoop: null,
-
-  // Town workers (#71) — passive patrol drip from Echo-Shop-hired
-  // townspeople. Cycles every WORKER_CYCLE_MS per worker. Catches up to
-  // a cap on each TICK_LOOP. See systems/workers.js.
   workersLastTickAt: 0,
-
-  // Pile of goods (#69) — drops accumulated from the *current* active
-  // loop. Resets when the loop target changes (or the loop ends). Keyed
-  // by resource id, value is qty looted since loop start.
-  //   { targetKey: "mob:wildDog" | "boss:era1_main_…", drops: { resId: N } }
   activePile: { targetKey: null, drops: {} },
 
-  // Passive production
   lastPassiveTickAt: 0,
   passiveAccum: {},
 
-  // Pests
   activePests: {},
 
-  // Spoilage
   lastSpoilTickAt: 0,
   spoilAccum: {},
 
-  // Era milestones already seen this run.
   eraMilestonesSeen: {},
 
-  // Per-spell cooldowns.
   spellCooldowns: {},
-
-  // Active status effects from spells.
   statuses: {},
 
-  // ─── Arcane Studies (Tasks #27, #31) ────────────────────────────────
-  // Multiple studies can be in-progress at once; only one accrues time.
-  // See systems/studies.js for the full state shape + lifecycle.
-  studyProgress: {},      // { [nodeId]: { startedAt, accumulatedMs } }
-  activeStudyId: null,    // single active study (nullable)
+  studyProgress: {},
+  activeStudyId: null,
 
-  // ─── Timed crafting (#130) — idle-RPG core. Single active job that
-  // ticks in the background. Materials are committed when the job
-  // starts; the success/fail roll fires on completion. See
-  // systems/crafting.js startCraft + tickActiveCraft.
-  activeCraft: null,      // { toolId, startedAt, durationMs } | null
+  activeCraft: null,
 
-  // ─── Rune imbues (#132) — per-weapon-type rune effects. Keyed by
-  // weapon id (e.g. ironGreatsword), then set of applied rune ids.
-  // Combat math reads this for on-hit effects (Light = heal, Bend =
-  // spirit return, etc). See systems/runesmithing.js.
-  weaponImbues: {},       // { [weaponId]: { [runeId]: { appliedAt } } }
-  // #170 (#37) — permanent weapon enchantments. Study-gated, applied at
-  // the Stone Altar; separate slot budget from rune imbues. Combat math
-  // reads them through getEffectiveImbueEffects (same effect schema as
-  // runes). See systems/enchantments.js and content/enchantments.js.
-  enchantments: {},       // { [weaponId]: { [enchantId]: { appliedAt } } }
+  weaponImbues: {},
+  enchantments: {},
 
-  // ─── Town / Economy (#182) ───────────────────────────────────────
-  // Population tracks villagers in the settlement. Grows passively
-  // when food/water/sanity thresholds are met (see systems/town.js).
+  // Town / Economy
   population: 0,
-  populationGrowAccum: 0, // fractional carrier between TICKs
+  populationGrowAccum: 0,
   lastPopulationTickAt: 0,
-  // #183 — production recipes. recipeAccum carries fractional output
-  // between TICKs, lastRecipeTickAt drives the catchup window.
   recipeAccum: {},
   lastRecipeTickAt: 0,
-  // #192 — settlement consumption. Population drains food/water/wood
-  // every tick. consumptionAccum carries the fractional drain.
   consumptionAccum: {},
   lastConsumptionTickAt: 0,
-  // #193 — starvation tracking. Per-resource sustained-shortage counter
-  // (ms). Penalties fire at 60s/180s/300s thresholds.
   shortageMs: {},
   shortageLastLossAt: {},
-  // #194 — buildings destroyed by raids. Repairable at 50% cost via
-  // performRepair (systems/building.js). { [id]: { destroyedAt } }.
   destroyedBuildings: {},
-  // #197 — last trade-route fire timestamp per building.
   tradeRouteLastAt: {},
+
   // #202 — companions / pets. One active at a time, full roster in owned.
   companions: { active: null, owned: {} },
-  // #199 — settlement morale (0-100). Default 50. Drifts toward an
-  // equilibrium computed by getMoraleEquilibrium. Multiplies production
-  // rates via getMoraleMult.
+  // #212 — active summon (Era 4). Temporary realm-pulled ally; own slot,
+  // stacks with companion. Shape: { id, bindAt, expiresAt, productionTarget? }
+  activeSummon: null,
+  // #223 — queued tinker item (consumed on next patrol/combat). Shape:
+  // { id, useKind: "combat-throw"|"patrol-set"|"exit", effect, queuedAt }
+  activeTinker: null,
+  // #213 — rebellion tracking.
+  moraleLowSince: 0,
+  rebellionActiveSince: null,
+  lastRebellionTickAt: 0,
+  // #214 — tainted buildings (Era 4 raid corruption).
+  taintedBuildings: {},
+  // #225 — Era 5 reckoning clock + Heralds.
+  reckoningClock: null,           // wall-clock ms when apex fires
+  reckoningStartedAt: 0,          // wall-clock ms when clock started
+  reckoningDurationMs: 0,         // mirrors RECKONING_DURATION_MS; tunable
+  reckoningPhase: null,           // "shudders" | "heralds" | "apex" | null
+  reckoningClockPaused: false,
+  heraldsSpawned: [],
+  heraldsSurvived: [],
+  activeHerald: null,             // { id, kind, shape, spawnedAt }
+  eraArc: null,                   // "mending" | "communion" | "defiance"
+  apexSummonBound: false,         // set by summoning.js on apex bind
+  lastListenerDrainAt: 0,         // throttle the Listener's per-min drain
+  // #205 — cached era + distinct paths count for Era 4 gate.
+  // (era is written by SYNC_ERA; mirror of computeEra(state).)
+
   morale: 50,
   lastMoraleTickAt: 0,
-  // #187 — manual staffing overrides. { [buildingId]: { locked: N } }.
-  // Absence of an entry == auto-fill. Locked entries take priority,
-  // remaining pop auto-fills the rest.
   assignments: {},
-  // #151 — temporary blessings. Burn a rune + spend Spirit to apply its
-  // imbueEffect for ~5 min. Aggregated alongside weapon imbues in
-  // getEffectiveImbueEffects so combat math sees both.
-  blessings: {},          // { [runeId]: { expiresAt } }
-  studiesCompleted: {},   // { [nodeId]: { completedAt } } — permanent
-  lastStudyTickAt: 0,     // for offline-catchup elapsed math
-  // Cached stat bumps from study `addsStat` effects (e.g. Wardweave +2 armor).
-  // The same values can be recomputed via systems/studies.js
-  // getStudyStatBonuses — this field exists so combat systems can read it
-  // synchronously without iterating studies each frame.
+  blessings: {},
+  studiesCompleted: {},
+  lastStudyTickAt: 0,
   studyStatBonuses: {},
-  // Stamped on every player-initiated reducer case. Drives the study
-  // pause-on-action mechanic — clock only advances when
-  // `now - lastActionAt > IDLE_THRESHOLD_MS` (default 5s).
   lastActionAt: 0,
 
-  // ─── World Score (Tasks #29, #31) ───────────────────────────────────
-  // Hidden world-restoration score. Contributed by Elemental + Sigilcraft
-  // + Memory + Stoneword study completions, event helpfulness, and the
-  // Ash Cleanse passive trickle. Eroded by Voidcall casts. See systems/
-  // world.js for thresholds and effects, and ERA_PLAN.md "Arcane Studies
-  // → World Score".
+  // World Score
   worldScore: 0,
-  // Fractional accumulator for the Ash Cleanse passive's slow per-minute
-  // contribution. Carries the partial point between TICKs until it
-  // crosses a whole integer (parallel to passiveAccum for resources).
   worldScoreAccum: 0,
   lastWorldScoreTickAt: 0,
-  // One-shot flag set the first time worldScore crosses the apex
-  // threshold. Drives the one-time reveal log event in systems/world.js.
-  // Resets on prestige (run-local) — the player can re-discover.
   worldScoreRevealed: false,
 
-  // ─── Combat / Equipment (Task #32) ─────────────────────────────────
-  // Equipped weapon/armor slot state. See systems/equipment.js for the
-  // slot layout (8 main + 13 accessories) and ERA_PLAN.md "Combat +
-  // Weapons + Specialized Skills" for the design. We call freshEquipped()
-  // here so save.js migrate() spread merges a *valid* default into old
-  // saves that don't have the field yet.
+  // #205 — distinct-paths cache for Era 4 entry gate.
+  _era4PathsCount: 0,
+
+  // Equipment.
   equipped: freshEquipped(),
 
-
-  // Combat style (#82) — melee / ranged / magic toggle. Drives which
-  // weapon slot is consulted, which combat skill earns XP, and which stat  // scales damage. Magic attacks additionally drain Spirit per swing.
+  // Combat style (#82) — melee / ranged / magic.
   combatStyle: "melee",
 
   log: [],

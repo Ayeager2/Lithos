@@ -13,7 +13,9 @@
 
 import { getResearch } from "../content/research.js";
 import { getActiveCompanionBonus } from "./companions.js";
+import { getActiveSummonBonus } from "./summoning.js";
 import { getBuilding } from "../content/buildings.js";
+import { getArmor, getActiveSetBonus } from "../content/armor.js";
 
 export function getDefense(state) {
   let def = 0;
@@ -28,6 +30,22 @@ export function getDefense(state) {
   // #202 — active companion contributes to settlement defense.
   const compBonus = getActiveCompanionBonus(state);
   if (compBonus.defense) def += compBonus.defense;
+  // #212 — active summon also contributes to settlement defense.
+  const sumBonus = getActiveSummonBonus(state);
+  if (sumBonus.defense) def += sumBonus.defense;
+  if (sumBonus.allCombat) def += sumBonus.allCombat;
+
+  // #210 — equipped class armor.
+  const eq = state.run.equipped || {};
+  for (const slot of ["head", "chest", "leggings", "boots", "gloves"]) {
+    const inst = eq[slot];
+    if (!inst?.id) continue;
+    const ad = getArmor(inst.id);
+    if (ad?.armorStats?.defense) def += ad.armorStats.defense;
+  }
+  const setBonus = getActiveSetBonus(eq);
+  if (setBonus?.bonus?.defense) def += setBonus.bonus.defense;
+
   return def;
 }
 

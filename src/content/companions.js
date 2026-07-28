@@ -107,6 +107,43 @@ export const COMPANIONS = {
       onActivate: "🦋 The familiar lifts off. The light moves around it strangely.",
     },
   },
+
+  tinAutomaton: {
+    id: "tinAutomaton", name: "Tin Automaton", icon: "🤖",
+    era: 4, bond: "bound",
+    description: "Brass-plated, copper-jointed, eye-lenses that gleam after dark.",
+    bonuses: { defense: 2, productionMult: 1.10, noConsumption: true },
+    requires: { hasBuilding: "councilHall" },
+    cost: { aether_iron: 5, conduit_core: 3, fragments: 30 },
+    flavor: {
+      onRecruit: "🤖 You wind the key. The eye-lenses light.",
+      onActivate: "🤖 The automaton paces at your shoulder.",
+    },
+  },
+  cultInitiate: {
+    id: "cultInitiate", name: "Cult Initiate", icon: "🕯️",
+    era: 4, bond: "bound by ritual",
+    description: "A young villager with a shaved head and a too-still smile.",
+    bonuses: { spiritPerMin: 0.5, sanityPerMin: 0.5, runeChanceBonus: 0.05, moralePerMin: -1 },
+    requires: { hasBuilding: "councilHall", hasBuilding2: "stoneAltar" },
+    cost: { fragments: 20, scroll: 2, ink: 10 },
+    flavor: {
+      onRecruit: "🕯️ The initiate kneels and speaks a name you did not give.",
+      onActivate: "🕯️ The initiate walks a step behind you.",
+    },
+  },
+  tameDemon: {
+    id: "tameDemon", name: "Tame Demon", icon: "👁️",
+    era: 4, bond: "uneasy",
+    description: "Not a metaphor. The collar holds. Most of the time.",
+    bonuses: { defense: 6, weaponDropChance: 0.10, patrolSanityTaxChance: 0.15, patrolSanityTaxAmount: 2, alignmentEvilOnRecruit: 1 },
+    requires: { hasBuilding: "councilHall", alignmentEvil: 5 },
+    cost: { fragments: 30, conduit_core: 3 },
+    flavor: {
+      onRecruit: "👁️ The collar clicks home.",
+      onActivate: "👁️ The demon falls in behind you.",
+    },
+  },
 };
 
 export const getCompanion = (id) => COMPANIONS[id] || null;

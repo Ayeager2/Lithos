@@ -403,14 +403,20 @@ export function tickStudies(state, now = Date.now()) {
   nextRun = effRes.run;
   events.push(...effRes.events);
 
-  // Now stamp studiesCompleted (after the "first ever" check inside
-  // applyCompletionEffects has already run on the pre-completion count).
+  // Now stamp studiesCompleted + recompute Era 4 path-count cache.
+  const nextCompleted = {
+    ...(nextRun.studiesCompleted || {}),
+    [activeId]: { completedAt: now },
+  };
+  const distinctPaths = new Set();
+  for (const id of Object.keys(nextCompleted)) {
+    const sd = getStudy(id);
+    if (sd?.path) distinctPaths.add(sd.path);
+  }
   nextRun = {
     ...nextRun,
-    studiesCompleted: {
-      ...(nextRun.studiesCompleted || {}),
-      [activeId]: { completedAt: now },
-    },
+    studiesCompleted: nextCompleted,
+    _era4PathsCount: distinctPaths.size,
   };
 
   return {

@@ -17,6 +17,8 @@
 import { getAllBuildings } from "../content/buildings.js";
 import { clampToCap } from "./storage.js";
 import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
+import { getActiveCompanionBonus } from "./companions.js";
+import { getActiveSummonBonus } from "./summoning.js";
 
 // One villager every 5 minutes when thresholds are met. Tuned so the
 // player feels growth without it dominating their resource budget.
@@ -270,7 +272,14 @@ export function tickRecipeProduction(state, now = Date.now()) {
     const assigned = assignments[b.id] || 0;
     if (assigned <= 0) continue;
 
-    const ratePerMin = (recipe.perVillagerPerMinute || 0) * assigned * getMoraleMult(state);
+    // #208/#212 — companion + summon production multipliers.
+    const compBonus = getActiveCompanionBonus(state) || {};
+    const sumBonus = getActiveSummonBonus(state) || {};
+    let combinedMult = (compBonus.productionMult || 1) * (sumBonus.productionMult || 1);
+    if (sumBonus.productionBuildingMult && state.run.activeSummon?.productionTarget === b.id) {
+      combinedMult *= sumBonus.productionBuildingMult;
+    }
+    const ratePerMin = (recipe.perVillagerPerMinute || 0) * assigned * getMoraleMult(state) * combinedMult;
     if (ratePerMin <= 0) continue;
 
     const carry = accum[b.id] || 0;
@@ -373,8 +382,17 @@ const SHORTAGE_TICK_LOSS_MS = 60_000;
 export function tickConsumption(state, now = Date.now()) {
   let run = state.run;
   if (!run) return { run, events: [] };
-  const pop = run.population || 0;
+  let pop = run.population || 0;
   if (pop <= 0) return { run, events: [] };
+
+  // #208 — Tin Automaton companion reduces effective consuming population.
+  const compBonusC = getActiveCompanionBonus(state) || {};
+  if (compBonusC.noConsumption) pop = Math.max(0, pop - 1);
+  if (run.built?.automatonBay) {
+    const ab = (run.assignments?.automatonBay?.locked) ?? 0;
+    pop = Math.max(0, pop - ab);
+  }
+  if (pop <= 0) return { run: { ...run, lastConsumptionTickAt: now }, events: [] };
 
   const last = run.lastConsumptionTickAt || now;
   const elapsedMs = Math.min(now - last, CONSUMPTION_CATCHUP_MAX_MS);
@@ -703,11 +721,50 @@ export function tickMorale(state, now = Date.now()) {
   const current = run.morale ?? 50;
   const driftMax = MORALE_DRIFT_PER_MIN * elapsedMin;
   const delta = Math.max(-driftMax, Math.min(driftMax, target - current));
-  const next = Math.max(0, Math.min(100, current + delta));
+  let next = Math.max(0, Math.min(100, current + delta));
+
+  // #208/#212/#214 — companion + summon morale deltas + tainted buildings.
+  const compBonusM = getActiveCompanionBonus(state) || {};
+  const sumBonusM = getActiveSummonBonus(state) || {};
+  const taintedCount = Object.keys(run.taintedBuildings || {}).length;
+  let extraDelta = (
+    (compBonusM.moralePerMin || 0)
+    + (sumBonusM.moralePerMin || 0)
+    + (taintedCount * -0.3)
+  ) * elapsedMin;
+  // Echo Mill drains morale via effect.moralePerMinute.
+  for (const b of getAllBuildings()) {
+    if (!run.built?.[b.id]) continue;
+    const m = b.effect?.moralePerMinute || b.effect?.moralePerMin || 0;
+    if (m) extraDelta += m * elapsedMin;
+  }
+  next = Math.max(0, Math.min(100, next + extraDelta));
 
   return {
     run: { ...run, morale: next, lastMoraleTickAt: now },
     events: [],
+  };
+}
+
+// #214 — cleanse a tainted building at Stone Altar (5 fragments).
+export function performCleanseTaint(state, buildingId) {
+  const run = state.run;
+  if (!run.taintedBuildings?.[buildingId]) {
+    return { run, events: [{ kind: "actionFail", message: "That building is not tainted." }] };
+  }
+  if (!run.built?.stoneAltar) {
+    return { run, events: [{ kind: "actionFail", message: "Requires Stone Altar." }] };
+  }
+  const cost = 5;
+  if ((run.inventory?.fragments || 0) < cost) {
+    return { run, events: [{ kind: "actionFail", message: `Need ${cost} fragments to cleanse.` }] };
+  }
+  const inventory = { ...run.inventory, fragments: run.inventory.fragments - cost };
+  const tainted = { ...run.taintedBuildings };
+  delete tainted[buildingId];
+  return {
+    run: { ...run, inventory, taintedBuildings: tainted },
+    events: [{ kind: "milestone", message: `🕯️ The Stone Altar accepts the offering. The ${buildingId} hums normally again.` }],
   };
 }
 

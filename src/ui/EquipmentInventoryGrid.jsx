@@ -34,6 +34,7 @@ import {
 } from "../systems/equipment.js";
 import { getCapStatus } from "../systems/storage.js";
 import { canUseTool } from "../systems/consumables.js";
+import { getTinkerItem, canUseTinker } from "../content/tinker.js";
 
 // ─── Category routing ────────────────────────────────────────────────
 //
@@ -248,6 +249,25 @@ function EquipButtons({ state, actions, def, equipped }) {
         title={check.ok ? "Use one" : check.reason}
       >
         Use
+      </button>
+    );
+  }
+
+  // #223 — Tinker items — Use button queues an activeTinker. Consumed
+  // on next patrol / raid / fight depending on useKind.
+  if (getTinkerItem(id)) {
+    const check = canUseTinker(state, id);
+    const queued = state.run?.activeTinker?.id === id;
+    buttons.push(
+      <button
+        key="useTinker"
+        type="button"
+        className="btn btn-secondary btn-tiny"
+        onClick={() => actions.useTinker(id)}
+        disabled={!check.ok || queued}
+        title={queued ? "Already queued — fires on next encounter." : check.ok ? "Deploy on next encounter" : check.reason}
+      >
+        {queued ? "Queued" : "Deploy"}
       </button>
     );
   }

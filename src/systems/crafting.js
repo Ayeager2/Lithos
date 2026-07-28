@@ -2,6 +2,8 @@
 
 import { getTool, getAllTools, getToolDiscipline } from "../content/tools.js";
 import { getAllWeapons } from "../content/weapons.js";
+import { getAllArmor, getArmor } from "../content/armor.js";
+import { getAllTinkerItems, getTinkerItem } from "../content/tinker.js";
 import { totalWater, spendWater } from "../content/resources.js";
 import { getResourceCap } from "./storage.js";
 import { getStudyPassives } from "./studies.js";
@@ -338,7 +340,11 @@ export function tickActiveCraft(state, rng = Math.random) {
     });
   }
 
-  const baseXp = (tool.tier || 1) * 4;
+  // #211 — tinker items use tinkerLevelRequired as the difficulty proxy
+  // (no `tier` field). Treat that as the tier for XP scaling.
+  const baseXp = tool.tinkerLevelRequired
+    ? tool.tinkerLevelRequired * 5
+    : (tool.tier || 1) * 4;
   const successMult = succeeded ? 1 : 0.5;
   const discipline = getToolDiscipline(tool);
   const genXp = gainXp(run, "crafting", Math.round(baseXp * 0.4 * successMult));
@@ -349,12 +355,21 @@ export function tickActiveCraft(state, rng = Math.random) {
   events.push(...discXp.events);
 
   // #36 / #131 — iron-tier crafts (or the iron smelt recipe itself)
-  // also grant Smithing XP. Smithing is the side-skill that scales
-  // iron-tier efficiency.
+  // also grant Smithing XP.
   if (tool.category === "iron" || tool.id === "smeltIron") {
     const smithXp = gainXp(run, "smithing", Math.round(baseXp * 0.5 * successMult));
     run = { ...run, skills: smithXp.skills };
     events.push(...smithXp.events);
+  }
+
+  // #222 — Tinker recipes also grant XP to their synergy skills.
+  if (tool.synergySkills) {
+    for (const syn of tool.synergySkills) {
+      if (!syn?.id || !syn?.weight) continue;
+      const synXp = gainXp(run, syn.id, Math.round(baseXp * syn.weight * 0.3 * successMult));
+      run = { ...run, skills: synXp.skills };
+      events.push(...synXp.events);
+    }
   }
 
   // #143 — multi-craft / loop continuation. queuedQty === 0 means loop
@@ -414,10 +429,31 @@ export function tickActiveCraft(state, rng = Math.random) {
 // anything the player already owns (so spare counts stay visible) or
 // anything whose research gate is satisfied.
 export function getVisibleTools(state) {
-  return getAllTools().filter((t) => {
-    if ((state.run.inventory?.[t.id] || 0) > 0) return true;
+  const visible = [];
+  const eraNow = state.run.era || 0;
+  const ownGate = (t) => (state.run.inventory?.[t.id] || 0) > 0;
+
+  for (const t of getAllTools()) {
+    if (ownGate(t)) { visible.push(t); continue; }
     const req = t.requires || {};
-    if (req.researched && !state.run.researched?.[req.researched]) return false;
-    return true;
-  });
+    if (req.researched && !state.run.researched?.[req.researched]) continue;
+    visible.push(t);
+  }
+  // #210 — armor pieces.
+  for (const a of getAllArmor()) {
+    if (ownGate(a)) { visible.push(a); continue; }
+    const req = a.requires || {};
+    if (typeof req.era === "number" && eraNow < req.era) continue;
+    if (req.researched && !state.run.researched?.[req.researched]) continue;
+    if (req.hasBuilding && !state.run.built?.[req.hasBuilding]) continue;
+    visible.push(a);
+  }
+  // #211 — tinker items.
+  const tinkerLvl = state.run.skills?.tinker?.level || 0;
+  for (const ti of getAllTinkerItems()) {
+    if (ownGate(ti)) { visible.push(ti); continue; }
+    if (tinkerLvl < (ti.tinkerLevelRequired || 1)) continue;
+    visible.push(ti);
+  }
+  return visible;
 }

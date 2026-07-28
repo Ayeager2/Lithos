@@ -14,6 +14,9 @@ function checkRequires(state, req) {
   if (req.hasBuilding && !state.run.built?.[req.hasBuilding]) {
     return { ok: false, reason: `Requires building: ${req.hasBuilding}.` };
   }
+  if (req.hasBuilding2 && !state.run.built?.[req.hasBuilding2]) {
+    return { ok: false, reason: `Requires building: ${req.hasBuilding2}.` };
+  }
   if (req.researched && !state.run.researched?.[req.researched]) {
     return { ok: false, reason: `Requires research: ${req.researched}.` };
   }
@@ -26,6 +29,9 @@ function checkRequires(state, req) {
   }
   if (typeof req.era === "number" && (state.run.era || 0) < req.era) {
     return { ok: false, reason: `Requires era ${req.era}.` };
+  }
+  if (typeof req.alignmentEvil === "number" && (state.run.alignment?.evil || 0) < req.alignmentEvil) {
+    return { ok: false, reason: `Requires alignment evil ${req.alignmentEvil}.` };
   }
   return { ok: true };
 }
@@ -82,10 +88,17 @@ export function performRecruit(state, companionId) {
 
   const companions = state.run.companions || { active: null, owned: {} };
   const owned = { ...companions.owned, [companionId]: { recruitedAt: Date.now() } };
-  // Auto-activate the first companion. Otherwise leave the current active.
   const active = companions.active || companionId;
 
-  const run = { ...state.run, inventory, stats, companions: { active, owned } };
+  // #208 — Tame Demon imposes a one-shot alignment-evil bump on recruit.
+  let alignment = state.run.alignment;
+  const evilOnRecruit = def.bonuses?.alignmentEvilOnRecruit || 0;
+  if (evilOnRecruit) {
+    alignment = { ...(alignment || { good: 0, evil: 0 }) };
+    alignment.evil = (alignment.evil || 0) + evilOnRecruit;
+  }
+
+  const run = { ...state.run, inventory, stats, alignment, companions: { active, owned } };
   return { run, persistent: state.persistent,
     events: [{ kind: "milestone", message: def.flavor?.onRecruit || `🐾 ${def.name} joins you.` }] };
 }

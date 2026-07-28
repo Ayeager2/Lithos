@@ -10,6 +10,11 @@ import {
   boostStats,
 } from "./survival.js";
 import { gainXp } from "./skills.js";
+import { computeEra } from "./era.js";
+
+function _computeEraSafe(state) {
+  try { return computeEra(state) || 0; } catch { return 0; }
+}
 
 // Returns { ok: bool, reason: string }.
 export function canBuild(state, buildingId) {
@@ -35,6 +40,12 @@ export function canBuild(state, buildingId) {
       !state.run.built?.[building.requires.hasBuilding]
     ) {
       return { ok: false, reason: "Something must come before this." };
+    }
+    if (typeof building.requires.era === "number") {
+      const eraNow = state.run.era || _computeEraSafe(state);
+      if (eraNow < building.requires.era) {
+        return { ok: false, reason: `Requires Era ${building.requires.era}.` };
+      }
     }
   }
 

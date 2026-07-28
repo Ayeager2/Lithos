@@ -2,6 +2,7 @@
 
 import { getAllBuildings } from "../content/buildings.js";
 import { getActiveCompanionBonus } from "./companions.js";
+import { getActiveSummonBonus } from "./summoning.js";
 import { getResourceCap } from "./storage.js";
 import { getToolEffects } from "../content/tools.js";
 import { getStudyPassives } from "./studies.js";
@@ -107,9 +108,13 @@ export function applyPassiveProduction(state) {
   const buildingStatRates = getBuildingStatRates(run);
   // #203 — companion stat trickles (Spirit Familiar / Stray Dog / etc.).
   const compBonus = getActiveCompanionBonus(state);
+  // #208/#212 — summon also contributes spirit + sanity.
+  const sumBonus = getActiveSummonBonus(state) || {};
   const spiritPerMin =
-    (toolEff.spiritPerMinute || 0) + buildingStatRates.spiritPerMinute + (compBonus.spiritPerMin || 0);
-  const sanityPerMin = buildingStatRates.sanityPerMinute;
+    (toolEff.spiritPerMinute || 0) + buildingStatRates.spiritPerMinute
+    + (compBonus.spiritPerMin || 0) + (sumBonus.spiritPerMin || 0);
+  const sanityPerMin = buildingStatRates.sanityPerMinute
+    + (compBonus.sanityPerMin || 0) + (sumBonus.sanityPerMin || 0);
   const hpPerMin = (compBonus.hpRegenPerMin || 0);
 
   if (Object.keys(rates).length === 0 && spiritPerMin === 0 && sanityPerMin === 0 && hpPerMin === 0) {

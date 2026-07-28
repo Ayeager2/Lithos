@@ -124,6 +124,8 @@ export function maybePromoteGardenOutput(state, resourceKey) {
 // Returns { run, events }. Persistent unchanged here — the apex reveal
 // flag lives on run (so prestige wipes it; player can re-discover later).
 import { getStudyPassives } from "./studies.js";
+import { getAllBuildings } from "../content/buildings.js";
+import { getActiveSummonBonus } from "./summoning.js";
 
 // Tunable: max ms of offline catchup credited per call — keeps long
 // absences from instantly maxing the score from Ash Cleanse trickle.
@@ -134,25 +136,39 @@ export function tickWorldScore(state, now = Date.now()) {
   const events = [];
   let nextRun = run;
 
-  // ─── Ash Cleanse passive trickle ────────────────────────────────
+  // ─── Ash Cleanse passive trickle + Era 4 building drains ────────
   const passives = getStudyPassives(run);
-  const perMin = passives.worldScoreBonusOnTick || 0;
-  if (perMin > 0) {
+  let perMin = passives.worldScoreBonusOnTick || 0;
+
+  // #206 — Era 4 building drains.
+  for (const b of getAllBuildings()) {
+    if (!run.built?.[b.id]) continue;
+    const drain = b.effect?.worldScorePerMinute;
+    if (drain) perMin += drain;
+  }
+  // #212 — Aspect summons gain world score; circle drains.
+  const sumB = getActiveSummonBonus({ run });
+  if (sumB.worldScorePerMin) perMin += sumB.worldScorePerMin;
+  if (run.activeSummon && run.activeSummon.expiresAt > Date.now()) {
+    perMin -= 0.2;
+  }
+
+  if (perMin !== 0) {
     const lastAt = run.lastWorldScoreTickAt || now;
     const elapsedMs = Math.min(now - lastAt, MAX_CATCHUP_MS);
     if (elapsedMs >= 1000) {
       const elapsedMin = elapsedMs / 60000;
       const accum = (run.worldScoreAccum || 0) + perMin * elapsedMin;
-      const whole = Math.floor(accum);
+      const whole = Math[perMin >= 0 ? "floor" : "ceil"](accum);
       nextRun = {
         ...nextRun,
         worldScoreAccum: accum - whole,
         lastWorldScoreTickAt: now,
       };
-      if (whole > 0) {
+      if (whole !== 0) {
         nextRun = {
           ...nextRun,
-          worldScore: (nextRun.worldScore || 0) + whole,
+          worldScore: Math.max(0, (nextRun.worldScore || 0) + whole),
         };
       }
     } else {

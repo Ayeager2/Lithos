@@ -22,6 +22,10 @@ import { useState } from "react";
 import { SLOTS, getEquippable } from "../systems/equipment.js";
 import { getAllCompanions, getCompanion } from "../content/companions.js";
 import { canRecruit, getOwnedCompanions } from "../systems/companions.js";
+import { getAllSummons, getSummon } from "../content/summons.js";
+import { canBindSummon, getActiveSummon } from "../systems/summoning.js";
+import { getActiveSetBonus } from "../content/armor.js";
+import { getAllBuildings } from "../content/buildings.js";
 import {
   getPersonalArmor,
   getCombatSkillForWeapon,
@@ -269,6 +273,7 @@ const JUMP_ITEMS = [
   { id: "char-skills", icon: "🎯", label: "Skills" },
   { id: "char-equipment", icon: "🛡️", label: "Equipment" },
   { id: "char-companions", icon: "🐾", label: "Companions" },
+  { id: "char-summons", icon: "🪐", label: "Summons" },
   { id: "char-altar", icon: "🕯️", label: "Altar" },
   { id: "char-items", icon: "🎒", label: "Items" },
 ];
@@ -486,6 +491,148 @@ function AltarSection({ state }) {
         </div>
       )}
     </div>
+  );
+}
+
+// #224 — Forgehand picker.
+function ForgehandBindControl({ summon, state, actions, disabled, reason }) {
+  const [pick, setPick] = useState(null);
+  const candidates = getAllBuildings().filter(
+    (b) => state.run?.built?.[b.id] && (b.productionRecipe || b.staffSlots)
+  );
+  const target = pick || candidates[0]?.id;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <select
+        value={target || ""}
+        onChange={(e) => setPick(e.target.value)}
+        disabled={disabled || candidates.length === 0}
+        style={{ fontSize: 11 }}
+      >
+        {candidates.length === 0 && <option value="">No production buildings yet</option>}
+        {candidates.map((b) => (
+          <option key={b.id} value={b.id}>{b.icon} {b.name}</option>
+        ))}
+      </select>
+      <button
+        type="button"
+        className="btn btn-primary btn-sm patrol-card-cta-btn"
+        disabled={disabled || !target}
+        title={reason}
+        onClick={() => actions.bindSummon(summon.id, target)}
+      >
+        🪐 Bind on {target ? candidates.find((b) => b.id === target)?.name : "..."}
+      </button>
+    </div>
+  );
+}
+
+// #224 — Class armor set bonus chip.
+function ArmorSetBonusChip({ equipped }) {
+  const setBonus = getActiveSetBonus(equipped);
+  if (!setBonus?.bonus) return null;
+  const [armorClass, tier] = setBonus.key.split("_");
+  const summary = Object.entries(setBonus.bonus).map(([k, v]) =>
+    typeof v === "number" && v < 1 && v > 0
+      ? `+${(v * 100).toFixed(0)}% ${k}`
+      : `+${v} ${k}`
+  ).join(" · ");
+  return (
+    <div style={{ marginTop: 8, padding: "6px 10px", background: "#7fc97f25", borderLeft: "3px solid #7fc97f", borderRadius: 4, fontSize: 11, color: "#7fc97f", fontWeight: 600 }}>
+      🛡️ Set bonus active: {armorClass} {tier} — {summary}
+    </div>
+  );
+}
+
+function SummonsSection({ state, actions }) {
+  const summons = getAllSummons();
+  const live = getActiveSummon(state);
+  const hasCircle = !!state.run?.built?.summoningCircle;
+  return (
+    <section id="char-summons" className="character-section">
+      <h2 className="character-section-title">
+        <span aria-hidden="true">🪐</span> Summons
+      </h2>
+      {!hasCircle && (
+        <p className="muted" style={{ fontSize: 12 }}>
+          Build a <strong>Summoning Circle</strong> at the Stone Altar to access summoning. Requires Era 4.
+        </p>
+      )}
+      {hasCircle && live && (
+        <div style={{ marginBottom: 10, padding: "8px 10px", borderLeft: `3px solid ${live.def.arc === "evil" ? "#8a3030" : "#4a7a4a"}`, background: `${live.def.arc === "evil" ? "#8a3030" : "#4a7a4a"}20`, borderRadius: 4 }}>
+          <div style={{ fontWeight: 700 }}>
+            {live.def.icon} {live.def.name} bound · expires {new Date(live.expiresAt).toLocaleTimeString()}
+          </div>
+          <div style={{ fontSize: 11, marginTop: 4 }}>{live.def.description}</div>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ marginTop: 6 }}
+            onClick={() => actions.dismissSummon()}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {hasCircle && (
+        <div className="patrol-card-grid">
+          {summons.map((s) => {
+            const check = canBindSummon(state, s.id);
+            const arcColor = s.arc === "evil" ? "#8a3030" : "#4a7a4a";
+            return (
+              <div key={s.id} className="patrol-card" style={{ borderColor: arcColor }} title={s.description}>
+                <div className="patrol-card-head">
+                  <span className="patrol-card-icon" aria-hidden="true">{s.icon}</span>
+                  <div className="patrol-card-title">
+                    <div className="patrol-card-name">{s.name}</div>
+                    <div className="patrol-card-sub">
+                      <span className="patrol-card-tier" style={{ background: `${arcColor}22`, color: arcColor }}>
+                        {s.arc} · {s.tier}
+                      </span>
+                      <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>
+                        {Math.floor((s.durationMs || 0) / 60000)} min
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="muted" style={{ fontSize: 11 }}>{s.description}</p>
+                <div className="patrol-card-drops">
+                  <ul className="patrol-card-drops-list" style={{ fontSize: 11 }}>
+                    {Object.entries(s.bonuses || {}).slice(0, 4).map(([k, v]) => (
+                      <li key={k} className="patrol-card-drop">
+                        <span>{k}: {typeof v === "boolean" ? "yes" : v}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div style={{ fontSize: 10, color: "#888", marginTop: 4 }}>
+                  Cost: {Object.entries(s.bindCost || {}).map(([k, v]) => `${v} ${k}`).join(", ")}
+                </div>
+                {s.bonuses?.productionBuildingMult ? (
+                  <ForgehandBindControl
+                    summon={s}
+                    state={state}
+                    actions={actions}
+                    disabled={!check.ok || !!live}
+                    reason={live ? "A summon is already bound." : check.ok ? `Bind ${s.name}` : check.reason}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm patrol-card-cta-btn"
+                    disabled={!check.ok || !!live}
+                    title={live ? "A summon is already bound." : check.ok ? `Bind ${s.name}` : check.reason}
+                    onClick={() => actions.bindSummon(s.id)}
+                  >
+                    🪐 Bind
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -709,8 +856,14 @@ export default function CharacterView({ state, actions }) {
         </div>
       </div>
 
+      {/* #224 — Class armor set bonus chip (when all 5 of a class+tier equipped). */}
+      <ArmorSetBonusChip equipped={equipped} />
+
       {/* ─── 4. Companions ─── */}
       <CompanionsSection state={state} actions={actions} />
+
+      {/* ─── 5. Summons (#212) ─── */}
+      <SummonsSection state={state} actions={actions} />
 
       {/* ─── 5. Stone Altar etchings ─── */}
       <AltarSection state={state} />

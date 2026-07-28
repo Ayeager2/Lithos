@@ -210,6 +210,35 @@ export const RESOURCES = {
     hiddenCategory: "unknown",
   },
 
+  // ─── Era 4 — Arcane Industry (#206) ──────────────────────────────────
+  aether_iron: {
+    id: "aether_iron",
+    name: "Aether Iron",
+    icon: "⚙️",
+    category: "materials",
+    description: "A metal that should not have settled. Forge-glow lingers in it for hours after the fire goes out.",
+    baseCap: 20,
+  },
+  ration: {
+    id: "ration",
+    name: "Ration",
+    icon: "🥫",
+    category: "food",
+    nutrition: 40,
+    tier: 3,
+    description: "Pressed bread, dried meat, a slick of fat. Sealed in waxed paper. Keeps.",
+    baseCap: 25,
+    deathDebuffRecovery: 0.15,
+  },
+  conduit_core: {
+    id: "conduit_core",
+    name: "Conduit Core",
+    icon: "🔮",
+    category: "fragment",
+    description: "A palm-sized lattice of cold-light. The settlement's whole power grid runs on a dozen of these.",
+    baseCap: 10,
+  },
+
   ink: {
     id: "ink",
     name: "Ink",
@@ -356,6 +385,33 @@ voidRune:       { id: "voidRune",       name: "Void Rune",        icon: "⚫", c
   godrune_ofTheStone: { id: "godrune_ofTheStone", name: "Godrune of the Stone", icon: "🗿", category: "mystic", description: "The first rune the world ever made.", baseCap: 3, imbueEffect: { hpRegenPerMinute: 15, durabilitySaveChance: 0.95, damageBonus: 10, hpReturnOnHit: 8, label: "+15 HP/min, 95% wear save, +10 dmg, +8 HP / hit" }, rarity: "god", hiddenUntil: { researched: "arcaneAwakening" }, hiddenName: "???", hiddenIcon: "❓", hiddenDescription: "An unknown rune.", hiddenCategory: "unknown" },
   godrune_ofMemory: { id: "godrune_ofMemory", name: "Godrune of Memory", icon: "🔔", category: "mystic", description: "The rune that holds every echo ever made.", baseCap: 3, imbueEffect: { echoChance: 0.75, damageBonus: 15, label: "75% echo, +15 dmg" }, rarity: "god", hiddenUntil: { researched: "arcaneAwakening" }, hiddenName: "???", hiddenIcon: "❓", hiddenDescription: "An unknown rune.", hiddenCategory: "unknown" },
   godrune_oblivion: { id: "godrune_oblivion", name: "Godrune of Oblivion", icon: "🩸", category: "mystic", description: "The last rune. The apex. The one the world fears.", baseCap: 1, imbueEffect: { damageBonus: 50, sanityCostOnHit: 10, echoChance: 0.6, critChanceBonus: 0.2, accBonus: 0.2, label: "+50 dmg, −10 San / hit, 60% echo, +20% crit/acc" }, rarity: "god", hiddenUntil: { researched: "voidcall" }, hiddenName: "???", hiddenIcon: "❓", hiddenDescription: "An unknown rune.", hiddenCategory: "unknown" },
+// ─── Era 5 — Eldritch Reckoning (#227) ───────────────────────────────
+  void_residue: {
+    id: "void_residue",
+    name: "Void Residue",
+    icon: "🌀",
+    category: "mystic",
+    description: "A black-pearl drop of something that was very recently elsewhere. The hand it sits in tingles for an hour.",
+    baseCap: 20,
+  },
+  firstLightShard: {
+    id: "firstLightShard",
+    name: "First-Light Shard",
+    icon: "☀️",
+    category: "mystic",
+    description: "A splinter of the world's original light. Warm. Heavier in the morning than the evening.",
+    baseCap: 15,
+  },
+  cosmic_memory: {
+    id: "cosmic_memory",
+    name: "Cosmic Memory",
+    icon: "🧿",
+    category: "mystic",
+    description: "A pearl of an experience you had during a reckoning. Persists across prestige. Each one grants a small permanent bonus.",
+    baseCap: 99,
+    persistAcrossPrestige: true,
+  },
+
 };
 
 export const getResource = (id) => RESOURCES[id] || null;

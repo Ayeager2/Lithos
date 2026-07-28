@@ -45,6 +45,7 @@
 
 import { getTool, getAllTools } from "../content/tools.js";
 import { getWeapon, getAllWeapons } from "../content/weapons.js";
+import { getArmor, getAllArmor } from "../content/armor.js";
 
 // Slot constants — exported so UI + dev helpers don't typo-key the state.
 export const SLOTS = {
@@ -92,13 +93,11 @@ export function freshEquipped() {
 // Lookup tries weapons first (pure intent), then tools (dual-use).
 
 export function getEquippable(id) {
-  return getWeapon(id) || getTool(id) || null;
+  return getWeapon(id) || getTool(id) || getArmor(id) || null;
 }
 
 export function getAllEquippables() {
-  // Tools that aren't equippable (no weaponStats) get filtered out at
-  // call sites that care.
-  return [...getAllWeapons(), ...getAllTools()];
+  return [...getAllWeapons(), ...getAllTools(), ...getAllArmor()];
 }
 
 // True if this item def can be equipped at all (has weaponStats or
@@ -115,12 +114,14 @@ export function isEquippable(def) {
 // "two-handed" (both hands).
 export function getValidSlotsFor(def) {
   if (!isEquippable(def)) return [];
+  if (def.armorStats?.slot) {
+    return [def.armorStats.slot];
+  }
   const wt = def.weaponStats || {};
-  if (wt.type === "ranged") return [SLOTS.RANGED];
-  if (wt.type === "two-handed") return [SLOTS.HAND_LEFT, SLOTS.HAND_RIGHT];
-  if (wt.type === "melee") return [SLOTS.HAND_LEFT, SLOTS.HAND_RIGHT];
-  // Armor (future):
-  // if (def.armorStats?.slot) return [def.armorStats.slot];
+  const t = wt.type || def.type;
+  if (t === "ranged") return [SLOTS.RANGED];
+  if (t === "two-handed") return [SLOTS.HAND_LEFT, SLOTS.HAND_RIGHT];
+  if (t === "melee") return [SLOTS.HAND_LEFT, SLOTS.HAND_RIGHT];
   return [];
 }
 

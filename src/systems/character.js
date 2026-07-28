@@ -23,6 +23,7 @@
 import { getSkillState } from "./skills.js";
 import { getDeathDebuffMagnitude } from "./death.js";
 import { getStudyStatBonuses } from "./studies.js";
+import { getArmor as _getArmorDef, getActiveSetBonus as _getSetBonus } from "../content/armor.js";
 
 export const BASE_STAT = 10;
 
@@ -92,7 +93,8 @@ export function getStatCombatBonuses(state, weapon, styleOverride) {
   const style = styleOverride || state?.run?.combatStyle || "melee";
   const isMagic =
     style === "magic" ||
-    subfam === "wand" || subfam === "censer" || subfam === "talisman";
+    subfam === "wand" || subfam === "censer" || subfam === "talisman" ||
+    subfam === "staff";
   const isRanged = !isMagic && (style === "ranged" || type === "ranged");
 
   let damageBonus = 0;
@@ -107,8 +109,45 @@ export function getStatCombatBonuses(state, weapon, styleOverride) {
   } else {
     damageBonus = Math.max(0, s.strMod * 0.5);
   }
-  const evasionBonus = Math.max(0, s.dexMod * 0.005);
-  return { damageBonus, damageMult, accBonus, evasionBonus };
+  let evasionBonus = Math.max(0, s.dexMod * 0.005);
+  let critBonus = 0;
+
+  // #210 — class armor bonuses.
+  const armorB = _armorCombatBonuses(state, { isMagic, isRanged });
+  damageBonus += armorB.damageBonus;
+  accBonus += armorB.accBonus;
+  evasionBonus += armorB.evasionBonus;
+  critBonus += armorB.critBonus;
+
+  return { damageBonus, damageMult, accBonus, evasionBonus, critBonus };
+}
+
+function _armorCombatBonuses(state, style) {
+  const eq = state?.run?.equipped || {};
+  const sum = { damageBonus: 0, accBonus: 0, evasionBonus: 0, critBonus: 0, magicDamageBonus: 0 };
+  for (const slot of ["head", "chest", "leggings", "boots", "gloves"]) {
+    const inst = eq[slot];
+    if (!inst?.id) continue;
+    const ad = _getArmorDef(inst.id);
+    if (!ad?.armorStats) continue;
+    const s = ad.armorStats;
+    if (s.damageBonus && !style.isMagic && !style.isRanged) sum.damageBonus += s.damageBonus;
+    if (s.magicDamageBonus && style.isMagic) sum.damageBonus += s.magicDamageBonus;
+    if (s.magicDamageBonus) sum.magicDamageBonus += s.magicDamageBonus;
+    if (s.accBonus) sum.accBonus += s.accBonus;
+    if (s.evasion) sum.evasionBonus += s.evasion;
+    if (s.critBonus) sum.critBonus += s.critBonus;
+  }
+  const setBonus = _getSetBonus(eq);
+  if (setBonus?.bonus) {
+    const b = setBonus.bonus;
+    if (b.damageBonus && !style.isMagic && !style.isRanged) sum.damageBonus += b.damageBonus;
+    if (b.magicDamageBonus && style.isMagic) sum.damageBonus += b.magicDamageBonus;
+    if (b.accBonus) sum.accBonus += b.accBonus;
+    if (b.evasion) sum.evasionBonus += b.evasion;
+    if (b.critBonus) sum.critBonus += b.critBonus;
+  }
+  return sum;
 }
 
 // Cooldown multiplier (1.0 = normal, <1.0 = faster). Capped at 0.5.

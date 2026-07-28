@@ -127,6 +127,14 @@ function applyEventEffects(state, effects, multiplier = 1.0) {
   // All quantities are scaled inversely by settlement defense (each
   // point of defense reduces effective intensity by ~7%, capped at 70%).
   if (effects.raid) {
+    // #223 — Web Spinner tinker item can block this raid entirely.
+    const at = run.activeTinker;
+    if (at?.useKind === "patrol-set" && at?.effect?.blockRaidChance && Math.random() < at.effect.blockRaidChance) {
+      run = { ...run, activeTinker: null };
+      events.push({ kind: "milestone", message: "🕸️ Web Spinner caught the raid. The perimeter held." });
+      return { run, persistent, events };
+    }
+
     const raid = effects.raid;
     const defense = getDefense({ run, persistent });
     const reduction = Math.min(0.7, defense * 0.07);
@@ -224,9 +232,32 @@ function applyEventEffects(state, effects, multiplier = 1.0) {
     }
   }
 
-  // #188 — population effects. effects.population is a number (positive
-  // → gainPopulation, negative → losePopulation). Pumped through the
-  // town.js helpers so the milestone/alert log line is consistent.
+  // #214 — taintBuilding effect.
+  if (effects.taintBuilding) {
+    const candidateIds = Object.keys(run.built || {}).filter((id) => {
+      const b = getAllBuildings().find((x) => x.id === id);
+      if (!b) return false;
+      if (b.category === "shelter") return false;
+      if ((run.taintedBuildings || {})[id]) return false;
+      return true;
+    });
+    const tainted = { ...(run.taintedBuildings || {}) };
+    const want = Math.max(0, Math.round((effects.taintBuilding.count || 1) * multiplier));
+    const stamped = [];
+    for (let i = 0; i < want && candidateIds.length > 0; i++) {
+      const idx = Math.floor(Math.random() * candidateIds.length);
+      const pickId = candidateIds.splice(idx, 1)[0];
+      tainted[pickId] = { taintedAt: Date.now() };
+      const def = getAllBuildings().find((x) => x.id === pickId);
+      stamped.push(def?.name || pickId);
+    }
+    if (stamped.length > 0) {
+      run = { ...run, taintedBuildings: tainted };
+      events.push({ kind: "alert", message: `🦠 Tainted: ${stamped.join(", ")}.` });
+    }
+  }
+
+  // #188 — population effects.
   if (typeof effects.population === "number" && effects.population !== 0) {
     const reason = effects.populationReason || null;
     const popRes = effects.population > 0

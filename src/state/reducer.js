@@ -26,6 +26,11 @@ import {
   tickStudies,
 } from "../systems/studies.js";
 import { tickWorldScore } from "../systems/world.js";
+import { tickSummon, performBindSummon } from "../systems/summoning.js";
+import { tickRebellion } from "../systems/rebellion.js";
+import { performUseTinker } from "../systems/tinker.js";
+import { startReckoning, tickReckoning, tickListenerDrain, resolveHerald, applyPathSwitchPenalty, engageHerald, ritualAttack, heraldAttack } from "../systems/reckoning.js";
+import { performFireApex } from "../systems/apex.js";
 import {
   performEquip,
   performUnequip,
@@ -43,7 +48,7 @@ import { performBuyEchoUpgrade, applyEchoUpgrades } from "../systems/echoes.js";
 import { performBossFightEnd } from "../systems/boss.js";
 import { setActiveLoop, clearActiveLoop, tickActiveLoop } from "../systems/loop.js";
 import { tickWorkers } from "../systems/workers.js";
-import { tickPopulation, tickRecipeProduction, setBuildingAssignment, tickConsumption, tickTradeRoutes, tickMorale } from "../systems/town.js";
+import { tickPopulation, tickRecipeProduction, setBuildingAssignment, tickConsumption, tickTradeRoutes, tickMorale, performCleanseTaint } from "../systems/town.js";
 import {
   applyPassiveProduction,
   clearStalePests,
@@ -118,15 +123,22 @@ function snapshotKnownResources(state) {
 function seedAscensionRun(persistent) {
   const fresh = freshRun();
   const now = Date.now();
+  // #234 — preserve Era 5 resources via Touched Memory.
+  const carry = persistent.reckoningCarryPending || {};
+  const inventory = { ...(fresh.inventory || {}) };
+  for (const [r, q] of Object.entries(carry)) {
+    inventory[r] = (inventory[r] || 0) + q;
+  }
   return applyEchoUpgrades(
     {
       ...fresh,
+      inventory,
       rockFound: true,
       rockAwakened: true,
-      rockAwakenedAt: now - 5000, // outside the awakening-flash window
+      rockAwakenedAt: now - 5000,
       built: { ...fresh.built, hut: { at: now } },
       stats: { ...SURVIVAL.startValues },
-      splashSeen: true, // splash is for first-life only
+      splashSeen: true,
     },
     persistent
   );
@@ -156,14 +168,36 @@ export function reducer(state, action) {
       const { lifetimeStats, runHistory } = endRunAndSnapshot(state, "prestige");
       // Snapshot anything the player knew (resources with hiddenUntil
       // that were currently revealed) so it stays known across this and
-      // all future ascensions. Most importantly: fragments stop reading
-      // "???" once they've ascended carrying knowledge of them.
+      // all future ascensions.
       const permanentlyKnown = snapshotKnownResources(state);
+
+      // #234 — Touched Memory echo upgrades preserve Era 5 resources.
+      // Tier 1=1, 2=3, 3=10, 4=all. Read from persistent.echoUpgrades.
+      const tmLevel = (state.persistent.echoUpgrades?.touchedMemory?.level || 0);
+      const tmKeep = [0, 1, 3, 10, -1][tmLevel] || 0;
+      const _carryBag = {};
+      if (tmLevel > 0) {
+        const vr = state.run.inventory?.void_residue || 0;
+        const fl = state.run.inventory?.firstLightShard || 0;
+        if (tmKeep === -1) {
+          _carryBag.void_residue = vr;
+          _carryBag.firstLightShard = fl;
+        } else {
+          _carryBag.void_residue = Math.min(vr, tmKeep);
+          _carryBag.firstLightShard = Math.min(fl, tmKeep);
+        }
+      }
+      // Cosmic Memory is always preserved.
+      const cm = state.run.inventory?.cosmic_memory || 0;
+      if (cm > 0) _carryBag.cosmic_memory = cm;
+      // Stash on persistent so seedAscensionRun can read it.
+      const reckoningCarry = _carryBag;
       let persistent = {
         ...state.persistent,
         echoes: state.persistent.echoes + reward.echoes,
         runHistory,
         permanentlyKnown,
+        reckoningCarryPending: reckoningCarry,
         lifetimeStats: {
           ...lifetimeStats,
           runsStarted: lifetimeStats.runsStarted + 1,
@@ -357,6 +391,89 @@ export function reducer(state, action) {
       return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
     }
 
+    case ACTIONS.BIND_SUMMON: {
+      const { run, persistent, events } = performBindSummon(state, action.id);
+      let nextRun = run;
+      if (run.activeSummon && action.productionTarget) {
+        nextRun = {
+          ...run,
+          activeSummon: { ...run.activeSummon, productionTarget: action.productionTarget },
+        };
+      }
+      return { persistent, run: appendLogAndStamp(nextRun, events) };
+    }
+
+    case ACTIONS.DISMISS_SUMMON: {
+      if (!state.run.activeSummon) return state;
+      return {
+        persistent: state.persistent,
+        run: appendLogAndStamp(
+          { ...state.run, activeSummon: null },
+          [{ kind: "info", message: "🪐 You dismiss the summon. The circle empties." }],
+        ),
+      };
+    }
+
+    case ACTIONS.CLEANSE_TAINT: {
+      const { run, events } = performCleanseTaint(state, action.buildingId);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.USE_TINKER: {
+      const { run, events } = performUseTinker(state, action.itemId);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.RESOLVE_HERALD: {
+      const { run, events } = resolveHerald(state, action.choiceId, action.outcome);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.PATH_SWITCH: {
+      const { run, events } = applyPathSwitchPenalty(state, action.newArc);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.DEV_RECKONING_ADJUST: {
+      const run = state.run;
+      if (!run?.reckoningClock) return state;
+      const delta = action.deltaMs || 0;
+      const nextClock = Math.max(Date.now(), run.reckoningClock + delta);
+      return { persistent: state.persistent, run: { ...run, reckoningClock: nextClock } };
+    }
+    case ACTIONS.DEV_RECKONING_SET_DURATION: {
+      const run = state.run;
+      if (!run?.reckoningClock) return state;
+      const newDur = Math.max(60_000, action.durationMs || 0);
+      return { persistent: state.persistent, run: { ...run, reckoningDurationMs: newDur, reckoningClock: (run.reckoningStartedAt || Date.now()) + newDur } };
+    }
+    case ACTIONS.DEV_RECKONING_PAUSE: {
+      return { persistent: state.persistent, run: { ...state.run, reckoningClockPaused: !state.run.reckoningClockPaused } };
+    }
+    case ACTIONS.DEV_RECKONING_SPAWN_HERALD: {
+      const heralds = ["mouthAtTheGate", "shapeOfWhatYouBuilt", "theListener"];
+      const id = action.heraldId || heralds[(state.run.heraldsSpawned || []).length] || "mouthAtTheGate";
+      return { persistent: state.persistent, run: { ...state.run, activeHerald: { id, kind: "manual", shape: null, spawnedAt: Date.now() } } };
+    }
+
+    case ACTIONS.FIRE_APEX: {
+      const { run, persistent, events } = performFireApex(state);
+      return { persistent: persistent || state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
+    case ACTIONS.ENGAGE_HERALD: {
+      const { run, events } = engageHerald(state);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+    case ACTIONS.RITUAL_ATTACK: {
+      const { run, events } = ritualAttack(state, action.mode);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+    case ACTIONS.HERALD_ATTACK: {
+      const { run, events } = heraldAttack(state);
+      return { persistent: state.persistent, run: appendLogAndStamp(run, events) };
+    }
+
     case ACTIONS.HUNT: {
       const { run, persistent, events } = performHunt(state);
       return { persistent, run: appendLogAndStamp(run, events) };
@@ -491,25 +608,34 @@ export function reducer(state, action) {
     case ACTIONS.SYNC_ERA: {
       const era = computeEra(state);
       const seen = state.run.eraMilestonesSeen || {};
+      const eraDirty = (state.run.era || 0) !== era;
       if (era === 0 || seen[era]) {
+        let next = state;
+        if (eraDirty) next = { ...next, run: { ...next.run, era } };
         const best = state.persistent.lifetimeStats.bestEraReached || 0;
         if (era > best) {
-          return {
-            ...state,
+          next = {
+            ...next,
             persistent: {
-              ...state.persistent,
+              ...next.persistent,
               lifetimeStats: {
-                ...state.persistent.lifetimeStats,
+                ...next.persistent.lifetimeStats,
                 bestEraReached: era,
               },
             },
           };
         }
-        return state;
+        return next;
       }
 
       const newSeen = { ...seen, [era]: true };
-      let run = { ...state.run, eraMilestonesSeen: newSeen };
+      // #205 — write run.era so building gates can read it synchronously.
+      let run = { ...state.run, eraMilestonesSeen: newSeen, era };
+
+      // #225 — Era 5 entry starts the reckoning clock.
+      if (era === 5 && !run.reckoningClock) {
+        run = startReckoning(run);
+      }
 
       const story = getEraStory(era);
       const events = [];
@@ -523,12 +649,18 @@ export function reducer(state, action) {
         }
       }
 
-      const persistent = {
-        ...state.persistent,
+      // #205 — stamp settlement:era:N etching on first entry.
+      let persistent = stampEtchingOnce(
+        state.persistent,
+        `settlement:era:${era}`,
+        `Reached era ${era}`,
+      );
+      persistent = {
+        ...persistent,
         lifetimeStats: {
-          ...state.persistent.lifetimeStats,
+          ...persistent.lifetimeStats,
           bestEraReached: Math.max(
-            state.persistent.lifetimeStats.bestEraReached || 0,
+            persistent.lifetimeStats.bestEraReached || 0,
             era
           ),
         },
@@ -585,6 +717,28 @@ export function reducer(state, action) {
       const worldResult = tickWorldScore({ run, persistent });
       run = worldResult.run;
       allEvents.push(...worldResult.events);
+
+      // #212 — summon expiry tick.
+      const summonResult = tickSummon({ run, persistent });
+      run = summonResult.run;
+      allEvents.push(...summonResult.events);
+
+      // #213 — rebellion tick.
+      const rebelResult = tickRebellion({ run, persistent });
+      run = rebelResult.run;
+      persistent = rebelResult.persistent || persistent;
+      allEvents.push(...rebelResult.events);
+
+      // #225 — reckoning clock tick (Era 5).
+      const reckResult = tickReckoning({ run, persistent });
+      run = reckResult.run;
+      persistent = reckResult.persistent || persistent;
+      allEvents.push(...reckResult.events);
+
+      // #228 — Listener Herald per-minute drain (if survived).
+      const lisResult = tickListenerDrain({ run, persistent });
+      run = lisResult.run;
+      allEvents.push(...lisResult.events);
 
       const pestResult = clearStalePests(run);
       run = pestResult.run;

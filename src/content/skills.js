@@ -375,6 +375,74 @@ SKILLS.runesmithing = {
   firstUnlockMessage: "🪬 The first rune sits right.",
 };
 
+SKILLS.tinker = {
+  id: "tinker", name: "Tinker", icon: "🪛",
+  description: "Gadgeteer's hands. Bombs, snares, charges.",
+  active: true, category: "combat",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [{ stat: "tinkerSuccess", perLevel: 0.03, max: 0.60 }],
+  firstUnlockMessage: "🪛 The first deployable holds.",
+};
+SKILLS.sigilcraft = {
+  id: "sigilcraft", name: "Sigilcraft", icon: "🔯",
+  description: "The careful inking of magitek schematics.",
+  active: true, category: "arcane",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [{ stat: "sigilcraftSuccess", perLevel: 0.04, max: 0.80 }],
+  firstUnlockMessage: "🔯 The first sigil completes.",
+};
+SKILLS.summoning = {
+  id: "summoning", name: "Summoning", icon: "🪐",
+  description: "Naming things that are not yours and convincing them to stay.",
+  active: true, category: "combat",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [
+    { stat: "summoningSuccess", perLevel: 0.04, max: 0.80 },
+    { stat: "summoningDurationBonus", perLevel: 0.02, max: 0.40 },
+  ],
+  firstUnlockMessage: "🪐 The first binding holds.",
+};
+if (!SKILLS.butchering) {
+  SKILLS.butchering = {
+    id: "butchering", name: "Butchering", icon: "🔪",
+    description: "Taking what the bone is willing to give.",
+    active: true, category: "craft",
+    xpCurve: STANDARD_CURVE, maxLevel: 20,
+    bonuses: [{ stat: "butcheringSuccess", perLevel: 0.04, max: 0.80 }],
+    firstUnlockMessage: "🔪 The first clean cut.",
+  };
+}
+if (!SKILLS.magicCombat) {
+  SKILLS.magicCombat = {
+    id: "magicCombat", name: "Magic Combat", icon: "🔮",
+    description: "Channelling spirit through wand, staff, or sigil.",
+    active: true, category: "combat",
+    xpCurve: STANDARD_CURVE, maxLevel: 20,
+    bonuses: [{ stat: "magicCombatBonus", perLevel: 0.02, max: 0.40 }],
+    firstUnlockMessage: "🔮 The first cast strikes true.",
+  };
+}
+
+// Reckoning Lore (#231) — passive read of the clock + Heralds. XP via Era 5 actions.
+SKILLS.reckoningLore = {
+  id: "reckoningLore", name: "Reckoning Lore", icon: "🌌",
+  description: "Reading the shape of the apex before it lands.",
+  active: true, category: "arcane",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [{ stat: "reckoningInsightBonus", perLevel: 0.02, max: 0.40 }],
+  firstUnlockMessage: "🌌 The clock has a sound. You hear it for the first time.",
+};
+
+// Cosmic Bargaining (#231) — interact-with-Herald skill.
+SKILLS.cosmicBargaining = {
+  id: "cosmicBargaining", name: "Cosmic Bargaining", icon: "🤝",
+  description: "Talking with things that are not the world.",
+  active: true, category: "arcane",
+  xpCurve: STANDARD_CURVE, maxLevel: 20,
+  bonuses: [{ stat: "cosmicBargainBonus", perLevel: 0.03, max: 0.60 }],
+  firstUnlockMessage: "🤝 The first bargain holds. The cosmos took the offer.",
+};
+
 if (SKILLS.mining) SKILLS.mining.active = true;
 
 export const getSkill = (id) => SKILLS[id] || null;

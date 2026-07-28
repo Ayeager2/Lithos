@@ -5,6 +5,8 @@ export const ERAS = {
   1: { id: 1, name: "Awakening" },
   2: { id: 2, name: "Settler" },
   3: { id: 3, name: "Awakened World" },
+  4: { id: 4, name: "Arcane Industry" },
+  5: { id: 5, name: "Eldritch Reckoning" },
 };
 
 const ERA2_REQUIRED_RESEARCH = ["foraging", "fire", "knapping"];
@@ -24,11 +26,38 @@ function era3Eligible(run) {
   return true;
 }
 
+function era4Eligible(state) {
+  const { run } = state;
+  if (!era3Eligible(run)) return false;
+  const pop = run.population || 0;
+  if (pop >= 25 && run.built?.temple && run.built?.stoneAltar) return true;
+  if ((run._era4PathsCount || 0) >= 3) return true;
+  if ((run.worldScore || 0) >= 60) return true;
+  if ((run.alignment?.evil || 0) >= 10) return true;
+  return false;
+}
+
+// Era 5 entry (#225) — Eldritch Reckoning. Any one of:
+//   1. worldScore >= 90 (Mending path entry)
+//   2. alignment.evil >= 25 (Communion path entry)
+//   3. apex summon previously bound (Wraith or Aspect) — set on bind
+// Plus: must satisfy Era 4 eligibility first.
+function era5Eligible(state) {
+  const { run } = state;
+  if (!era4Eligible(state)) return false;
+  if ((run.worldScore || 0) >= 90) return true;
+  if ((run.alignment?.evil || 0) >= 25) return true;
+  if (run.apexSummonBound) return true;
+  return false;
+}
+
 export function computeEra(state) {
   const { run } = state;
 
   if (!run.rockAwakened || !run.built?.hut) return 0;
 
+  if (era5Eligible(state)) return 5;
+  if (era4Eligible(state)) return 4;
   if (era3Eligible(run)) return 3;
 
   if (run.built?.firepit) {
@@ -71,6 +100,31 @@ export function getNextEraRequirements(state) {
       if (!learned[id]) reqs.push(`Learn ${id[0].toUpperCase() + id.slice(1)}`);
     }
     if (!run.toolsCrafted?.bow) reqs.push("Craft a Bow");
+    return reqs;
+  }
+  if (era < 4) {
+    const pop = run.population || 0;
+    const popPath = pop >= 25 && run.built?.temple && run.built?.stoneAltar;
+    const wsPath = (run.worldScore || 0) >= 60;
+    const evilPath = (run.alignment?.evil || 0) >= 10;
+    const pathsPath = (run._era4PathsCount || 0) >= 3;
+    if (!popPath && !wsPath && !evilPath && !pathsPath) {
+      reqs.push("Reach 25 villagers + Temple + Stone Altar  (OR)");
+      reqs.push("Master 3+ Arcane Studies paths  (OR)");
+      reqs.push("Raise World Score to 60+  (OR)");
+      reqs.push("Drive Alignment Evil to 10+");
+    }
+    return reqs;
+  }
+  if (era < 5) {
+    const ws = run.worldScore || 0;
+    const evilA = run.alignment?.evil || 0;
+    const apexBound = !!run.apexSummonBound;
+    if (ws < 90 && evilA < 25 && !apexBound) {
+      reqs.push("Raise World Score to 90+ (Mending entry)  (OR)");
+      reqs.push("Drive Alignment Evil to 25+ (Communion entry)  (OR)");
+      reqs.push("Bind an apex summon (Wraith / Aspect — Defiance entry)");
+    }
     return reqs;
   }
   return [];

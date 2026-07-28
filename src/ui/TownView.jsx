@@ -36,6 +36,13 @@ import { computeEra } from "../systems/era.js";
 import { getPrestigeReward } from "../systems/prestige.js";
 import { getActiveCompanionBonus } from "../systems/companions.js";
 import { getCompanion } from "../content/companions.js";
+import { isRebellionActive, getRebellionInfo } from "../systems/rebellion.js";
+import { getActiveSummon } from "../systems/summoning.js";
+import { getSummon } from "../content/summons.js";
+import { getReckoningFraction, getReckoningPhase, getReckoningRemainingMs } from "../systems/reckoning.js";
+import { getHerald } from "../content/heralds.js";
+import { canFireApex } from "../systems/apex.js";
+import { APEX_EVENTS } from "../content/reckoning.js";
 
 // Categorize buildings into UI sections. Falls back to "Other" for any
 // building category we don't have an explicit mapping for. Order in this
@@ -401,6 +408,251 @@ function PopulationHeader({ state }) {
           </div>
         );
       })()}
+
+      {/* #213 — rebellion banner. Fires when run.rebellionActiveSince is set. */}
+      {isRebellionActive(state) && (() => {
+        const info = getRebellionInfo(state);
+        const sumLive = getActiveSummon(state);
+        const suppressed =
+          (sumLive?.def?.bonuses?.suppressesRebellion === true) ||
+          ((state.run.alignment?.evil || 0) >= 20);
+        return (
+          <div
+            style={{ marginTop: 6, padding: "8px 10px", background: "#9b131330", borderLeft: "3px solid #c34141", borderRadius: 4, fontSize: 12, fontWeight: 700, color: "#c34141" }}
+            title="Rebellion fires per-60s rounds: resource sweep, building damage, villager loss, assignment clears. Raise morale to ≥30 to end, or suppress with an evil summon / high alignment evil."
+          >
+            🔥 REBELLION — villagers are destroying the settlement
+            {suppressed && <span style={{ marginLeft: 8, color: "#888", fontWeight: 400 }}>(suppressed — morale still low)</span>}
+            <div style={{ fontSize: 10, color: "#aaa", fontWeight: 400, marginTop: 3 }}>
+              Morale {Math.round(info.morale)}. Path home: raise morale ≥30, bind Aspect of the First Light, or summon Whisper-Bound / Garden-Spirit for +morale/min.
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Morale-low warning (pre-rebellion grace period). */}
+      {!isRebellionActive(state) && (() => {
+        const info = getRebellionInfo(state);
+        if (!info.moraleLowSince || info.lowMsToTrigger <= 0) return null;
+        const secs = Math.ceil(info.lowMsToTrigger / 1000);
+        return (
+          <div
+            style={{ marginTop: 6, padding: "6px 8px", background: "#c3414125", borderLeft: "3px solid #c34141", borderRadius: 4, fontSize: 11, color: "#c34141" }}
+            title="If morale stays below 20 for 5 sustained minutes, rebellion fires."
+          >
+            ⚠️ Morale critically low — rebellion in {secs}s if it doesn't recover
+          </div>
+        );
+      })()}
+
+      {/* #225 — Era 5 Reckoning Clock banner. */}
+      {state.run?.reckoningClock && (() => {
+        const remain = getReckoningRemainingMs(state) || 0;
+        const phase = getReckoningPhase(state) || "shudders";
+        const arc = state.run.eraArc || "mending";
+        const mins = Math.floor(remain / 60000);
+        const secs = Math.floor((remain % 60000) / 1000);
+        const arcColor = arc === "communion" ? "#8a3030" : arc === "defiance" ? "#888" : "#7fc97f";
+        const paused = state.run.reckoningClockPaused;
+        return (
+          <div
+            style={{ marginTop: 6, padding: "8px 10px", background: `${arcColor}25`, borderLeft: `3px solid ${arcColor}`, borderRadius: 4, fontSize: 12, fontWeight: 700, color: arcColor }}
+            title={`Era 5 reckoning clock. ${arc} path. Phase: ${phase}. Apex fires when the clock reaches 0.`}
+          >
+            🌌 Reckoning Clock — {arc} · {phase} · {mins}m {secs.toString().padStart(2,"0")}s remaining{paused ? " (PAUSED)" : ""}
+          </div>
+        );
+      })()}
+
+      {/* #235 — Apex Fire CTA. */}
+      {state.run?.reckoningClock && state.run?.reckoningPhase === "apex" && (() => {
+        const check = canFireApex(state);
+        const def = APEX_EVENTS[state.run.eraArc] || null;
+        if (!def) return null;
+        const arc = state.run.eraArc;
+        const arcColor = arc === "communion" ? "#8a3030" : arc === "defiance" ? "#888" : "#7fc97f";
+        const ritualCost = Object.entries(def.ritualCost || {})
+          .map(([r, q]) => `${q} ${r}`).join(", ");
+        return (
+          <div
+            style={{ marginTop: 6, padding: "10px 12px", background: `${arcColor}30`, border: `2px solid ${arcColor}`, borderRadius: 6, fontSize: 12 }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 14, color: arcColor, marginBottom: 4 }}>
+              🌌 Apex Ready: {def.name}
+            </div>
+            <div style={{ marginBottom: 6, color: "#ccc" }}>
+              Cost: {ritualCost}. {def.villagerCost ? `Villagers consumed: ${def.villagerCost}. ` : ""}{check.reason || "All requirements met."}
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!check.ok}
+              title={check.ok ? `Fire ${def.name}` : check.reason}
+              onClick={() => actions.fireApex()}
+              style={{ background: arcColor, borderColor: arcColor }}
+            >
+              🌌 Fire the Apex
+            </button>
+          </div>
+        );
+      })()}
+
+      {/* #228 — Active Herald prompt. */}
+      {state.run?.activeHerald && (() => {
+        const ah = state.run.activeHerald;
+        const def = getHerald(ah.id);
+        if (!def) return null;
+        const arc = state.run.eraArc || "mending";
+        const shape = ah.shape || def.shapes[arc];
+        const arcColor = arc === "communion" ? "#8a3030" : arc === "defiance" ? "#888" : "#7fc97f";
+        return (
+          <div
+            style={{ marginTop: 6, padding: "10px 12px", background: `${arcColor}30`, border: `2px solid ${arcColor}`, borderRadius: 6, fontSize: 12, color: arcColor }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{def.icon} {def.name} ({shape.kind})</div>
+            <div style={{ marginBottom: 6, color: "#ccc" }}>{shape.prompt || shape.description || def.onSpawnMessage}</div>
+            {shape.kind === "dialog" && shape.choices && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {shape.choices.map((c) => {
+                  const matches = c.alignmentCorrect === arc;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      title={matches ? "Aligned answer (best reward)" : "Cross-arc answer"}
+                      onClick={() => actions.resolveHerald(c.id, "success")}
+                      style={matches ? { borderColor: arcColor } : undefined}
+                    >
+                      {matches ? "✦ " : ""}{c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {/* #232 — Ritual combat (Communion Heralds). */}
+            {shape.kind === "ritual" && ah.kind !== "ritual" && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => actions.engageHerald()}
+                >
+                  🌀 Engage ritual ({shape.rounds || 5} rounds)
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => actions.resolveHerald(null, "fail")}
+                >
+                  Yield
+                </button>
+              </div>
+            )}
+            {ah.kind === "ritual" && (
+              <div>
+                <div style={{ fontSize: 11, color: "#bbb", marginBottom: 4 }}>
+                  Obsession: {ah.obsession}/{ah.obsessionMax} · Rounds left: {ah.roundsLeft}
+                </div>
+                <div style={{ width: "100%", height: 8, background: "#222", borderRadius: 4, marginBottom: 8 }}>
+                  <div style={{ width: `${(ah.obsession / ah.obsessionMax) * 100}%`, height: "100%", background: arcColor, borderRadius: 4 }} />
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => actions.ritualAttack("claim")}
+                    title="Push obsession UP — claim the Herald"
+                  >
+                    ↑ Claim
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => actions.ritualAttack("push")}
+                    title="Push obsession DOWN — push the Herald back"
+                  >
+                    ↓ Push back
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* #233 — Boss combat (Defiance Heralds). */}
+            {shape.kind === "combat" && ah.kind !== "combat" && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => actions.engageHerald()}
+                >
+                  ⚔️ Engage combat
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => actions.resolveHerald(null, "fail")}
+                >
+                  Yield
+                </button>
+              </div>
+            )}
+            {ah.kind === "combat" && (
+              <div>
+                <div style={{ fontSize: 11, color: "#bbb", marginBottom: 4 }}>
+                  Herald HP: {ah.heraldHp}/{ah.heraldHpMax} · Your HP: {state.run.stats?.hp ?? 100}
+                </div>
+                <div style={{ width: "100%", height: 8, background: "#222", borderRadius: 4, marginBottom: 8 }}>
+                  <div style={{ width: `${(ah.heraldHp / ah.heraldHpMax) * 100}%`, height: "100%", background: "#c34141", borderRadius: 4 }} />
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => actions.heraldAttack()}
+                >
+                  ⚔️ Attack
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* #214 — tainted buildings banner. Each drains 0.3 morale/min. */}
+      {(() => {
+        const tainted = state.run?.taintedBuildings || {};
+        const ids = Object.keys(tainted);
+        if (ids.length === 0) return null;
+        const drain = ids.length * 0.3;
+        return (
+          <div
+            style={{ marginTop: 6, padding: "6px 8px", background: "#8a4a8a25", borderLeft: "3px solid #8a4a8a", borderRadius: 4, fontSize: 11, color: "#8a4a8a" }}
+            title="Tainted buildings bleed morale. Cleanse at Stone Altar (5 fragments each). Lasts until cleansed."
+          >
+            🦠 Tainted: {ids.join(", ")} — −{drain.toFixed(1)} morale/min · cleanse at Stone Altar
+          </div>
+        );
+      })()}
+
+      {/* #212 — active summon chip (when bound). */}
+      {(() => {
+        const live = getActiveSummon(state);
+        if (!live) return null;
+        const def = live.def;
+        const remainMs = live.expiresAt - Date.now();
+        if (remainMs <= 0) return null;
+        const mins = Math.floor(remainMs / 60000);
+        const secs = Math.floor((remainMs % 60000) / 1000);
+        const arcColor = def.arc === "evil" ? "#8a3030" : "#4a7a4a";
+        return (
+          <div
+            style={{ marginTop: 6, padding: "6px 8px", background: `${arcColor}25`, borderLeft: `3px solid ${arcColor}`, borderRadius: 4, fontSize: 11, color: arcColor }}
+            title={def.description || ""}
+          >
+            {def.icon} <strong>{def.name}</strong> bound · {mins}m {secs.toString().padStart(2, "0")}s remaining
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -524,6 +776,70 @@ export default function TownView({ state, actions }) {
                       onClick={() => actions.repairBuilding(id)}
                     >
                       🔨 Repair
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* #214 — Tainted buildings. Cleanse at Stone Altar for 5 fragments each. */}
+      {(() => {
+        const tainted = state.run?.taintedBuildings || {};
+        const entries = Object.keys(tainted);
+        if (entries.length === 0) return null;
+        const hasAltar = !!state.run?.built?.stoneAltar;
+        const haveFrags = state.run?.inventory?.fragments || 0;
+        return (
+          <div className="town-section" style={{ marginBottom: 14 }}>
+            <h3 className="patrol-era-title" style={{ marginBottom: 6, color: "#8a4a8a" }}>
+              🦠 Tainted ({entries.length})
+            </h3>
+            <div className="patrol-card-grid">
+              {entries.map((id) => {
+                const b = getAllBuildings().find((x) => x.id === id);
+                if (!b) return null;
+                const canCleanse = hasAltar && haveFrags >= 5;
+                const reason = !hasAltar
+                  ? "Requires Stone Altar."
+                  : haveFrags < 5
+                    ? `Need 5 fragments (have ${haveFrags}).`
+                    : `Cleanse ${b.name}.`;
+                return (
+                  <div key={id} className="patrol-card" style={{ borderColor: "#8a4a8a" }} title={b.description}>
+                    <div className="patrol-card-head">
+                      <span className="patrol-card-icon" aria-hidden="true">{b.icon}</span>
+                      <div className="patrol-card-title">
+                        <div className="patrol-card-name">{b.name}</div>
+                        <div className="patrol-card-sub">
+                          <span className="patrol-card-tier" style={{ background: "rgba(138,74,138,0.2)", color: "#8a4a8a" }}>
+                            Tainted
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="muted" style={{ fontSize: 11 }}>
+                      Still produces, but bleeds 0.3 morale/min + 0.2 sanity/min. Cleanse to restore.
+                    </p>
+                    <div className="patrol-card-drops">
+                      <ul className="patrol-card-drops-list" style={{ fontSize: 11 }}>
+                        <li className="patrol-card-drop">
+                          <span style={{ color: haveFrags >= 5 ? undefined : "#c34141" }}>
+                            fragments x5 ({haveFrags})
+                          </span>
+                        </li>
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm patrol-card-cta-btn"
+                      disabled={!canCleanse}
+                      title={reason}
+                      onClick={() => actions.cleanseTaint(id)}
+                    >
+                      🕯️ Cleanse
                     </button>
                   </div>
                 );

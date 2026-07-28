@@ -536,6 +536,54 @@ function ArcaneTab({ state, apply }) {
         <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
           Alignment: {state.run?.alignment?.good || 0} good · {state.run?.alignment?.evil || 0} evil
         </div>
+
+        <div className="dev-row-stats muted" style={{ marginTop: 8 }}>
+          Era 4 — Arcane Industry (#205-#215).
+        </div>
+        <Btn label="🔮 Force Era 4 entry" onClick={() => apply(dev.devForceEra4(state))} />
+        <Btn label="📦 Era 4 stockpile (aether/cores/rations)" onClick={() => apply(dev.devStockEra4(state))} />
+        <Btn label="🔥 Force rebellion (morale → 5)" danger onClick={() => apply(dev.devForceRebellion(state))} />
+        <Btn label="🌾 End rebellion (morale → 50)" onClick={() => apply(dev.devEndRebellion(state))} />
+        <Btn label="🦠 Taint random building" danger onClick={() => apply(dev.devTaintBuilding(state))} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Era: {state.run?.era ?? 0} · Rebellion: {state.run?.rebellionActiveSince ? "ACTIVE" : "—"} · Tainted: {Object.keys(state.run?.taintedBuildings || {}).length} · Active summon: {state.run?.activeSummon?.id || "—"}
+        </div>
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Bind summon:
+        </div>
+        <Btn label="🦂 Skitter-Form (evil)" onClick={() => apply(dev.devBindSummon(state, "skitterForm"))} />
+        <Btn label="🌑 Shade-Walker (evil)" onClick={() => apply(dev.devBindSummon(state, "shadeWalker"))} />
+        <Btn label="🔥 Cinder Hound (evil)" onClick={() => apply(dev.devBindSummon(state, "cinderHound"))} />
+        <Btn label="👁️ Wraith (apex evil)" danger onClick={() => apply(dev.devBindSummon(state, "wraithOfTheHollow"))} />
+        <Btn label="🌫️ Whisper-Bound (good)" onClick={() => apply(dev.devBindSummon(state, "whisperBound"))} />
+        <Btn label="🌱 Garden-Spirit (good)" onClick={() => apply(dev.devBindSummon(state, "gardenSpirit"))} />
+        <Btn label="⚒️ Forgehand (good)" onClick={() => apply(dev.devBindSummon(state, "forgehand"))} />
+        <Btn label="☀️ Aspect of First Light (apex good)" onClick={() => apply(dev.devBindSummon(state, "aspectOfTheFirstLight"))} />
+
+        <div className="dev-row-stats muted" style={{ marginTop: 8 }}>
+          Era 5 — Eldritch Reckoning (#225-#231).
+        </div>
+        <Btn label="🌌 Force Era 5 entry (start clock)" onClick={() => {
+          const next = { ...state.run, era: 5, worldScore: Math.max(state.run.worldScore || 0, 95) };
+          actions.devPatch({ run: next });
+          actions.syncEra();
+        }} />
+        <Btn label="⏩ Clock -5 min" onClick={() => actions.devReckoningAdjust(-5 * 60 * 1000)} />
+        <Btn label="⏩ Clock -30 min" onClick={() => actions.devReckoningAdjust(-30 * 60 * 1000)} />
+        <Btn label="⏩ Clock -1h" onClick={() => actions.devReckoningAdjust(-60 * 60 * 1000)} />
+        <Btn label="⏪ Clock +5 min" onClick={() => actions.devReckoningAdjust(5 * 60 * 1000)} />
+        <Btn label="⏪ Clock +30 min" onClick={() => actions.devReckoningAdjust(30 * 60 * 1000)} />
+        <Btn label="⏪ Clock +1h" onClick={() => actions.devReckoningAdjust(60 * 60 * 1000)} />
+        <Btn label="⏸️ Pause/resume clock" onClick={() => actions.devReckoningPause()} />
+        <Btn label="⏱️ Duration → 30 min" onClick={() => actions.devReckoningSetDuration(30 * 60 * 1000)} />
+        <Btn label="⏱️ Duration → 1 hour" onClick={() => actions.devReckoningSetDuration(60 * 60 * 1000)} />
+        <Btn label="⏱️ Duration → 3 hours" onClick={() => actions.devReckoningSetDuration(3 * 60 * 60 * 1000)} />
+        <Btn label="👁️ Spawn Mouth at the Gate" onClick={() => actions.devReckoningSpawnHerald("mouthAtTheGate")} />
+        <Btn label="🏛️ Spawn Shape of What You Built" onClick={() => actions.devReckoningSpawnHerald("shapeOfWhatYouBuilt")} />
+        <Btn label="🕯️ Spawn The Listener" onClick={() => actions.devReckoningSpawnHerald("theListener")} />
+        <div className="dev-row-stats muted" style={{ marginTop: 4 }}>
+          Clock: {state.run?.reckoningClock ? `${Math.max(0, Math.floor((state.run.reckoningClock - Date.now()) / 60000))} min` : "—"} · Arc: {state.run?.eraArc || "—"} · Phase: {state.run?.reckoningPhase || "—"} · Heralds: {(state.run?.heraldsSpawned || []).length} spawned, {(state.run?.heraldsSurvived || []).length} survived
+        </div>
       </Section>
     </>
   );

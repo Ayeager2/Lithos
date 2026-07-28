@@ -37,6 +37,7 @@ const DISCIPLINES = [
   { id: "woodworking", label: "Woodworking", icon: "🪵" },
   { id: "tailoring", label: "Tailoring", icon: "🧵" },
   { id: "runesmithing", label: "Runesmithing", icon: "🪬" },
+  { id: "tinker", label: "Tinker", icon: "🪛" },
 ];
 
 function ToolCard({ state, actions, tool, activeCraft, progress }) {

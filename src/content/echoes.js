@@ -206,6 +206,19 @@ export const ECHO_UPGRADES = {
     maxLevel: 5,
     effect: {},
   },
+
+  // ============== Era 5 — Touched Memory (#230) ==============
+  // Tiered echo upgrades that preserve Era 5 resources across prestige.
+  touchedMemory: {
+    id: "touchedMemory",
+    name: "Touched Memory",
+    icon: "🧿",
+    category: "arcane",
+    description: "Preserve some of your Era 5 reckoning hoard across prestige. Each level keeps more Void Residue + First-Light Shards.",
+    baseCost: 8,
+    maxLevel: 4,
+    effect: { reckoningCarryPerLevel: [1, 3, 10, -1] },
+  },
 };
 
 export const getEchoUpgrade = (id) => ECHO_UPGRADES[id] || null;

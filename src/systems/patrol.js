@@ -12,6 +12,7 @@
 // passively in the log.
 
 import { getMob, getMobsForEra } from "../content/mobs.js";
+import { getTinkerItem } from "../content/tinker.js";
 import { resolveFight, getEffectiveWeapon, getCombatSkillForWeapon } from "./combat.js";
 import { getActiveCompanionBonus } from "./companions.js";
 import { stampEtchingOnce, isFirstStamp } from "./etchings.js";
@@ -248,9 +249,36 @@ export function performPatrol(state, opts = {}, now = Date.now(), rng = Math.ran
     message: `🗡️ You set out on patrol.`,
   });
 
-  // Resolve the fight. The combat math knows how to deal with combat
-  // shape + flavor — mobs use the same schema as threats/bosses.
-  const result = resolveFight(state, mob, rng);
+  // #223 — apply queued tinker item (consumed by this encounter).
+  let tinkerAutoWin = false;
+  let tinkerEarlyState = state;
+  const at = state.run.activeTinker;
+  if (at) {
+    if (at.useKind === "patrol-set" && at.effect?.autoWinChance && rng() < at.effect.autoWinChance) {
+      tinkerAutoWin = true;
+      events.push({ kind: "milestone", message: `🪤 Your trap caught the ${mob.name} before you arrived. Auto-win.` });
+    } else if (at.useKind === "combat-throw") {
+      events.push({ kind: "info", message: `🪛 You deploy your prepared ${getTinkerItem(at.id)?.name || at.id}.` });
+    }
+    tinkerEarlyState = { ...state, run: { ...state.run, activeTinker: null } };
+  }
+
+  // Auto-win path skips combat entirely.
+  if (tinkerAutoWin) {
+    let runAw = { ...tinkerEarlyState.run, lastPatrolAt: now };
+    const mobsDefeatedAw = { ...(runAw.mobsDefeated || {}) };
+    mobsDefeatedAw[mob.id] = (mobsDefeatedAw[mob.id] || 0) + 1;
+    runAw = { ...runAw, mobsDefeated: mobsDefeatedAw };
+    const dropAw = rollDrops(mob.drops, runAw.inventory || {}, runAw, rng);
+    runAw = { ...runAw, inventory: dropAw.inventory };
+    if (dropAw.parts.length > 0) {
+      events.push({ kind: "drop", message: `🎒 Spoils: ${dropAw.parts.join(", ")}.` });
+    }
+    return { run: runAw, persistent: state.persistent, events };
+  }
+
+  // Resolve the fight.
+  const result = resolveFight(tinkerEarlyState, mob, rng);
   let run = result.run;
   events.push(...result.events);
 

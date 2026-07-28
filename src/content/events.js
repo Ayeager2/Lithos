@@ -1102,6 +1102,56 @@ export const EVENTS = {
     ],
   },
 
+  taintedOutriders: {
+    id: "taintedOutriders", name: "Tainted Outriders", trigger: "interval", weight: 4,
+    requires: { era: 4 }, cooldownMs: 18 * 60 * 1000,
+    flavor: "Riders at the perimeter, faces wrong somehow.",
+    onFire: {
+      effects: {
+        raid: { sweepFraction: 0.95, damageBuilding: { count: 1 } },
+        stats: { sanity: -2 },
+        log: { kind: "alert", message: "🩸 Tainted Outriders sweep the settlement." },
+      },
+    },
+  },
+
+  quietCensus: {
+    id: "quietCensus", name: "The Quiet Census", trigger: "interval", weight: 2,
+    requires: { era: 4 }, cooldownMs: 30 * 60 * 1000,
+    flavor: "A figure with a ledger walks the streets at dusk.",
+    choices: [
+      { id: "refuse_count", label: "Refuse them entry",
+        effect: {
+          stats: { sanity: -3 },
+          alignment: { good: 1 },
+          log: { kind: "event_strange", message: "🚫 You bar the gate." },
+        },
+      },
+      { id: "let_count", label: "Let them count",
+        effect: {
+          population: -2,
+          populationReason: "taken by The Quiet Census",
+          stats: { sanity: -5 },
+          alignment: { evil: 1 },
+          log: { kind: "alert", message: "📋 By dawn, two villagers are gone." },
+        },
+      },
+    ],
+  },
+
+  buildingTaint: {
+    id: "buildingTaint", name: "Something Lives in the Walls", trigger: "interval", weight: 1,
+    requires: { era: 4, hasBuilding: "aetherFoundry" }, cooldownMs: 45 * 60 * 1000,
+    flavor: "Your foreman comes to you. The Aether Foundry's hum has changed pitch.",
+    onFire: {
+      effects: {
+        taintBuilding: { count: 1 },
+        stats: { sanity: -3 },
+        log: { kind: "alert", message: "🦠 A building has been tainted. Cleanse at the Stone Altar (5 fragments)." },
+      },
+    },
+  },
+
 };
 
 export const getEvent = (id) => EVENTS[id] || null;
